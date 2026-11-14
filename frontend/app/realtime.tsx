@@ -29,6 +29,7 @@ import { getScenario, type Scenario } from '@/data/mock/mockScenarios';
 import type { AgentAction } from '@/data/models/types';
 import { useCallSession } from '@/hooks/useCallSession';
 import { useCallStore } from '@/state/callStore';
+import { useDemoStore } from '@/state/demoStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { useTranscriptStore } from '@/state/transcriptStore';
 
@@ -124,6 +125,12 @@ export default function Realtime() {
       });
     },
   });
+
+  // 발표용 넓은 화면의 분석 패널에 지금 통화를 알려준다.
+  const setDemoCall = useDemoStore((s) => s.setCall);
+  useEffect(() => {
+    if (state.logId > 0) setDemoCall(state.logId, state.running);
+  }, [state.logId, state.running, setDemoCall]);
 
   const beginAnalysis = () => {
     setStarted(true);

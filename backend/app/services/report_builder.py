@@ -88,10 +88,12 @@ def render_markdown(report: dict) -> str:
         "",
         "이 문서는 VoiceGuard AI가 통화 전사 내용을 자동 분석해 정리한 것입니다. 전사에는 음성 인식 오류가 있을 수 있습니다.",
         "",
-        "## 요약",
+        "## 사건 개요" if report.get("overview") else "## 요약",
         "",
-        report["summary"] or "요약이 없습니다.",
+        report.get("overview") or report["summary"] or "요약이 없습니다.",
     ]
+    if report.get("damage_reported"):
+        lines += ["", "**사용자가 통화 후 피해가 있었다고 답했습니다. 아래 '사용자 확인 내용'을 확인하세요.**"]
 
     if report["stages"]:
         lines += ["", "## 단계별 경과", ""]
@@ -104,6 +106,23 @@ def render_markdown(report: dict) -> str:
             label = ENTITY_LABELS.get(entity["entity_type"], entity["entity_type"])
             turn = f" (발화 {entity['turn_index']}번)" if entity.get("turn_index") else ""
             lines.append(f"- {label}: {entity['value']}{turn}")
+
+    if report.get("links"):
+        lines += ["", "## 다른 통화와 겹치는 단서", ""]
+        for link in report["links"]:
+            shared = ", ".join(
+                f"{ENTITY_LABELS.get(item['entity_type'], item['entity_type'])} {item['value']}" for item in link["shared"]
+            )
+            lines.append(f"- 통화 기록 {link['log_id']}번 ({link['called_at']}, 위험도 {round(link['risk_score'] * 100)}%): {shared}")
+
+    if report.get("similar_official_cases"):
+        lines += ["", "## 유사 공식 사례 (참고)", ""]
+        for case in report["similar_official_cases"]:
+            lines.append(f"- {case['source']} ({case['date']}) · {case['title']}")
+            if case.get("url"):
+                lines.append(f"  - {case['url']}")
+        lines.append("")
+        lines.append("통화 내용과 표현이 비슷한 공개 사례를 자동으로 찾은 것으로, 같은 사건이라는 뜻은 아닙니다.")
 
     if report["key_utterances"]:
         lines += ["", "## 위험 발화", ""]

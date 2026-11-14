@@ -1,9 +1,10 @@
 import { useEffect } from 'react';
-import { Platform, View } from 'react-native';
+import { Platform, View, useWindowDimensions } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { DemoPanel } from '@/components/DemoPanel';
 import { useTheme } from '@/core/theme/theme';
 import { useAppStore } from '@/state/appStore';
 import { useCallStore } from '@/state/callStore';
@@ -14,6 +15,9 @@ export default function RootLayout() {
   const hydrateApp = useAppStore((s) => s.hydrate);
   const fetchCalls = useCallStore((s) => s.fetchCalls);
   const { colors, isDark } = useTheme();
+  // 발표용: 화면이 충분히 넓으면(노트북·프로젝터) 앱 옆에 AI 분석 과정 패널을 함께 보여준다.
+  const { width } = useWindowDimensions();
+  const showDemoPanel = Platform.OS === 'web' && width >= 1180;
 
   useEffect(() => {
     void hydrateSettings();
@@ -46,13 +50,24 @@ export default function RootLayout() {
         <StatusBar style={isDark ? 'light' : 'dark'} />
         {Platform.OS === 'web' ? (
           // 웹(데스크톱)에서는 폰처럼 가운데 모바일 폭으로 표시
-          <View style={{ flex: 1, alignItems: 'center', backgroundColor: '#0C0C0E' }}>
+          <View
+            style={{
+              flex: 1,
+              flexDirection: 'row',
+              justifyContent: 'center',
+              backgroundColor: '#0C0C0E',
+              gap: showDemoPanel ? 20 : 0,
+              padding: showDemoPanel ? 20 : 0,
+            }}
+          >
             <View
               style={{
-                flex: 1,
-                width: '100%',
+                flex: showDemoPanel ? undefined : 1,
+                width: showDemoPanel ? 420 : '100%',
                 maxWidth: 440,
                 backgroundColor: colors.bg,
+                borderRadius: showDemoPanel ? 28 : 0,
+                overflow: 'hidden',
                 shadowColor: '#000',
                 shadowOpacity: 0.3,
                 shadowRadius: 24,
@@ -60,6 +75,11 @@ export default function RootLayout() {
             >
               {stack}
             </View>
+            {showDemoPanel ? (
+              <View style={{ flex: 1, maxWidth: 980, borderRadius: 28, overflow: 'hidden' }}>
+                <DemoPanel />
+              </View>
+            ) : null}
           </View>
         ) : (
           stack

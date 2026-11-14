@@ -1,0 +1,56 @@
+{
+  "name": "VoiceGuard 보호자 등록 도우미",
+  "nodes": [
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "45943ff0-7137-4590-a27d-611b54bc452e",
+      "name": "보호자가 봇에게 말을 걸면",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "d5ffe562-6318-4196-b04f-6229ec017477"
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $json.message.chat.id }}",
+        "text": "=VoiceGuard 보호자 알림 봇입니다.\n\n이 대화의 chat id는 {{ $json.message.chat.id }} 입니다.\n이 숫자를 n8n 'VoiceGuard 보호자 알림' 워크플로의 '보호자 설정' 노드에 넣으면 위험 통화 알림을 이 대화로 받습니다.",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "80c80c09-782f-4ccc-9f8f-951d5bb1d275",
+      "name": "chat id 알려주기",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        240,
+        0
+      ]
+    }
+  ],
+  "connections": {
+    "보호자가 봇에게 말을 걸면": {
+      "main": [
+        [
+          {
+            "node": "chat id 알려주기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

@@ -1,0 +1,198 @@
+{
+  "name": "VoiceGuard 위험 통화 알림 (Slack)",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "voiceguard-events",
+        "options": {}
+      },
+      "id": "b9959aa7-65a7-41bf-acb6-93c2fbc1e501",
+      "name": "VoiceGuard 이벤트 수신",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        0
+      ],
+      "webhookId": "ac21f63b-9c9a-4d39-8e73-64c152db5dac"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "9ffdb4a9-65ea-447f-8da0-84ce6a34decd",
+              "name": "slack_channel",
+              "value": "#voiceguard-alerts",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "dbf82f56-274c-4028-9a9c-72a327634c7d",
+      "name": "알림 설정",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        0
+      ],
+      "notes": "slack_channel에 알림을 받을 슬랙 채널 이름을 넣으세요.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// VoiceGuard 백엔드가 보낸 이벤트를 보호자에게 보낼 문장으로 바꾼다.\nconst item = $input.first().json;\nconst body = item.body ?? {};\nconst d = body.data ?? {};\nconst pct = Math.round((d.risk_score ?? 0) * 100);\nconst link = d.dashboard_url ? `\\n\\n상세 보기: ${d.dashboard_url}` : '';\nlet text = '';\n\nif (body.event === 'incident.high_risk') {\n  text = [\n    '🚨 [VoiceGuard] 보이스피싱 의심 통화가 진행 중입니다',\n    '',\n    `유형: ${d.phishing_type || '확인 중'}`,\n    `위험도: ${pct}%`,\n    `단계: ${d.stage_label || '-'}`,\n    '',\n    d.summary || '',\n    '',\n    '지금 가족에게 다른 방법으로 연락해 통화를 끊도록 도와주세요. 송금이나 앱 설치는 멈추게 해 주세요.',\n  ].join('\\n') + link;\n} else if (body.event === 'followup.answered') {\n  if (d.damage) {\n    text = [\n      '⚠️ [VoiceGuard] 피해가 있었다고 답했습니다',\n      '',\n      `답변: ${d.answer_label}`,\n      `유형: ${d.phishing_type || '-'}`,\n      '',\n      '돈을 보냈다면 지금 바로 112 또는 해당 은행 고객센터에 전화해 지급정지를 요청해야 합니다.',\n      '개인정보를 알려줬거나 앱을 설치했다면 금융감독원 1332, 한국인터넷진흥원 118에 상담하세요.',\n    ].join('\\n') + link;\n  } else {\n    text = [\n      '✅ [VoiceGuard] 통화 후 확인 결과',\n      '',\n      `답변: ${d.answer_label}`,\n      `유형: ${d.phishing_type || '-'} · 위험도 ${pct}%`,\n    ].join('\\n');\n  }\n} else if (body.event === 'call.ended' && d.risk_level === 'high') {\n  text = [\n    '📞 [VoiceGuard] 위험 통화가 끝났습니다',\n    '',\n    `유형: ${d.phishing_type || '-'} · 위험도 ${pct}%`,\n    `도달 단계: ${d.stage_label || '-'}`,\n    '',\n    '가족에게 연락해 송금이나 개인정보 제공이 없었는지 확인해 주세요.',\n  ].join('\\n') + link;\n}\n\nreturn [{\n  json: {\n    event: body.event ?? '',\n    event_id: body.event_id ?? '',\n    log_id: d.log_id ?? null,\n    channel: String(item.slack_channel ?? '').trim(),\n    text,\n  },\n}];\n"
+      },
+      "id": "8de2a2d0-da68-4483-bedb-e91ab788e09a",
+      "name": "알림 문구 만들기",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "a277dee2-7f74-4556-86a7-9d6a1c2fefd6",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            },
+            {
+              "id": "17aa1655-1846-417e-a074-f648457e3e2d",
+              "leftValue": "={{ $json.channel }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "88a7c20c-45fe-466c-805a-5a81db15c979",
+      "name": "보낼 알림이 있나",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        0
+      ]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $json.channel }}",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "={{ $json.text }}",
+        "otherOptions": {
+          "includeLinkToWorkflow": false
+        }
+      },
+      "id": "0520cd6e-d3b3-4a45-bf3a-f91cf49d771d",
+      "name": "슬랙으로 알리기",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        900,
+        -100
+      ]
+    },
+    {
+      "parameters": {},
+      "id": "c2b4821a-21e0-4947-9204-8b182c8c247e",
+      "name": "보낼 것 없음",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        900,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "VoiceGuard 이벤트 수신": {
+      "main": [
+        [
+          {
+            "node": "알림 설정",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "알림 설정": {
+      "main": [
+        [
+          {
+            "node": "알림 문구 만들기",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "알림 문구 만들기": {
+      "main": [
+        [
+          {
+            "node": "보낼 알림이 있나",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "보낼 알림이 있나": {
+      "main": [
+        [
+          {
+            "node": "슬랙으로 알리기",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "보낼 것 없음",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

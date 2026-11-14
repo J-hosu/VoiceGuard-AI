@@ -7,18 +7,20 @@ TF-IDF 베이스라인의 문맥 이해 한계(대출사기 vs 정상 대출상�
 실행:
     .venv/bin/python -m backend.app.train_transformer                    # 기본 KoELECTRA
     MODEL=klue/bert-base .venv/bin/python -m backend.app.train_transformer
+    # 통화 앞부분·중간 구간만 잘라 넣는 증강을 켜고, 후보 모델을 따로 저장
+    PREFIX_AUG=3 KOELECTRA_MODEL_DIR=models/koelectra_candidate .venv/bin/python -m backend.app.train_transformer
 
 FP16: CUDA에서만 활성화한다. MPS(Apple Silicon)는 fp16 mixed precision 학습이
 불안정하므로 자동으로 끈다 (추론 속도에는 영향 없음).
 """
 import json
 import os
+import random
 import re
 
 import numpy as np
 import torch
 from sklearn.metrics import accuracy_score, precision_recall_fscore_support
-from sklearn.model_selection import train_test_split
 from transformers import (
     AutoModelForSequenceClassification,
     AutoTokenizer,
@@ -26,7 +28,9 @@ from transformers import (
     TrainingArguments,
 )
 
+from backend.app.dataset_split import split_cases
 from backend.app.paths import KOELECTRA_MODEL_DIR, TRAINING_DATA_PATH
+from backend.app.text_normalize import normalize_text, save_preprocess_config
 
 
 DATA_PATH = TRAINING_DATA_PATH
@@ -34,18 +38,59 @@ MODEL_NAME = os.environ.get("MODEL", "monologg/koelectra-base-v3-discriminator")
 OUT_DIR = KOELECTRA_MODEL_DIR
 MAX_LEN = 256          # 피싱 신호는 통화 초중반에 몰려 있어 256으로 절단해도 대부분 포착
 SEED = 42
-EPOCHS = 3
+EPOCHS = int(os.environ.get("EPOCHS", "3"))
+# 통화 하나당 추가로 만드는 "잘린 통화" 수. 0이면 증강 없음(기존 방식).
+# 실시간에서는 통화 앞부분이나 최근 몇 턴만 보고 판단하므로, 전체 통화만 학습하면
+# 초반 점수가 불안정하다. 학습 통화를 임의 지점에서 잘라 같은 라벨로 함께 학습한다.
+PREFIX_AUG = int(os.environ.get("PREFIX_AUG", "0"))
+WINDOW_TURNS = 10        # 런타임 최근 구간 채점(koelectra_scorer.WINDOW)과 같은 길이
+# 1이면 문장부호를 지우고 학습한다(출처별 전사 말투 차이를 줄임). 추론도 같은 전처리를 따른다.
+NORMALIZE = os.environ.get("NORMALIZE", "0") == "1"
+MIN_PHISHING_TURNS = 2   # 사기 통화를 이보다 짧게 자르면 사기 신호가 없는 조각에 사기 라벨이 붙는다
+
+
+def _join(turns):
+    return " ".join(t["text"] for t in turns)
+
+
+def augment_case(case, rng, count):
+    """통화 하나에서 앞부분(prefix)과 중간 구간(window)을 잘라 학습 텍스트를 추가로 만든다."""
+    turns = case["turns"]
+    minimum = MIN_PHISHING_TURNS if case["label"] == 1 else 1
+    if len(turns) <= minimum:
+        return []
+    texts = []
+    for i in range(count):
+        if i % 2 == 0:
+            end = rng.randint(minimum, len(turns) - 1)
+            texts.append(_join(turns[:end]))
+        else:
+            length = rng.randint(minimum, min(WINDOW_TURNS, len(turns) - 1))
+            start = rng.randint(0, len(turns) - length)
+            texts.append(_join(turns[start:start + length]))
+    return texts
 
 
 def load_split():
+    """통화 단위로 80/20 분할한다(SPLIT=hash면 group 해시 분할). 증강은 학습 쪽에만 적용한다."""
     with open(DATA_PATH, encoding="utf-8") as f:
         cases = json.load(f)["cases"]
-    texts, labels = [], []
-    for c in cases:
-        text = " ".join(t["text"] for t in c["turns"])
-        texts.append(text)
-        labels.append(c["label"])
-    return train_test_split(texts, labels, test_size=0.2, stratify=labels, random_state=SEED)
+    train_cases, eval_cases = split_cases(cases)
+
+    X_tr = [_join(c["turns"]) for c in train_cases]
+    y_tr = [c["label"] for c in train_cases]
+    if PREFIX_AUG > 0:
+        rng = random.Random(SEED)
+        for c in train_cases:
+            extra = augment_case(c, rng, PREFIX_AUG)
+            X_tr.extend(extra)
+            y_tr.extend([c["label"]] * len(extra))
+    X_te = [_join(c["turns"]) for c in eval_cases]
+    y_te = [c["label"] for c in eval_cases]
+    if NORMALIZE:
+        X_tr = [normalize_text(text) for text in X_tr]
+        X_te = [normalize_text(text) for text in X_te]
+    return X_tr, X_te, y_tr, y_te
 
 
 class WeightedTrainer(Trainer):
@@ -147,6 +192,7 @@ def main():
 
     trainer.save_model(str(OUT_DIR))
     tok.save_pretrained(str(OUT_DIR))
+    save_preprocess_config(OUT_DIR, NORMALIZE)
     print(f"\n모델 저장: {OUT_DIR}")
 
 

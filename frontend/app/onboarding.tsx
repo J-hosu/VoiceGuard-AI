@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Switch, View } from 'react-native';
+import { Platform, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -54,7 +54,11 @@ function PermRow({
           {desc}
         </AppText>
       </View>
-      <Switch value={value} onValueChange={onChange} />
+      <Switch value={value} onValueChange={onChange}
+        trackColor={{ false: '#CBD5E1', true: '#2563EB' }}
+        thumbColor="#ffffff"
+        {...(Platform.OS === 'web' ? ({ activeThumbColor: '#ffffff' } as object) : {})}
+      />
     </View>
   );
 }

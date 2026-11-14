@@ -49,6 +49,7 @@ def resolve_runtime() -> dict:
 # 실제 통화 내용이 아니므로 결과에서 제외한다.
 _HALLUCINATION = re.compile(
     r"시청해\s*주셔서|구독(과|\s*좋아요)|좋아요와\s*구독|자막\s*(제공|by)|MBC\s*뉴스|KBS\s*뉴스|다음\s*영상에서"
+    r"|이\s*시각\s*세계|뉴스\s*였습니다|한글\s*자막"
 )
 
 _model = None

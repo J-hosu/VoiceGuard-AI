@@ -16,7 +16,7 @@ from backend.app import state_repository
 from backend.app.api.response_logger import log_api_response
 from backend.app.codes import FEEDBACK_VERDICTS
 from backend.app.repository import get_call_log
-from backend.app.services import agent_loop, report_builder, response_agent
+from backend.app.services import agent_loop, investigation, report_builder, response_agent
 
 
 router = APIRouter()
@@ -95,15 +95,16 @@ async def end_call(log_id: int) -> dict:
 
 
 @router.get("/calls/{log_id}/report")
-def get_call_report(log_id: int, format: str = "json"):
+async def get_call_report(log_id: int, format: str = "json"):
     """경찰·금융회사 제출용 요약을 반환한다. format=md면 바로 읽을 수 있는 텍스트로 준다."""
     _require_call(log_id)
-    report = report_builder.build_report(log_id)
+    if format not in ("json", "md"):
+        raise HTTPException(status_code=422, detail="format은 json 또는 md여야 합니다.")
+    # 사건 개요 작성에 LLM 호출이 들어갈 수 있어 스레드에서 만든다.
+    report = await asyncio.to_thread(investigation.full_report, log_id)
     if format == "md":
         # 브라우저 탭에서 바로 보이도록 text/plain으로 내려준다(text/markdown은 다운로드로 처리되는 경우가 많다).
         return PlainTextResponse(report_builder.render_markdown(report), media_type="text/plain; charset=utf-8")
-    if format != "json":
-        raise HTTPException(status_code=422, detail="format은 json 또는 md여야 합니다.")
     return log_api_response("GET /calls/{log_id}/report", report)
 
 

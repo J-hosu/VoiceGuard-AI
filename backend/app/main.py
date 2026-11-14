@@ -6,20 +6,24 @@ import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import FileResponse
 
 try:
     from dotenv import load_dotenv
 except ModuleNotFoundError:
     load_dotenv = None
 
+from backend.app.access_gate import AccessGateMiddleware
 from backend.app.api.agent_routes import router as agent_router
+from backend.app.api.investigation_routes import router as investigation_router
 from backend.app.api.routes import router as rest_router
 from backend.app.api.websocket import router as websocket_router
 from backend.app.database import init_db
-from backend.app.paths import ENV_PATH
+from backend.app.paths import ENV_PATH, PROJECT_ROOT
 from backend.app.services import agent_loop
 from backend.app.services.call_analyzer import preload_koelectra_model
 
@@ -94,4 +98,33 @@ app.add_middleware(
 )
 app.include_router(rest_router)
 app.include_router(agent_router)
+app.include_router(investigation_router)
 app.include_router(websocket_router)
+# 접속 코드 확인(ACCESS_CODE가 설정됐을 때만 동작). 가장 바깥에서 HTTP와 WebSocket을 모두 거른다.
+app.add_middleware(AccessGateMiddleware)
+
+
+# 웹 앱(Expo 웹 빌드 결과)을 API와 같은 주소에서 제공한다. 같은 출처라 CORS 설정이 필요 없고
+# 브라우저 마이크가 요구하는 HTTPS도 터널 주소 하나로 해결된다. 폴더가 없으면 API만 동작한다.
+WEB_DIST_DIR = Path(os.getenv("WEB_DIST_DIR") or PROJECT_ROOT / "web_dist").resolve()
+
+if WEB_DIST_DIR.is_dir():
+
+    def _web_file(relative: str) -> Path | None:
+        candidate = (WEB_DIST_DIR / relative).resolve()
+        if candidate.is_file() and WEB_DIST_DIR in candidate.parents:
+            return candidate
+        return None
+
+    @app.get("/{full_path:path}", include_in_schema=False)
+    async def serve_web_app(full_path: str) -> FileResponse:
+        """정적 파일이 있으면 그 파일을, 없으면 앱 화면(index.html)을 돌려준다(화면 이동은 앱이 처리)."""
+        target = _web_file(full_path) if full_path else None
+        if target is None and full_path:
+            target = _web_file(f"{full_path}.html")
+        if target is None:
+            target = WEB_DIST_DIR / "index.html"
+        # 파일명에 해시가 붙는 번들은 오래 캐시하고, 화면 파일은 새 배포가 바로 보이게 캐시하지 않는다.
+        hashed = "/_expo/static/" in target.as_posix() or "/assets/" in target.as_posix()
+        cache = "public, max-age=31536000, immutable" if hashed else "no-cache"
+        return FileResponse(target, headers={"Cache-Control": cache})

@@ -1,4 +1,4 @@
-import { Alert, Pressable, ScrollView, Switch, View } from 'react-native';
+import { Alert, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
@@ -114,7 +114,11 @@ export default function Settings() {
                     글자 크기를 1.2배로 키웁니다
                   </AppText>
                 </View>
-                <Switch value={largeText} onValueChange={setLargeText} />
+                <Switch value={largeText} onValueChange={setLargeText}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="#ffffff"
+                  {...(Platform.OS === 'web' ? ({ activeThumbColor: '#ffffff' } as object) : {})}
+                />
               </View>
               <View style={{ height: 1, backgroundColor: colors.border }} />
               <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -124,7 +128,11 @@ export default function Settings() {
                     위험이 탐지되거나 AI가 대응을 안내할 때 진동으로 알립니다
                   </AppText>
                 </View>
-                <Switch value={vibration} onValueChange={setVibration} />
+                <Switch value={vibration} onValueChange={setVibration}
+                  trackColor={{ false: colors.border, true: colors.primary }}
+                  thumbColor="#ffffff"
+                  {...(Platform.OS === 'web' ? ({ activeThumbColor: '#ffffff' } as object) : {})}
+                />
               </View>
             </Card>
           </View>

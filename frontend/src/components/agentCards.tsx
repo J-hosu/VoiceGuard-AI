@@ -84,6 +84,9 @@ export const TACTIC_LABELS: Record<string, { label: string; safe?: boolean }> = 
 };
 
 /** 반투명 색 만들기 (#rrggbb 전용) */
+/** 피해가 이미 발생했음을 뜻하는 후속 확인 답 (backend codes.DAMAGE_ANSWERS와 같다). */
+const DAMAGE_ANSWERS = new Set(['shared_info', 'installed_app', 'transferred_money']);
+
 function withAlpha(hex: string, alpha: number): string {
   const m = /^#([0-9a-f]{6})$/i.exec(hex);
   if (!m) return hex;
@@ -346,49 +349,75 @@ export function FollowupCard({
   const options = action.payload.options ?? [];
   const answered = action.status === 'answered';
   const chosen = options.find((o) => o.answer === action.response);
+  // 피해가 생긴 답은 따로 묶어 눈에 띄게 한다(이 답을 고르면 지급정지 등 긴급 조치가 이어진다).
+  const damage = options.filter((o) => DAMAGE_ANSWERS.has(o.answer));
+  const fine = options.filter((o) => !DAMAGE_ANSWERS.has(o.answer));
+
+  const chip = (option: { answer: string; label: string }, tone: string | null) => (
+    <Pressable
+      key={option.answer}
+      onPress={() => onAnswer(option.answer)}
+      accessibilityRole="button"
+      accessibilityLabel={option.label}
+      style={({ pressed }) => ({
+        paddingVertical: 9,
+        paddingHorizontal: 13,
+        borderRadius: 999,
+        borderWidth: 1,
+        borderColor: tone ? withAlpha(tone, 0.45) : palette.border,
+        backgroundColor: tone ? withAlpha(tone, pressed ? 0.2 : 0.09) : palette.cardBg,
+        opacity: pressed ? 0.85 : 1,
+      })}
+    >
+      <AppText weight="700" color={tone ?? palette.text} style={{ fontSize: 13.5 }}>
+        {option.label}
+      </AppText>
+    </Pressable>
+  );
 
   return (
     <View
       style={{
-        borderRadius: 14,
-        borderWidth: 1.5,
-        borderColor: withAlpha(palette.accent, 0.6),
-        backgroundColor: withAlpha(palette.accent, 0.1),
-        padding: 14,
-        gap: 10,
+        borderRadius: 16,
+        borderWidth: 1,
+        borderColor: withAlpha(palette.accent, 0.35),
+        backgroundColor: withAlpha(palette.accent, 0.07),
+        padding: 16,
+        gap: 12,
       }}
     >
-      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Icon name="info" size={17} color={palette.accent} />
-        <AppText weight="800" color={palette.text} style={{ fontSize: 15, flex: 1 }}>
+      <View style={{ gap: 3 }}>
+        <AppText weight="800" color={palette.text} style={{ fontSize: 15.5 }}>
           {action.payload.question ?? action.title}
         </AppText>
+        {!answered ? (
+          <AppText color={palette.muted} style={{ fontSize: 12.5 }}>
+            답에 맞춰 지금 필요한 조치를 안내해 드려요.
+          </AppText>
+        ) : null}
       </View>
       {answered ? (
-        <AppText weight="600" color={palette.sub} style={{ fontSize: 13 }}>
-          답변: {chosen?.label ?? action.response}
-        </AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
+          <Icon name="check-circle" size={15} color={palette.accent} />
+          <AppText weight="700" color={palette.sub} style={{ fontSize: 13.5, flex: 1 }}>
+            {chosen?.label ?? action.response}
+          </AppText>
+        </View>
       ) : (
-        <View style={{ gap: 8 }}>
-          {options.map((option) => (
-            <Pressable
-              key={option.answer}
-              onPress={() => onAnswer(option.answer)}
-              accessibilityLabel={option.label}
-              style={{
-                paddingVertical: 11,
-                paddingHorizontal: 14,
-                borderRadius: 11,
-                borderWidth: 1,
-                borderColor: palette.border,
-                backgroundColor: palette.cardBg,
-              }}
-            >
-              <AppText weight="700" color={palette.text} style={{ fontSize: 13.5 }}>
-                {option.label}
+        <View style={{ gap: 12 }}>
+          {fine.length > 0 ? (
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>{fine.map((o) => chip(o, null))}</View>
+          ) : null}
+          {damage.length > 0 ? (
+            <View style={{ gap: 7 }}>
+              <AppText weight="700" color={palette.danger} style={{ fontSize: 12 }}>
+                피해가 있었다면
               </AppText>
-            </Pressable>
-          ))}
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>
+                {damage.map((o) => chip(o, palette.danger))}
+              </View>
+            </View>
+          ) : null}
         </View>
       )}
     </View>

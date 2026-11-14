@@ -68,6 +68,8 @@ WS:   ws://127.0.0.1:8000          (공개 시 wss://<터널 도메인>)
 | `WHISPER_MODEL`, `WHISPER_COMPUTE`, `WHISPER_BEAM` | STT 모델·정밀도·파일 전사 beam. 기본 GPU `large-v3`/`float16`/5, CPU `small`/`int8`/1 |
 | `INTEGRATION_API_KEY`, `ADMIN_API_KEY` | 1.2의 API 키 |
 | `N8N_WEBHOOK_URL` | 백엔드가 이벤트를 보낼 n8n 웹훅 주소 |
+| `ACCESS_CODE` | 시연용 접속 코드. 설정하면 쿠키·`X-Access-Code` 헤더·`code` 쿼리 중 하나가 맞아야 웹 앱·API·WebSocket을 쓸 수 있다. 비우면 제한 없음(로컬 개발) |
+| `WEB_DIST_DIR` | 웹 앱 빌드 폴더(기본 `web_dist/`). 있으면 백엔드가 같은 주소에서 웹 앱을 함께 제공한다 |
 | `N8N_WEBHOOK_SECRET` | 웹훅 요청의 `X-Webhook-Secret` 값 |
 | `TELEGRAM_BOT_USERNAME` | 보호자 연결 링크 생성용 봇 이름 |
 | `EVIDENCE_DIR` | 증거 오디오 보존 경로. 기본 `data/evidence` |
@@ -508,6 +510,15 @@ v1 `notification_logs`에 기록한다.
 n8n은 5.4의 `POST /calls/{log_id}/actions/{action_id}/respond`를 `source: "telegram"`으로 호출한다.
 
 ## 10. 수사 지원 (관리 키)
+
+> **구현 현황 (2026-11-15)**: 아래 중 다음이 구현됐다.
+> - `GET /investigation/cases?min_risk=&limit=` → `{stats, cases[]}` (통화별 위험도·유형·도달 단계·단서 수·후속 확인 답·피해 확인 여부·단서 겹침 여부)
+> - `GET /investigation/cases/{log_id}` → 신고용 요약(5.7)과 같은 본문에 `overview`(LLM이 쓴 사건 개요, 위험 통화만), `links`(같은 계좌·전화번호·주소·사건번호가 나온 다른 통화), `similar_official_cases`(금감원·경찰청 공개 사례 중 유사한 것), `damage_reported`를 더한 것
+> - `GET /investigation/cases/{log_id}/links`
+> - `GET /dashboard` 수사 지원 화면 (접속 코드 쿠키 필요)
+> - `GET /calls/{log_id}/report`도 같은 항목을 포함한다.
+> 유사 공식 사례는 참고 자료로만 붙이고 탐지 점수에는 쓰지 않는다(유형 일치 정확도 약 80%, `docs/MODEL_TRAINING_LOG.md` 참고).
+> 증거 음성 보존과 해시 체인(10.5)은 아직 구현하지 않았다.
 
 `consent.investigation_share`가 `true`인 기기의 통화와 데모 시드 데이터만 노출한다.
 

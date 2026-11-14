@@ -5,6 +5,7 @@ import torch
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
 from backend.app.paths import KOELECTRA_MODEL_DIR, TRAINING_DATA_PATH
+from backend.app.text_normalize import normalize_text, uses_normalization
 
 
 MODEL_DIR = KOELECTRA_MODEL_DIR
@@ -12,18 +13,22 @@ MAX_LEN = 256
 
 _tok = None
 _model = None
+_normalize = False
 _device = "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
 
 
 def _load():
-    global _tok, _model
+    global _tok, _model, _normalize
     if _model is None:
+        _normalize = uses_normalization(MODEL_DIR)
         _tok = AutoTokenizer.from_pretrained(str(MODEL_DIR))
         _model = AutoModelForSequenceClassification.from_pretrained(str(MODEL_DIR)).to(_device).eval()
 
 
 def predict_proba(texts):
     _load()
+    if _normalize:
+        texts = [normalize_text(text) for text in texts]
     enc = _tok(texts, truncation=True, padding=True, max_length=MAX_LEN, return_tensors="pt").to(_device)
     with torch.no_grad():
         logits = _model(**enc).logits

@@ -19,7 +19,7 @@ from typing import Optional
 from backend.app import state_repository
 from backend.app.codes import DAMAGE_ANSWERS, FOLLOWUP_ANSWERS, OFFICIAL_NUMBERS, STAGE_LABELS
 from backend.app.repository import get_call_log
-from backend.app.services import claude_client
+from backend.app.services import claude_client, webhook_emitter
 
 
 logger = logging.getLogger(__name__)
@@ -102,7 +102,28 @@ def decide(log_id: int, state: dict, detection: dict) -> list[dict]:
                 **spec,
             )
         )
+        if action_type == "guardian_alert":
+            webhook_emitter.emit("incident.high_risk", _event_data(log_id, state, detection))
     return created
+
+
+def _event_data(log_id: int, state: Optional[dict], detection: Optional[dict] = None) -> dict:
+    """n8n으로 보내는 이벤트 본문의 공통 부분."""
+    call = get_call_log(log_id)
+    stage = state["stage"] if state else "none"
+    base = webhook_emitter.public_base_url()
+    return {
+        "log_id": log_id,
+        "device_id": call.device_id,
+        "risk_score": round(detection["risk_score"] if detection else call.risk_score, 4),
+        "risk_level": detection["risk_level"] if detection else call.risk_level,
+        "phishing_type": (state["phishing_type"] if state else "") or call.phishing_type or "",
+        "stage": stage,
+        "stage_label": STAGE_LABELS.get(stage, stage),
+        "compliance": state["compliance"] if state else "none",
+        "summary": (state["summary"] if state else "") or call.core_evidence or "",
+        "dashboard_url": f"{base}/dashboard#case={log_id}" if base else "",
+    }
 
 
 def handle_response(
@@ -158,6 +179,9 @@ def on_call_end(log_id: int) -> list[dict]:
         created.append(
             state_repository.insert_action(log_id, version, "followup_check", **_followup("post_call"))
         )
+    # 통화 종료 알림은 통화당 한 번만 보낸다(종료 처리가 두 번 불려도 created가 비어 있으면 건너뜀).
+    if created:
+        webhook_emitter.emit("call.ended", _event_data(log_id, state))
     return created
 
 
@@ -196,7 +220,8 @@ def _eligible_actions(log_id: int, state: dict, detection: dict) -> list[str]:
 
     if risk_level == "high" and (compliance in ("complying", "completed") or stage >= 6):
         device_id = get_call_log(log_id).device_id
-        if state_repository.count_active_guardians(device_id) > 0 and not _has_action(existing, "guardian_alert"):
+        has_channel = state_repository.count_active_guardians(device_id) > 0 or webhook_emitter.is_configured()
+        if has_channel and not _has_action(existing, "guardian_alert"):
             candidates.append("guardian_alert")
 
     if compliance == "completed" and risk_level in ("medium", "high") and not _has_action(existing, "block_guide"):
@@ -428,6 +453,18 @@ def _after_followup(log_id: int, answer: str, state_version: int, source: str) -
 
     def add(action_type: str, spec: dict) -> None:
         created.append(state_repository.insert_action(log_id, state_version, action_type, **spec))
+
+    if answer != "still_talking":
+        webhook_emitter.emit(
+            "followup.answered",
+            {
+                **_event_data(log_id, state_repository.get_latest_state(log_id)),
+                "answer": answer,
+                "answer_label": FOLLOWUP_ANSWERS.get(answer, answer),
+                "damage": answer in DAMAGE_ANSWERS,
+                "source": source,
+            },
+        )
 
     if answer in ("false_alarm", "verified_safe"):
         state_repository.insert_feedback(log_id, "false_positive", comment=FOLLOWUP_ANSWERS[answer], source=f"followup:{source}")

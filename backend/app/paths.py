@@ -6,6 +6,7 @@ data/, models/를 사용하도록 한 곳에서 경로를 관리한다.
 
 from __future__ import annotations
 
+import os
 from pathlib import Path
 
 
@@ -17,7 +18,8 @@ DATA_DIR = PROJECT_ROOT / "data"
 MODELS_DIR = PROJECT_ROOT / "models"
 
 DB_PATH = DATA_DIR / "voice_phishing.db"
-TRAINING_DATA_PATH = DATA_DIR / "PhishCatch-Data.json"
+# TRAINING_DATA, KOELECTRA_MODEL_DIR 환경변수로 바꿀 수 있다(후보 모델을 따로 학습·평가할 때).
+TRAINING_DATA_PATH = Path(os.environ.get("TRAINING_DATA") or DATA_DIR / "PhishCatch-Data.json")
 BASELINE_MODEL_PATH = MODELS_DIR / "baseline.joblib"
-KOELECTRA_MODEL_DIR = MODELS_DIR / "koelectra"
+KOELECTRA_MODEL_DIR = Path(os.environ.get("KOELECTRA_MODEL_DIR") or MODELS_DIR / "koelectra")
 ENV_PATH = PROJECT_ROOT / ".env"

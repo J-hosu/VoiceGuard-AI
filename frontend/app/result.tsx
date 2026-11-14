@@ -306,10 +306,14 @@ function AgentSection({
     (a: AgentAction) => a.action_type !== 'followup_check' && a.action_type !== 'block_guide',
   );
 
+  const [showAll, setShowAll] = useState(false);
+  const COLLAPSED_COUNT = 2;
+  const shownActions = showAll ? actions : actions.slice(0, COLLAPSED_COUNT);
+
   if (reachedIndex === 0 && actions.length === 0 && urgent.length === 0 && !followup) return null;
 
   return (
-    <View style={{ gap: 12 }}>
+    <View style={{ gap: 14 }}>
       {followup ? (
         <FollowupCard action={followup} palette={palette} onAnswer={(answer) => onAnswer(followup.id, answer)} />
       ) : null}
@@ -328,15 +332,36 @@ function AgentSection({
       ) : null}
 
       {actions.length > 0 ? (
-        <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16 }}>
-          <AppText weight="800" style={{ fontSize: 16, marginBottom: 12 }}>
-            AI 대응 기록
-          </AppText>
-          <View style={{ gap: 10 }}>
-            {actions.map((action) => (
-              <ActionCard key={action.id} action={action} palette={palette} />
-            ))}
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'baseline', gap: 8, marginTop: 4 }}>
+            <AppText weight="800" style={{ fontSize: 16 }}>
+              AI 대응 기록
+            </AppText>
+            <AppText weight="700" color={colors.textMuted} style={{ fontSize: 13 }}>
+              {actions.length}건
+            </AppText>
           </View>
+          {shownActions.map((action) => (
+            <ActionCard key={action.id} action={action} palette={palette} />
+          ))}
+          {actions.length > COLLAPSED_COUNT ? (
+            <Pressable
+              onPress={() => setShowAll((v) => !v)}
+              accessibilityRole="button"
+              style={{
+                alignSelf: 'center',
+                paddingVertical: 9,
+                paddingHorizontal: 16,
+                borderRadius: 999,
+                borderWidth: 1,
+                borderColor: colors.border,
+              }}
+            >
+              <AppText weight="700" color={colors.textSecondary} style={{ fontSize: 13 }}>
+                {showAll ? '접기' : `나머지 ${actions.length - COLLAPSED_COUNT}건 더 보기`}
+              </AppText>
+            </Pressable>
+          ) : null}
         </View>
       ) : null}
     </View>

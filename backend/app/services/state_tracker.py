@@ -60,6 +60,7 @@ none(정상), agency(수사기관·금융당국 사칭), loan(대출 빙자), ki
 acquaintance(가족·지인 사칭), smishing(문자·택배·카드 배송 등으로 링크나 앱 설치 유도), other.
 
 [수법 태그 tactics] 발화 하나에 여러 개 붙일 수 있다. 해당 없으면 빈 배열.
+태그는 상대방(suspect)의 행동을 가리킨다. 사용자(user) 발화에는 정상 신호 태그를 포함해 어떤 태그도 붙이지 않는다.
 authority_claim 기관·직함 사칭 / crime_involvement 범죄 연루 통보 / legal_threat 구속·처벌 위협 /
 urgency 시간 압박 / secrecy 비밀 유지 강요 / isolation 통화 유지·이동 지시 /
 info_request 개인정보·인증번호·비밀번호 요구 / app_install 앱 설치·원격제어 유도 / link_click 링크 접속 유도 /
@@ -218,7 +219,8 @@ def update_state(log_id: int, force: bool = False, retag_all: bool = False) -> O
             {
                 "turn_index": int(item["turn_index"]),
                 "role": item["role"] if item["role"] in ROLES else "unknown",
-                "tactics": [tactic for tactic in item["tactics"] if tactic in TACTICS],
+                # 수법·정상 신호 태그는 상대방의 행동을 가리킨다. 사용자 발화에는 붙이지 않는다.
+                "tactics": [] if item["role"] == "user" else [tactic for tactic in item["tactics"] if tactic in TACTICS],
             }
             for item in output.get("utterances", [])
             if int(item["turn_index"]) in valid_turns

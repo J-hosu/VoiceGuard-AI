@@ -30,7 +30,16 @@ export const USE_MOCK_STT = false;
  * .env(EXPO_PUBLIC_API_BASE)로 주소를 덮어쓸 수 있다. 실기기(Expo Go) 테스트 시
  * 127.0.0.1 대신 PC의 LAN IP(예: http://192.168.0.10:8000)를 넣어야 한다.
  */
-const API_BASE = (process.env.EXPO_PUBLIC_API_BASE ?? 'http://127.0.0.1:8000').replace(/\/$/, '');
+const RAW_API_BASE = process.env.EXPO_PUBLIC_API_BASE ?? 'http://127.0.0.1:8000';
+// 'same-origin': 웹 앱을 백엔드와 같은 주소에서 제공하는 배포용. 접속한 주소를 그대로 API 주소로 쓴다
+// (빌드 하나로 어떤 도메인에서도 동작).
+const API_BASE = (
+  RAW_API_BASE === 'same-origin'
+    ? typeof window !== 'undefined' && window.location
+      ? window.location.origin
+      : ''
+    : RAW_API_BASE
+).replace(/\/$/, '');
 
 /** 실제 백엔드 HTTP 주소 */
 export const BASE_URL_HTTP = API_BASE;
