@@ -601,6 +601,39 @@ FastAPI가 서빙하는 정적 웹 페이지다. 위 API를 호출하며, 접속
 }
 ```
 
+> **구현 현황 (2026-11-15)**: 구현됨(`backend/app/api/analyze_routes.py`, `services/message_analyzer.py`). 실제 응답은 위 설계와 다음이 다르다.
+> - 점수: 스미싱 문자 분류기(KLUE-RoBERTa, `models/sms_roberta`) 40% + Claude 판단 60%. 분류기 모델이 없으면 Claude만 쓴다. `scores: {classifier, llm}`에 각 점수를 담는다.
+> - 유형은 `category`(`none`, `delivery`, `agency`, `finance`, `acquaintance`, `event`, `payment`, `investment`, `spam`, `other`)와 `category_label`, 위험 신호는 `red_flags: [{code, label}]`, 설명은 `explanation`.
+> - `urls[].verdict`는 `suspicious`, `unknown`, `likely_official`(규칙 점검만 하고 접속하지 않는다), `urls[].host`, `urls[].reasons`. 본문의 전화번호는 `phones`.
+> - 권장 행동은 고정 문구 `recommended_actions`(신고 번호를 LLM이 쓰지 않는다). `related_cards`와 `device_id`는 아직 없다.
+> - 이미지는 jpg·png·webp·gif, 4MB 이하. 본문도 이미지도 없으면 422.
+> - 정확도는 `docs/MODEL_TRAINING_LOG.md`의 스미싱 문자 분류기 항목 참고.
+
+### 11.4 `POST /analyze/document`
+
+`multipart/form-data`: `image`(필수, 받은 문서의 사진·캡처), `note`(선택, 어떻게 받은 문서인지). 구현됨(`services/document_analyzer.py`).
+
+Claude(이미지 판독)가 보이스피싱에 쓰이는 위조 문서의 전형적 특징(송금·현금 전달 요구, 비밀 유지 강요, 개인 연락처로 회신 요구, 메신저로 전달된 공문, 기관명·직인·서식 오류 등)을 짚는다. 진짜 문서와 대조하는 감정이 아니다.
+
+```json
+{
+  "readable": true,
+  "is_phishing": true,
+  "risk_score": 0.93,
+  "risk_level": "high",
+  "doc_type": "검찰 명의 공문",
+  "claimed_issuer": "서울중앙지방검찰청",
+  "flags": [ { "code": "money_request", "label": "송금·현금 전달·자산 이전 요구" } ],
+  "evidence": ["'안전계좌로 자산을 이전하라'는 문구"],
+  "explanation": "...",
+  "recommended_actions": ["문서가 요구하는 송금, 현금 전달, 앱 설치, 개인정보 제출을 하지 마세요.", "..."],
+  "thresholds": { "warning": 0.7, "danger": 0.85 },
+  "disclaimer": "사진만으로 문서의 진위를 확정할 수는 없습니다. ..."
+}
+```
+
+`flags[].code`: `money_request`, `secrecy`, `threat`, `personal_contact`, `info_request`, `app_or_link`, `format_errors`, `nonexistent_office`, `messenger_delivery`, `too_good_offer`. 글자를 읽을 수 없으면 `readable: false`, `risk_score: 0`. 평가는 `python -m backend.app.eval_documents`(평가 세트 `data/eval_documents/`).
+
 ### 11.2 `POST /analyze/url`
 
 본문 `{ "url": "..." }`. 응답은 11.1의 `urls` 항목 1개와 같다. `verdict`: `safe`, `suspicious`, `malicious`, `unknown`.
