@@ -19,6 +19,7 @@ except ModuleNotFoundError:
 
 from backend.app.access_gate import AccessGateMiddleware
 from backend.app.api.agent_routes import router as agent_router
+from backend.app.api.analyze_routes import router as analyze_router
 from backend.app.api.investigation_routes import router as investigation_router
 from backend.app.api.routes import router as rest_router
 from backend.app.api.websocket import router as websocket_router
@@ -99,6 +100,7 @@ app.add_middleware(
 app.include_router(rest_router)
 app.include_router(agent_router)
 app.include_router(investigation_router)
+app.include_router(analyze_router)
 app.include_router(websocket_router)
 # 접속 코드 확인(ACCESS_CODE가 설정됐을 때만 동작). 가장 바깥에서 HTTP와 WebSocket을 모두 거른다.
 app.add_middleware(AccessGateMiddleware)

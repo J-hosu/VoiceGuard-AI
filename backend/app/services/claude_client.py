@@ -12,6 +12,7 @@
 
 from __future__ import annotations
 
+import base64
 import json
 import logging
 import os
@@ -110,6 +111,21 @@ def complete(
     return _text_of(_create(model or model_name(), **params))
 
 
+def _user_content(prompt: str, images: Optional[list[tuple[str, bytes]]]):
+    """이미지가 있으면 이미지 블록들 뒤에 프롬프트 텍스트를 붙인 콘텐츠 목록을 만든다."""
+    if not images:
+        return prompt
+    blocks: list[dict[str, Any]] = [
+        {
+            "type": "image",
+            "source": {"type": "base64", "media_type": media_type, "data": base64.b64encode(data).decode("ascii")},
+        }
+        for media_type, data in images
+    ]
+    blocks.append({"type": "text", "text": prompt})
+    return blocks
+
+
 def complete_json(
     prompt: str,
     schema: dict,
@@ -117,8 +133,11 @@ def complete_json(
     max_tokens: int = 4000,
     effort: str = "low",
     model: Optional[str] = None,
+    images: Optional[list[tuple[str, bytes]]] = None,
 ) -> dict:
     """JSON 스키마를 강제해(구조화 출력) 응답을 dict로 반환한다.
+
+    images에 (media_type, 원본 바이트) 목록을 주면 프롬프트 앞에 이미지로 붙인다(문자 캡처·문서 사진 판독).
 
     빠른 모델이 거절하면 DEFAULT_MODEL로 한 번 더 시도한다. 보이스피싱 대본은
     협박·사칭 문구가 많아 가벼운 모델의 안전 분류기에 걸릴 수 있기 때문이다.
@@ -129,7 +148,7 @@ def complete_json(
             "effort": effort,
             "format": {"type": "json_schema", "schema": schema},
         },
-        "messages": [{"role": "user", "content": prompt}],
+        "messages": [{"role": "user", "content": _user_content(prompt, images)}],
     }
     if system:
         params["system"] = system
