@@ -46,13 +46,13 @@ export const lightColors: ThemeColors = {
   onPrimary: '#FFFFFF',
 
   safe: '#1F9D57',
-  safeText: '#1F9D57',
+  safeText: '#157A42',
   safeFaint: '#DFF3E6',
   warning: '#F5A623',
-  warningText: '#E0A11B',
+  warningText: '#9A5800',
   warningFaint: '#FBF1D6',
   danger: '#E11D2A',
-  dangerText: '#E11D2A',
+  dangerText: '#C0161F',
   dangerFaint: '#FCE4E6',
 
   bg: '#F4F6F9',
@@ -61,8 +61,8 @@ export const lightColors: ThemeColors = {
   border: '#EDEFF2',
 
   text: '#1F2937',
-  textSecondary: '#7B8494',
-  textMuted: '#9AA2AE',
+  textSecondary: '#5B6472',
+  textMuted: '#646D7A',
 
   accentViolet: '#6D5BD0',
   accentVioletFaint: '#EAE7FB',
@@ -93,7 +93,7 @@ export const darkColors: ThemeColors = {
 
   text: '#ECEFF3',
   textSecondary: '#9AA5B3',
-  textMuted: '#7B8798',
+  textMuted: '#8A96A6',
 
   accentViolet: '#9C8CF0',
   accentVioletFaint: '#241F3A',

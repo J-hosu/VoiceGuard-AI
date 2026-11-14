@@ -1,5 +1,5 @@
 import { Linking, Pressable, View } from 'react-native';
-import { AppText } from '@/components/AppText';
+import { AppText, keepAll } from '@/components/AppText';
 import { Icon, type IconName } from '@/components/Icon';
 import { BASE_URL_HTTP } from '@/core/config/env';
 import type { ThemeColors } from '@/core/theme/colors';
@@ -38,6 +38,7 @@ export const DARK_AGENT_PALETTE: AgentPalette = {
 };
 
 export function paletteFromTheme(colors: ThemeColors): AgentPalette {
+  // 카드 제목·버튼 글자에 그대로 쓰이므로, 밝은 바탕에서도 읽히는 글자용 등급색을 쓴다.
   return {
     text: colors.text,
     sub: colors.textSecondary,
@@ -45,9 +46,9 @@ export function paletteFromTheme(colors: ThemeColors): AgentPalette {
     cardBg: colors.cardAlt,
     border: colors.border,
     accent: colors.primary,
-    danger: colors.danger,
-    warning: colors.warning,
-    safe: colors.safe,
+    danger: colors.dangerText,
+    warning: colors.warningText,
+    safe: colors.safeText,
   };
 }
 
@@ -120,7 +121,8 @@ export function StageStepper({
         const predicted = !reached && index === predictedIndex;
         return (
           <View key={step.stage} style={{ flex: 1, alignItems: 'center' }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%' }}>
+            {/* 현재 단계 점(22)이 더 커도 연결선 높이가 어긋나지 않게 행 높이를 고정한다 */}
+            <View style={{ flexDirection: 'row', alignItems: 'center', width: '100%', height: 22 }}>
               {/* 왼쪽 연결선 */}
               <View
                 style={{
@@ -139,7 +141,7 @@ export function StageStepper({
                   backgroundColor: reached ? color : 'transparent',
                   borderWidth: reached ? 0 : 1.5,
                   borderStyle: predicted ? 'dashed' : 'solid',
-                  borderColor: predicted ? color : palette.border,
+                  borderColor: predicted ? color : palette.muted,
                 }}
               >
                 {current ? <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: '#FFFFFF' }} /> : null}
@@ -157,13 +159,13 @@ export function StageStepper({
             <AppText
               weight={current ? '800' : reached ? '600' : '500'}
               color={current ? color : reached ? palette.sub : palette.muted}
-              style={{ fontSize: 10.5, marginTop: 6, textAlign: 'center' }}
-              numberOfLines={1}
+              style={{ fontSize: 12, lineHeight: 16, marginTop: 8, textAlign: 'center', paddingHorizontal: 2 }}
+              numberOfLines={2}
             >
               {step.label}
             </AppText>
             {predicted ? (
-              <AppText weight="700" color={color} style={{ fontSize: 9.5, marginTop: 1 }}>
+              <AppText weight="700" color={color} style={{ fontSize: 12, lineHeight: 16 }}>
                 다음 예상
               </AppText>
             ) : null}
@@ -205,12 +207,10 @@ function PhonePill({ label, phone, color }: { label?: string; phone: string; col
         alignItems: 'center',
         gap: 7,
         alignSelf: 'flex-start',
+        minHeight: 44,
         paddingHorizontal: 12,
-        paddingVertical: 8,
-        borderRadius: 10,
-        backgroundColor: withAlpha(color, 0.14),
-        borderWidth: 1,
-        borderColor: withAlpha(color, 0.45),
+        borderRadius: 12,
+        backgroundColor: withAlpha(color, 0.16),
       }}
     >
       <Icon name="phone" size={15} color={color} />
@@ -221,35 +221,60 @@ function PhonePill({ label, phone, color }: { label?: string; phone: string; col
   );
   if (!dialable) return body;
   return (
-    <Pressable onPress={() => void Linking.openURL(`tel:${phone}`)} accessibilityLabel={`${label ?? ''} ${phone} 전화 걸기`}>
+    <Pressable
+      onPress={() => void Linking.openURL(`tel:${phone}`)}
+      accessibilityRole="button"
+      accessibilityLabel={`${label ?? ''} ${phone} 전화 걸기`}
+    >
       {body}
     </Pressable>
   );
 }
 
-/** 에이전트 행동 카드. 제목·안내문·행동별 내용(번호, 질문, 절차)·결정 이유를 보여준다. */
-export function ActionCard({ action, palette }: { action: AgentAction; palette: AgentPalette }) {
+/**
+ * 에이전트 행동 카드. 제목·안내문·행동별 내용(번호, 질문, 절차)·결정 이유를 보여준다.
+ *  - featured: 지금 따라야 할 가장 최근 행동. 화면에서 가장 진하고 크게 보인다(실시간 화면).
+ *  - showReason: 판단 근거 줄. 통화 중에는 행동할 수 없는 설명이라 숨긴다.
+ */
+export function ActionCard({
+  action,
+  palette,
+  featured = false,
+  showReason = true,
+}: {
+  action: AgentAction;
+  palette: AgentPalette;
+  featured?: boolean;
+  showReason?: boolean;
+}) {
   const color = actionColor(action, palette);
   const { payload } = action;
 
   return (
     <View
       style={{
-        borderRadius: 14,
-        borderWidth: 1,
-        borderColor: withAlpha(color, 0.45),
-        backgroundColor: withAlpha(color, 0.07),
-        padding: 13,
-        gap: 8,
+        borderRadius: 16,
+        borderWidth: featured ? 2 : 1,
+        borderColor: withAlpha(color, featured ? 0.9 : 0.45),
+        backgroundColor: withAlpha(color, featured ? 0.16 : 0.08),
+        padding: 16,
+        gap: featured ? 12 : 8,
       }}
     >
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-        <Icon name={ACTION_ICONS[action.action_type] ?? 'info'} size={17} color={color} />
-        <AppText weight="800" color={color} style={{ fontSize: 14.5, flex: 1 }}>
+        <Icon name={ACTION_ICONS[action.action_type] ?? 'info'} size={featured ? 22 : 18} color={color} />
+        <AppText
+          weight="800"
+          color={color}
+          style={[featured ? { fontSize: 19, lineHeight: 26 } : { fontSize: 16, lineHeight: 22 }, { flex: 1 }, keepAll]}
+        >
           {action.title}
         </AppText>
       </View>
-      <AppText color={palette.sub} style={{ fontSize: 13, lineHeight: 20 }}>
+      <AppText
+        color={featured ? palette.text : palette.sub}
+        style={[featured ? { fontSize: 15, lineHeight: 24 } : { fontSize: 14, lineHeight: 22 }, keepAll]}
+      >
         {action.message}
       </AppText>
 
@@ -261,10 +286,10 @@ export function ActionCard({ action, palette }: { action: AgentAction; palette: 
         <View style={{ gap: 6 }}>
           {payload.questions.map((q, i) => (
             <View key={i} style={{ flexDirection: 'row', gap: 7 }}>
-              <AppText weight="800" color={color} style={{ fontSize: 13 }}>
+              <AppText weight="800" color={color} style={{ fontSize: 14, lineHeight: 22 }}>
                 Q{i + 1}
               </AppText>
-              <AppText color={palette.text} style={{ fontSize: 13, lineHeight: 20, flex: 1 }}>
+              <AppText color={palette.text} style={[{ fontSize: 14, lineHeight: 22, flex: 1 }, keepAll]}>
                 {q}
               </AppText>
             </View>
@@ -278,20 +303,19 @@ export function ActionCard({ action, palette }: { action: AgentAction; palette: 
             <View key={i} style={{ flexDirection: 'row', gap: 8 }}>
               <View
                 style={{
-                  width: 19,
-                  height: 19,
-                  borderRadius: 10,
+                  width: 22,
+                  height: 22,
+                  borderRadius: 11,
                   backgroundColor: color,
                   alignItems: 'center',
                   justifyContent: 'center',
-                  marginTop: 1,
                 }}
               >
-                <AppText weight="800" color="#FFFFFF" style={{ fontSize: 11 }}>
+                <AppText weight="800" color="#FFFFFF" style={{ fontSize: 12, lineHeight: 16 }}>
                   {i + 1}
                 </AppText>
               </View>
-              <AppText color={palette.text} style={{ fontSize: 13, lineHeight: 20, flex: 1 }}>
+              <AppText color={palette.text} style={[{ fontSize: 14, lineHeight: 22, flex: 1 }, keepAll]}>
                 {step}
               </AppText>
             </View>
@@ -310,26 +334,26 @@ export function ActionCard({ action, palette }: { action: AgentAction; palette: 
       {action.action_type === 'report_guide' && payload.report_url ? (
         <Pressable
           onPress={() => void Linking.openURL(`${BASE_URL_HTTP}${payload.report_url}?format=md`)}
+          accessibilityRole="link"
           accessibilityLabel="신고용 요약 열기"
           style={{
             alignSelf: 'flex-start',
-            paddingHorizontal: 13,
-            paddingVertical: 8,
-            borderRadius: 10,
-            backgroundColor: withAlpha(color, 0.14),
-            borderWidth: 1,
-            borderColor: withAlpha(color, 0.45),
+            minHeight: 44,
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+            borderRadius: 12,
+            backgroundColor: withAlpha(color, 0.16),
           }}
         >
-          <AppText weight="800" color={color} style={{ fontSize: 13.5 }}>
+          <AppText weight="800" color={color} style={{ fontSize: 14 }}>
             신고용 요약 열기
           </AppText>
         </Pressable>
       ) : null}
 
-      {action.reason ? (
-        <AppText color={palette.muted} style={{ fontSize: 11.5, lineHeight: 17 }}>
-          AI 판단 근거 · {action.reason}
+      {showReason && action.reason ? (
+        <AppText color={palette.muted} style={[{ fontSize: 13, lineHeight: 19 }, keepAll]}>
+          안내 이유 · {action.reason}
         </AppText>
       ) : null}
     </View>
@@ -360,8 +384,9 @@ export function FollowupCard({
       accessibilityRole="button"
       accessibilityLabel={option.label}
       style={({ pressed }) => ({
-        paddingVertical: 9,
-        paddingHorizontal: 13,
+        minHeight: 44,
+        justifyContent: 'center',
+        paddingHorizontal: 16,
         borderRadius: 999,
         borderWidth: 1,
         borderColor: tone ? withAlpha(tone, 0.45) : palette.border,
@@ -369,7 +394,7 @@ export function FollowupCard({
         opacity: pressed ? 0.85 : 1,
       })}
     >
-      <AppText weight="700" color={tone ?? palette.text} style={{ fontSize: 13.5 }}>
+      <AppText weight="700" color={tone ?? palette.text} style={{ fontSize: 14 }}>
         {option.label}
       </AppText>
     </Pressable>
@@ -387,11 +412,11 @@ export function FollowupCard({
       }}
     >
       <View style={{ gap: 3 }}>
-        <AppText weight="800" color={palette.text} style={{ fontSize: 15.5 }}>
+        <AppText weight="800" color={palette.text} style={[{ fontSize: 16, lineHeight: 24 }, keepAll]}>
           {action.payload.question ?? action.title}
         </AppText>
         {!answered ? (
-          <AppText color={palette.muted} style={{ fontSize: 12.5 }}>
+          <AppText color={palette.muted} style={[{ fontSize: 13, lineHeight: 18 }, keepAll]}>
             답에 맞춰 지금 필요한 조치를 안내해 드려요.
           </AppText>
         ) : null}
@@ -399,7 +424,7 @@ export function FollowupCard({
       {answered ? (
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
           <Icon name="check-circle" size={15} color={palette.accent} />
-          <AppText weight="700" color={palette.sub} style={{ fontSize: 13.5, flex: 1 }}>
+          <AppText weight="700" color={palette.sub} style={{ fontSize: 14, lineHeight: 20, flex: 1 }}>
             {chosen?.label ?? action.response}
           </AppText>
         </View>
@@ -410,7 +435,7 @@ export function FollowupCard({
           ) : null}
           {damage.length > 0 ? (
             <View style={{ gap: 7 }}>
-              <AppText weight="700" color={palette.danger} style={{ fontSize: 12 }}>
+              <AppText weight="700" color={palette.danger} style={{ fontSize: 14, lineHeight: 20 }}>
                 피해가 있었다면
               </AppText>
               <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8 }}>

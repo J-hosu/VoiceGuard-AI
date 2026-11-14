@@ -39,8 +39,14 @@ export default function RootLayout() {
       <Stack.Screen name="realtime" options={{ animation: 'slide_from_bottom' }} />
       <Stack.Screen name="result" />
       <Stack.Screen name="prevention" />
+      <Stack.Screen name="message" />
+      <Stack.Screen name="document" />
       <Stack.Screen name="settings" />
-      <Stack.Screen name="warning" options={{ presentation: 'transparentModal', animation: 'fade' }} />
+      {/* 경고 팝업 뒤로 진행 중인 통화 화면이 비쳐 보이도록 배경을 투명하게 둔다(어둡게 덮는 막은 warning.tsx가 그린다) */}
+      <Stack.Screen
+        name="warning"
+        options={{ presentation: 'transparentModal', animation: 'fade', contentStyle: { backgroundColor: 'transparent' } }}
+      />
     </Stack>
   );
 
@@ -67,6 +73,9 @@ export default function RootLayout() {
                 maxWidth: 440,
                 backgroundColor: colors.bg,
                 borderRadius: showDemoPanel ? 28 : 0,
+                // 어두운 화면에서도 휴대폰 틀의 경계가 보이도록 옅은 테두리를 둔다.
+                borderWidth: showDemoPanel ? 1 : 0,
+                borderColor: 'rgba(255,255,255,0.08)',
                 overflow: 'hidden',
                 shadowColor: '#000',
                 shadowOpacity: 0.3,

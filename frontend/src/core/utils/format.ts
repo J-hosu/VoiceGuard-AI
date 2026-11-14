@@ -46,3 +46,10 @@ export function formatPhone(raw?: string | null): string {
   if (digits.length === 10) return `${digits.slice(0, 3)}-${digits.slice(3, 6)}-${digits.slice(6)}`;
   return raw;
 }
+
+/** 네트워크 오류의 영어 원문(크롬 'Failed to fetch', 사파리 'Load failed' 등) 대신 할 일을 알려 주는 문장으로 바꾼다. */
+export function friendlyNetworkError(error: string): string {
+  return /fetch|network|load failed|abort|timed? ?out/i.test(error)
+    ? '서버에 연결하지 못했어요. 인터넷 연결을 확인하고 다시 눌러 주세요.'
+    : error;
+}

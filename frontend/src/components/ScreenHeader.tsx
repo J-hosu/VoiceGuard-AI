@@ -31,11 +31,12 @@ export function ScreenHeader({
         gap: 10,
       }}
     >
+      {/* 터치 영역은 44x44로 키우되(웹은 hitSlop을 무시한다) 음수 여백으로 아이콘 자리(26)만 차지하게 한다 */}
       <Pressable
-        hitSlop={10}
         onPress={onBack ?? (() => (router.canGoBack() ? router.back() : router.replace('/')))}
         accessibilityRole="button"
         accessibilityLabel="뒤로"
+        style={{ width: 44, height: 44, margin: -9, alignItems: 'center', justifyContent: 'center' }}
       >
         <Icon name="chevron-left" size={26} color={fg} />
       </Pressable>

@@ -27,10 +27,13 @@ export function Button({
   disabled?: boolean;
   style?: ViewStyle;
 }) {
-  const { colors } = useTheme();
+  const { colors, isDark } = useTheme();
   const primary = color ?? colors.primary;
+  // 다크 모드의 밝은 파랑(#3B82F6) 위 흰 글씨는 대비가 낮아, 채운 면에는 한 단계 진한 파랑을 쓴다.
+  const fill = color ?? (isDark ? colors.primaryDark : colors.primary);
+  const inactive = disabled || loading;
 
-  let bg = primary;
+  let bg = fill;
   let fg = textColor ?? colors.onPrimary;
   let border = 'transparent';
   if (variant === 'outlined') {
@@ -39,24 +42,25 @@ export function Button({
     border = primary;
   } else if (variant === 'white') {
     bg = '#FFFFFF';
-    fg = textColor ?? primary;
+    fg = textColor ?? fill;
   }
 
   return (
     <Pressable
-      onPress={disabled || loading ? undefined : onPress}
+      onPress={inactive ? undefined : onPress}
+      disabled={inactive}
       android_ripple={{ color: 'rgba(0,0,0,0.08)' }}
       style={({ pressed }) => [
         {
           minHeight: 52,
-          borderRadius: 15,
+          borderRadius: 16,
           backgroundColor: bg,
           borderWidth: variant === 'outlined' ? 1.5 : 0,
           borderColor: border,
           alignItems: 'center',
           justifyContent: 'center',
           flexDirection: 'row',
-          gap: 9,
+          gap: 8,
           paddingHorizontal: 20,
           opacity: disabled ? 0.5 : pressed ? 0.85 : 1,
         },
@@ -64,17 +68,13 @@ export function Button({
       ]}
       accessibilityRole="button"
       accessibilityLabel={title}
+      accessibilityState={{ disabled: inactive, busy: loading }}
     >
-      {loading ? (
-        <ActivityIndicator color={fg} />
-      ) : (
-        <>
-          {icon ? <Icon name={icon} size={20} color={fg} /> : null}
-          <AppText weight="700" color={fg} style={{ fontSize: 16 }}>
-            {title}
-          </AppText>
-        </>
-      )}
+      {/* 처리 중에도 제목을 남겨 무엇을 하는 중인지 알 수 있게 한다 */}
+      {loading ? <ActivityIndicator color={fg} /> : icon ? <Icon name={icon} size={20} color={fg} /> : null}
+      <AppText weight="700" color={fg} style={{ fontSize: 16 }}>
+        {title}
+      </AppText>
     </Pressable>
   );
 }

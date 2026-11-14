@@ -4,7 +4,7 @@
  * react-native-svg + react-native-reanimated로 최대한 동일하게 재현한다.
  * (RN이라 앱/웹 공통으로 동작)
  */
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { View } from 'react-native';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import Animated, {
@@ -13,6 +13,7 @@ import Animated, {
   useSharedValue,
   withDelay,
   withRepeat,
+  withSequence,
   withTiming,
 } from 'react-native-reanimated';
 import { AppText } from './AppText';
@@ -233,37 +234,60 @@ export function GuideGlyph({ size = 18, color }: { size?: number; color: string 
 
 // ───────────────────────── 합성 컴포넌트 ─────────────────────────
 
-/** 맥동 링 2개 + 중앙 마이크 오브. */
-export function MicOrb({ color, label }: { color: string; label: string }) {
+/**
+ * 맥동 링 2개 + 중앙 마이크 오브.
+ * compact: 통화 중 화면용 작은 크기(위험 카드·단계 카드가 첫 화면에 들어오도록 세로 공간을 줄인다).
+ */
+export function MicOrb({ color, label, compact = false }: { color: string; label: string; compact?: boolean }) {
+  const orb = compact ? 84 : 130;
   return (
-    <View style={{ position: 'relative', height: 190, alignItems: 'center', justifyContent: 'center', marginBottom: 6 }}>
-      <PulseRing size={180} color={color} delay={0} />
-      <PulseRing size={150} color={color} delay={600} />
+    <View style={{ position: 'relative', height: orb + (compact ? 36 : 60), alignItems: 'center', justifyContent: 'center' }}>
+      <PulseRing size={orb + (compact ? 32 : 50)} color={color} delay={0} />
+      <PulseRing size={orb + (compact ? 16 : 20)} color={color} delay={600} />
       <View
         style={{
-          width: 130,
-          height: 130,
-          borderRadius: 65,
-          backgroundColor: '#120d05',
+          width: orb,
+          height: orb,
+          borderRadius: orb / 2,
+          backgroundColor: '#0b111c',
           alignItems: 'center',
           justifyContent: 'center',
-          gap: 7,
+          gap: compact ? 4 : 8,
           borderWidth: 2,
           borderColor: rgba(color, 0.9),
           shadowColor: color,
-          shadowOpacity: 0.45,
-          shadowRadius: 22,
+          shadowOpacity: 0.3,
+          shadowRadius: compact ? 14 : 22,
           shadowOffset: { width: 0, height: 0 },
           elevation: 14,
         }}
       >
-        <MicGlyph size={34} color={color} />
-        <AppText weight="700" style={{ fontSize: 15, color }}>
+        <MicGlyph size={compact ? 24 : 34} color={color} />
+        <AppText weight="700" style={{ fontSize: compact ? 13 : 15, color }}>
           {label}
         </AppText>
       </View>
     </View>
   );
+}
+
+/**
+ * 값(trigger)이 바뀌는 순간 자식을 한 번 살짝 키웠다 되돌린다.
+ * 위험 등급이 안전 → 주의 → 위험으로 넘어갈 때 카드가 "바뀌었다"는 것을 분명히 알리는 용도.
+ */
+export function PulseOnChange({ trigger, children }: { trigger: string | number; children: React.ReactNode }) {
+  const scale = useSharedValue(1);
+  const prev = useRef(trigger);
+  useEffect(() => {
+    if (prev.current === trigger) return;
+    prev.current = trigger;
+    scale.value = withSequence(
+      withTiming(1.035, { duration: 180, easing: Easing.out(Easing.ease) }),
+      withTiming(1, { duration: 320, easing: Easing.inOut(Easing.ease) }),
+    );
+  }, [trigger, scale]);
+  const style = useAnimatedStyle(() => ({ transform: [{ scale: scale.value }] }));
+  return <Animated.View style={style}>{children}</Animated.View>;
 }
 
 /** AI 분석 카드 우측 장식 노드(궤도 회전 + 부유 코어). */
@@ -278,15 +302,19 @@ export function AiNode() {
   );
 }
 
-/** 점수 원형 게이지(디자인: r=40, stroke=8, 중앙에 점수 + 소제목). */
-export function ScoreGauge({ score, color, sub }: { score: number; color: string; sub: string }) {
-  const size = 96;
+/** 점수 원형 게이지(stroke=8, 중앙에 점수 + "%"). 앱의 다른 화면과 같은 % 단위를 쓴다. 등급 문구는 옆의 큰 글씨가 맡는다. */
+export function ScoreGauge({ score, color }: { score: number | null; color: string }) {
+  const size = 88;
   const stroke = 8;
-  const r = 40;
-  const cx = 48;
+  const r = 36;
+  const cx = size / 2;
   const C = 2 * Math.PI * r;
-  const clamped = Math.max(0, Math.min(100, score));
+  // score가 null이면(분석이 멈춤) 숫자 대신 '–'를 보이고 고리를 비워, "0%"를 안전으로 읽지 않게 한다.
+  const unknown = score === null;
+  const clamped = unknown ? 0 : Math.max(0, Math.min(100, score));
   const off = C * (1 - clamped / 100);
+  // 세 자리(100)는 고리 안쪽 폭을 넘지 않도록 글자를 줄인다.
+  const big = clamped >= 100;
   return (
     <View style={{ width: size, height: size }}>
       {/* -90° 회전으로 게이지 시작점을 12시 방향으로. (G origin 대신 Svg style 회전 → web DOM 경고 회피) */}
@@ -305,12 +333,16 @@ export function ScoreGauge({ score, color, sub }: { score: number; color: string
         />
       </Svg>
       <View style={{ position: 'absolute', left: 0, right: 0, top: 0, bottom: 0, alignItems: 'center', justifyContent: 'center' }}>
-        <AppText weight="800" style={{ fontSize: 30, color: '#f6f8fc', lineHeight: 32 }}>
-          {clamped}
-        </AppText>
-        <AppText weight="600" style={{ fontSize: 11, color, marginTop: 3 }}>
-          {sub}
-        </AppText>
+        <View style={{ flexDirection: 'row', alignItems: 'baseline' }}>
+          <AppText weight="800" style={{ fontSize: big ? 23 : 28, color: '#f6f8fc', lineHeight: 32 }}>
+            {unknown ? '–' : clamped}
+          </AppText>
+          {unknown ? null : (
+            <AppText weight="700" style={{ fontSize: big ? 12 : 15, lineHeight: 20, color: '#c9d0dc', marginLeft: 1 }}>
+              %
+            </AppText>
+          )}
+        </View>
       </View>
     </View>
   );
