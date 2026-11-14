@@ -105,19 +105,29 @@ def main() -> None:
 
     failed = [r for r in rows if r["risk_score"] is None]
     scored = [r for r in rows if r["risk_score"] is not None]
+    # 원본과, 정상 문서를 저화질 사진처럼 바꾼 변형(variant=lowq)은 나눠서 본다. 정상 원본 대부분이 깨끗한
+    # PDF 렌더라서, 화질만 보고 위조라고 하는지 확인하려는 것이다.
+    originals = [r for r in scored if not r.get("variant")]
+    lowq = [r for r in scored if r.get("variant") == "lowq"]
+    forged = [r for r in originals if r["label"] == "forged"]
     print(f"\n채점 {len(scored)}장 · 실패 {len(failed)}장 · 판독 불가 {sum(1 for r in scored if r['readable'] is False)}장")
     for threshold in (TH_WARNING, 0.5):
         print(f"\n[기준 {threshold}]")
         for split in ("dev", "test"):
-            part = [r for r in scored if r.get("split") == split]
+            part = [r for r in originals if r.get("split") == split]
             if part:
-                print(_fmt(split, _metrics(part, threshold)))
-        print(_fmt("전체", _metrics(scored, threshold)))
-        print(_fmt("문구 보이는 이미지", _metrics([r for r in scored if r.get("caption_visible")], threshold)))
-        print(_fmt("문구 없는 이미지", _metrics([r for r in scored if not r.get("caption_visible")], threshold)))
+                print(_fmt(f"원본 {split}", _metrics(part, threshold)))
+        print(_fmt("원본 전체", _metrics(originals, threshold)))
+        for name, key in (("기관 문구 보이는 원본", "caption_visible"), ("밑줄·표시 있는 원본", "annotation_visible")):
+            part = [r for r in originals if r.get(key)]
+            if part:
+                print(_fmt(name, _metrics(part, threshold)))
+        if lowq:
+            print(_fmt("저화질 정상 변형", _metrics(lowq, threshold)))
+            print(_fmt("위조 원본+저화질 정상", _metrics(forged + lowq, threshold)))
 
     by_type: dict[tuple, list] = defaultdict(list)
-    for r in scored:
+    for r in originals:
         by_type[(r["label"], r.get("doc_type", ""))].append(r)
     print(f"\n문서 유형별 (기준 {TH_WARNING} 이상을 위조로 판정한 비율)")
     for (label, doc_type), group in sorted(by_type.items()):
@@ -130,7 +140,7 @@ def main() -> None:
     ]
     print(f"\n오답 {len(wrong)}건")
     for r in wrong:
-        print(f"  [{r['label']}→{r['risk_score']:.2f}] {r['file']} · {r.get('doc_type', '')} · 판독 {r['doc_type_pred']} · 신호 {r['flags']}")
+        print(f"  [{r['label']}→{r['risk_score']:.2f}] {r['file']} ({r.get('split')}) · {r.get('doc_type', '')} · 판독 {r['doc_type_pred']} · 신호 {r['flags']}")
         print(f"      {str(r.get('explanation', ''))[:160]}")
     for r in failed:
         print(f"  [실패] {r['file']}: {r['error']}")

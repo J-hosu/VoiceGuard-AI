@@ -632,7 +632,7 @@ Claude(이미지 판독)가 보이스피싱에 쓰이는 위조 문서의 전형
 }
 ```
 
-`flags[].code`: `money_request`, `secrecy`, `threat`, `personal_contact`, `info_request`, `app_or_link`, `format_errors`, `nonexistent_office`, `messenger_delivery`, `too_good_offer`. 글자를 읽을 수 없으면 `readable: false`, `risk_score: 0`. 평가는 `python -m backend.app.eval_documents`(평가 세트 `data/eval_documents/`).
+`flags[].code`: `money_request`, `secrecy`, `threat`, `personal_contact`, `info_request`, `app_or_link`, `format_errors`, `nonexistent_office`, `messenger_delivery`, `too_good_offer`, `vendor_order`. 글자를 읽을 수 없으면 `readable: false`, `risk_score: 0`. 평가는 `python -m backend.app.eval_documents`(평가 세트 `data/eval_documents/`, 출처 목록 `backend/eval/documents_manifest.json`). 결과는 `docs/MODEL_TRAINING_LOG.md`.
 
 ### 11.2 `POST /analyze/url`
 
