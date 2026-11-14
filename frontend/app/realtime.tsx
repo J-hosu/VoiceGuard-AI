@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
-import { ActivityIndicator, Platform, Pressable, ScrollView, Vibration, View } from 'react-native';
+import { useEffect, useRef, useState } from 'react';
+import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import * as Haptics from 'expo-haptics';
+import { ActionCard, DARK_AGENT_PALETTE, FollowupCard, StageStepper, stageLabel } from '@/components/agentCards';
 import { AppText } from '@/components/AppText';
 import { HighlightedText } from '@/components/HighlightedText';
 import { Icon } from '@/components/Icon';
@@ -20,13 +20,16 @@ import {
   StopGlyph,
   rgba,
 } from '@/components/realtimeAnalysis';
+import { alertFeedback, strongerAlert, type AlertStrength } from '@/core/utils/alertFeedback';
 import { categorizeType } from '@/core/utils/keywords';
 import { type RiskLevel } from '@/core/utils/riskLevel';
 import { USE_MOCK_STT } from '@/core/config/env';
 import { evidenceBullets } from '@/data/mock/infoContent';
 import { getScenario, type Scenario } from '@/data/mock/mockScenarios';
+import type { AgentAction } from '@/data/models/types';
 import { useCallSession } from '@/hooks/useCallSession';
 import { useCallStore } from '@/state/callStore';
+import { useSettingsStore } from '@/state/settingsStore';
 import { useTranscriptStore } from '@/state/transcriptStore';
 
 /** 실사용(실기기/웹 STT) 라이브 세션: 대본 turns 없이 시작하는 통화. */
@@ -84,13 +87,33 @@ export default function Realtime() {
   // 사용자가 "분석 시작"을 누르기 전까지는 마이크/WS를 열지 않는다.
   const [started, setStarted] = useState(false);
 
-  const { state, start, finish } = useCallSession(scenario, {
+  const vibration = useSettingsStore((s) => s.vibration);
+  // 여러 행동이 한꺼번에 도착해도 가장 센 세기로 한 번만 울린다.
+  const pendingAlert = useRef<AlertStrength | null>(null);
+  const queueAlert = (strength: AlertStrength) => {
+    const merged = pendingAlert.current ? strongerAlert(pendingAlert.current, strength) : strength;
+    const scheduled = pendingAlert.current !== null;
+    pendingAlert.current = merged;
+    if (scheduled) return;
+    setTimeout(() => {
+      if (pendingAlert.current) alertFeedback(pendingAlert.current, vibration);
+      pendingAlert.current = null;
+    }, 150);
+  };
+
+  const { state, start, finish, answerFollowup } = useCallSession(scenario, {
+    onAction: (action: AgentAction) => {
+      if (finishingRef.current) return;
+      // 후속 확인은 화면에 뜨는 시점(due_in_sec 뒤)에 따로 알린다.
+      if (action.action_type === 'followup_check') return;
+      const danger =
+        action.action_type === 'block_guide' ||
+        (action.action_type === 'warn' && action.payload.level === 'danger');
+      queueAlert(danger ? 'danger' : action.action_type === 'warn' ? 'caution' : 'notice');
+    },
     onDangerCross: (s) => {
       if (finishingRef.current) return; // 종료 마무리 중엔 경고 화면으로 튀지 않음
-      if (Platform.OS !== 'web') {
-        Vibration.vibrate([0, 400, 200, 400]);
-        void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(() => {});
-      }
+      queueAlert('danger');
       router.push({
         pathname: '/warning',
         params: {
@@ -113,7 +136,40 @@ export default function Realtime() {
   const recentSet = new Set(state.turns.slice(-2).flatMap((t) => t.keywords ?? []));
   const lastTurn = state.turns[state.turns.length - 1];
   const liveText = lastTurn?.content ?? '';
-  const bullets = evidenceBullets(state.matchedPatterns).slice(0, 3);
+  // 탐지된 패턴이 없으면 빈 목록으로 둬서 "위험 신호 없음" 문구가 나오게 한다.
+  // (evidenceBullets는 빈 입력에도 기본 문구를 돌려줘 정상 통화에 의심 표시가 뜨던 문제)
+  const bullets = state.matchedPatterns.length > 0 ? evidenceBullets(state.matchedPatterns).slice(0, 3) : [];
+
+  // ── AI 대응(에이전트 행동) ──
+  // 후속 확인은 받은 뒤 due_in_sec가 지나야 화면에 띄운다(강한 경고 직후 바로 묻지 않기 위함).
+  const followupDueAt = useRef(new Map<number, number>());
+  const followupAlerted = useRef(new Set<number>());
+  for (const action of state.actions) {
+    if (action.action_type === 'followup_check' && !followupDueAt.current.has(action.id)) {
+      followupDueAt.current.set(action.id, Date.now() + (action.payload.due_in_sec ?? 0) * 1000);
+    }
+  }
+  // state.elapsedSec가 1초마다 바뀌어 다시 그려지므로 별도 타이머 없이 현재 시각과 비교한다.
+  const now = Date.now();
+  const dueFollowups = state.actions.filter(
+    (a) =>
+      a.action_type === 'followup_check' &&
+      a.payload.phase === 'in_call' &&
+      (a.status === 'answered' || (followupDueAt.current.get(a.id) ?? 0) <= now),
+  );
+  const activeFollowup = [...dueFollowups].reverse().find((a) => a.status === 'delivered');
+  // 최신 행동이 위로 오게 뒤집는다. 경고는 가장 최근 것 하나만 남긴다(주의 → 강한 경고로 바뀌면 교체).
+  const latestWarnId = [...state.actions].reverse().find((a) => a.action_type === 'warn')?.id;
+  const actionCards = state.actions
+    .filter((a) => a.action_type !== 'followup_check' && (a.action_type !== 'warn' || a.id === latestWarnId))
+    .reverse();
+
+  const activeFollowupId = activeFollowup?.id;
+  useEffect(() => {
+    if (activeFollowupId == null || followupAlerted.current.has(activeFollowupId)) return;
+    followupAlerted.current.add(activeFollowupId);
+    alertFeedback('notice', vibration);
+  }, [activeFollowupId, vibration]);
 
   // 세션 종료 → (마지막 발화 전사 대기) → 전사 로컬 저장 → 결과 화면. tab='chat'이면 대화 내용 탭으로.
   const endSession = async (tab?: 'chat') => {
@@ -222,6 +278,55 @@ export default function Realtime() {
               </AppText>
             </View>
           </View>
+
+          {/* 사기 진행 단계 (상태 추적기) */}
+          <Card>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
+              <AppText weight="700" color="#eef2f9" style={{ fontSize: 15 }}>
+                사기 진행 단계
+              </AppText>
+              {state.stageIndex > 0 ? (
+                <View style={{ backgroundColor: rgba(ui.color, 0.16), paddingHorizontal: 9, paddingVertical: 3, borderRadius: 7 }}>
+                  <AppText weight="700" style={{ fontSize: 12, color: ui.color }}>
+                    {state.phishingType || stageLabel(state.stage)}
+                  </AppText>
+                </View>
+              ) : null}
+            </View>
+            <StageStepper
+              stageIndex={state.stageIndex}
+              predictedNext={state.predictedNext}
+              color={ui.color}
+              palette={DARK_AGENT_PALETTE}
+            />
+            <AppText color={state.summary ? '#c9d0dc' : '#6f7787'} style={{ fontSize: 13, lineHeight: 20, marginTop: 13 }}>
+              {state.summary || '대화 흐름을 분석하고 있습니다. 사기 단계가 탐지되면 여기에 표시됩니다.'}
+            </AppText>
+          </Card>
+
+          {/* AI 대응: 후속 확인 질문 + 에이전트가 결정한 행동 */}
+          {activeFollowup || actionCards.length > 0 ? (
+            <Card>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 13 }}>
+                <SparkleGlyph size={18} color="#8ab4ff" />
+                <AppText weight="700" color="#eef2f9" style={{ fontSize: 15 }}>
+                  AI 대응
+                </AppText>
+              </View>
+              <View style={{ gap: 10 }}>
+                {activeFollowup ? (
+                  <FollowupCard
+                    action={activeFollowup}
+                    palette={DARK_AGENT_PALETTE}
+                    onAnswer={(answer) => answerFollowup(activeFollowup.id, answer)}
+                  />
+                ) : null}
+                {actionCards.map((action) => (
+                  <ActionCard key={action.id} action={action} palette={DARK_AGENT_PALETTE} />
+                ))}
+              </View>
+            </Card>
+          ) : null}
 
           {/* 탐지된 주요 키워드 */}
           <Card>

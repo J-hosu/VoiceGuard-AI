@@ -56,8 +56,16 @@ function Segmented<T extends string | number>({
 
 export default function Settings() {
   const { colors } = useTheme();
-  const { themeMode, largeText, dangerThreshold, setThemeMode, setLargeText, setDangerThreshold } =
-    useSettingsStore();
+  const {
+    themeMode,
+    largeText,
+    dangerThreshold,
+    vibration,
+    setThemeMode,
+    setLargeText,
+    setDangerThreshold,
+    setVibration,
+  } = useSettingsStore();
   const fetchCalls = useCallStore((s) => s.fetchCalls);
 
   return (
@@ -107,6 +115,16 @@ export default function Settings() {
                   </AppText>
                 </View>
                 <Switch value={largeText} onValueChange={setLargeText} />
+              </View>
+              <View style={{ height: 1, backgroundColor: colors.border }} />
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+                <View style={{ flex: 1 }}>
+                  <AppText style={{ fontSize: 14 }}>위험 알림 진동</AppText>
+                  <AppText color={colors.textMuted} style={{ fontSize: 12, marginTop: 2 }}>
+                    위험이 탐지되거나 AI가 대응을 안내할 때 진동으로 알립니다
+                  </AppText>
+                </View>
+                <Switch value={vibration} onValueChange={setVibration} />
               </View>
             </Card>
           </View>

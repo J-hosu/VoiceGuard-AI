@@ -87,7 +87,9 @@ def init_db() -> None:
             )
             """
         )
-        _drop_column_if_exists(connection, "call_messages", "role")
+        # v2: 상태 추적기가 채우는 발화별 화자 역할과 수법 태그.
+        _ensure_column(connection, "call_messages", "role", "TEXT DEFAULT 'unknown'")
+        _ensure_column(connection, "call_messages", "tactics", "TEXT DEFAULT '[]'")
         connection.execute(
             """
             CREATE INDEX IF NOT EXISTS idx_call_messages_log_id
@@ -130,6 +132,153 @@ def init_db() -> None:
             )
             """
         )
+        # v2: 융합 전 빠른 경로(KoELECTRA/규칙) 점수. 상태 추적기 점수와 다시 융합할 때 쓴다.
+        _ensure_column(connection, "detection_results", "fast_score", "REAL")
+        _init_v2_tables(connection)
+
+
+V2_TABLES_SQL = """
+CREATE TABLE IF NOT EXISTS devices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT DEFAULT '',
+    age_group TEXT DEFAULT '',
+    interests TEXT DEFAULT '[]',
+    consent TEXT DEFAULT '{}',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
+);
+CREATE TABLE IF NOT EXISTS guardians (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    device_id INTEGER NOT NULL,
+    channel TEXT NOT NULL DEFAULT 'telegram',
+    chat_id TEXT DEFAULT '',
+    display_name TEXT DEFAULT '',
+    status TEXT NOT NULL DEFAULT 'pending',
+    link_code TEXT DEFAULT '',
+    link_expires_at TEXT DEFAULT '',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
+);
+CREATE INDEX IF NOT EXISTS idx_guardians_device_id ON guardians(device_id);
+CREATE TABLE IF NOT EXISTS conversation_states (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_id INTEGER NOT NULL,
+    version INTEGER NOT NULL,
+    stage TEXT NOT NULL DEFAULT 'none',
+    scam_type TEXT NOT NULL DEFAULT 'none',
+    compliance TEXT NOT NULL DEFAULT 'none',
+    tracker_risk REAL NOT NULL DEFAULT 0,
+    predicted_next TEXT,
+    summary TEXT DEFAULT '',
+    last_turn_index INTEGER NOT NULL DEFAULT 0,
+    model_version TEXT DEFAULT '',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    FOREIGN KEY (log_id) REFERENCES call_logs(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_conversation_states_log_id ON conversation_states(log_id, version);
+CREATE TABLE IF NOT EXISTS agent_actions (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_id INTEGER NOT NULL,
+    state_version INTEGER NOT NULL DEFAULT 0,
+    action_type TEXT NOT NULL,
+    title TEXT NOT NULL,
+    message TEXT NOT NULL,
+    reason TEXT DEFAULT '',
+    payload TEXT DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'delivered',
+    response TEXT DEFAULT '',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    responded_at TEXT DEFAULT '',
+    FOREIGN KEY (log_id) REFERENCES call_logs(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_agent_actions_log_id ON agent_actions(log_id);
+CREATE TABLE IF NOT EXISTS call_feedback (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_id INTEGER NOT NULL,
+    verdict TEXT NOT NULL,
+    comment TEXT DEFAULT '',
+    damage TEXT DEFAULT 'null',
+    source TEXT DEFAULT 'app',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    FOREIGN KEY (log_id) REFERENCES call_logs(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_call_feedback_log_id ON call_feedback(log_id);
+CREATE TABLE IF NOT EXISTS case_entities (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_id INTEGER NOT NULL,
+    entity_type TEXT NOT NULL,
+    value TEXT NOT NULL,
+    normalized TEXT NOT NULL,
+    turn_index INTEGER,
+    context TEXT DEFAULT '',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    FOREIGN KEY (log_id) REFERENCES call_logs(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_case_entities_log_id ON case_entities(log_id);
+CREATE INDEX IF NOT EXISTS idx_case_entities_normalized ON case_entities(entity_type, normalized);
+CREATE TABLE IF NOT EXISTS evidence_files (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    log_id INTEGER NOT NULL,
+    chunk_index INTEGER NOT NULL,
+    path TEXT NOT NULL,
+    sha256 TEXT NOT NULL,
+    prev_hash TEXT DEFAULT '',
+    chain_hash TEXT NOT NULL,
+    size INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    FOREIGN KEY (log_id) REFERENCES call_logs(id) ON DELETE CASCADE
+);
+CREATE INDEX IF NOT EXISTS idx_evidence_files_log_id ON evidence_files(log_id, chunk_index);
+CREATE TABLE IF NOT EXISTS knowledge_cards (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    title TEXT NOT NULL,
+    scam_type TEXT NOT NULL DEFAULT 'other',
+    summary TEXT DEFAULT '',
+    script_phrases TEXT DEFAULT '[]',
+    red_flags TEXT DEFAULT '[]',
+    recommended_actions TEXT DEFAULT '[]',
+    target_groups TEXT DEFAULT '[]',
+    source_name TEXT DEFAULT '',
+    source_url TEXT DEFAULT '',
+    published_at TEXT DEFAULT '',
+    content_hash TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    reviewer TEXT DEFAULT '',
+    reviewed_at TEXT DEFAULT '',
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
+);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_knowledge_cards_hash ON knowledge_cards(content_hash);
+CREATE TABLE IF NOT EXISTS detection_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    card_id INTEGER,
+    pattern_label TEXT NOT NULL,
+    regex TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    eval_run_id INTEGER,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
+);
+CREATE TABLE IF NOT EXISTS eval_runs (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    target TEXT NOT NULL,
+    metrics TEXT DEFAULT '{}',
+    passed INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
+);
+CREATE TABLE IF NOT EXISTS webhook_events (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    event TEXT NOT NULL,
+    payload TEXT DEFAULT '{}',
+    status TEXT NOT NULL DEFAULT 'pending',
+    attempts INTEGER NOT NULL DEFAULT 0,
+    created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime')),
+    sent_at TEXT DEFAULT ''
+);
+"""
+
+
+def _init_v2_tables(connection: sqlite3.Connection) -> None:
+    """v2(능동형 대응 루프·수사 지원) 테이블을 만든다. docs/API_SPEC_V2.md 3절 참고."""
+    for statement in V2_TABLES_SQL.split(";"):
+        if statement.strip():
+            connection.execute(statement)
 
 
 def _ensure_column(

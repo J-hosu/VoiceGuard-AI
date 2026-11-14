@@ -31,7 +31,8 @@ from backend.app.schemas import (
     ImportResult,
     TrainingCase,
 )
-from backend.app.services import audio_transcriber, call_analyzer
+from backend.app import state_repository
+from backend.app.services import agent_loop, audio_transcriber, call_analyzer
 
 
 router = APIRouter()
@@ -335,7 +336,24 @@ async def retranscribe_call_audio(
             )
         )
 
-    detection = await asyncio.to_thread(call_analyzer.detect_and_persist, log_id=log_id, top_k=top_k)
+    # 실시간 대응 루프가 돌던 통화면(v2) 교체된 발화로 상태를 다시 추적해, 결과 화면의
+    # 위험도·단계·역할이 실시간 화면과 같은 기준(융합 점수)으로 나오게 한다.
+    agent_tracked = state_repository.get_latest_state(log_id) is not None
+    detection = await asyncio.to_thread(
+        call_analyzer.detect_and_persist,
+        log_id=log_id,
+        top_k=top_k,
+        use_llm_evidence=not agent_tracked,
+        agent_mode=agent_tracked,
+    )
+    if agent_tracked:
+        retracked = await asyncio.to_thread(agent_loop.retrack, log_id)
+        if retracked is not None:
+            detection = retracked
+        # Whisper는 화자를 나누지 않으므로, 추적기가 내용으로 추정한 역할을 화자 라벨로 쓴다.
+        roles = {m["turn_index"]: m["role"] for m in state_repository.list_tagged_messages(log_id)}
+        for message, segment in zip(saved_messages, segments):
+            segment["speaker"] = "화자B" if roles.get(message.turn_index) == "user" else "화자A"
     converted_text = audio_transcriber.join_transcript_texts([message.content for message in saved_messages])
 
     response = {

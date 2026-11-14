@@ -15,6 +15,8 @@ from backend.app.repository import (
     list_call_messages,
     save_detection_result,
 )
+from backend.app import state_repository
+from backend.app.codes import tactics_to_patterns
 from backend.app.schemas import NotificationCreate
 from backend.app.services import claude_client
 from backend.app.services.koelectra_scorer import MODEL_DIR, TH_DANGER, TH_WARNING, KoElectraScorer, risk_level_of
@@ -31,6 +33,14 @@ _koelectra_missing_logged = False
 # 다시 읽혀 재검토한다. 이 범위 밖(특히 90%대 오탐)은 별도의 근거 기반 보정으로 처리한다.
 GRAY_ZONE_LOW = 0.30
 GRAY_ZONE_HIGH = 0.75
+
+# v2 융합: 빠른 경로 점수의 가중치(나머지는 상태 추적기 점수).
+FUSION_FAST_WEIGHT = 0.3
+# 추적기가 이 단계 이상을 확신하면 융합 점수를 주의/강한경고 기준선 아래로 내리지 않는다.
+STAGE_FLOOR_WARNING = 3  # pressure(위기 조성) 이상
+STAGE_FLOOR_DANGER = 5  # extraction(정보·앱 요구) 이상
+# 추적기 점수가 이 이상이면(통화를 의심하는 동안) 빠른 경로 점수의 통화 중 최고값을 유지한다.
+FAST_HOLD_TRACKER_RISK = 0.5
 
 
 async def preload_koelectra_model() -> None:
@@ -50,11 +60,20 @@ def clear_detector_index() -> None:
     detector.clear_index()
 
 
-def detect_and_persist(log_id: int, top_k: int = 5, use_llm_evidence: bool = True) -> dict:
+def detect_and_persist(
+    log_id: int,
+    top_k: int = 5,
+    use_llm_evidence: bool = True,
+    agent_mode: bool = False,
+) -> dict:
     """
     누적 통화 내용을 탐지하고 결과와 필요 알림 이력을 DB에 저장한다.
 
     위험도 점수는 KoELECTRA가 우선 담당하고, RAG/규칙 탐지는 근거와 키워드 생성에 사용한다.
+
+    agent_mode=True(v2 실시간 경로)면 회색지대 LLM 재검토를 건너뛰고, 대화 상태 추적기의
+    최신 상태가 있을 때 그 점수와 융합한다. 추적기가 통화 전체를 읽고 의도를 판단하므로
+    같은 일을 하는 재검토 호출을 빠른 경로에서 한 번 더 할 필요가 없다.
     """
     call_text = build_call_text(log_id)
     koelectra_score = _score_with_koelectra(log_id)
@@ -72,22 +91,36 @@ def detect_and_persist(log_id: int, top_k: int = 5, use_llm_evidence: bool = Tru
         risk_score_override=koelectra_score,
         use_llm_evidence=use_llm_evidence,
     )
+    retrieved_case_ids = [case.id for case in detection.retrieved_cases]
+    base_model_version = "rag-v1" if koelectra_score is None else "koelectra-v1"
+    fast_score = detection.risk_score if koelectra_score is None else koelectra_score
+
+    state = state_repository.get_latest_state(log_id) if agent_mode else None
+    if state is not None:
+        return _persist_fused(
+            log_id=log_id,
+            fast_score=fast_score,
+            state=state,
+            rule_patterns=detection.matched_patterns,
+            fallback_evidence=detection.core_evidence,
+            retrieved_case_ids=retrieved_case_ids,
+            base_model_version=base_model_version,
+        )
+
     if koelectra_score is None:
         risk_score = detection.risk_score
         risk_level = detection.risk_level
         is_phishing = detection.is_phishing
-        model_version = "rag-v1"
     else:
         risk_score = koelectra_score
         risk_level = risk_level_of(koelectra_score)
         is_phishing = koelectra_score >= TH_WARNING
-        model_version = "koelectra-v1"
 
     # 룰 매칭 근거가 하나도 없으면 KoELECTRA 단독 판단이므로 신뢰도가 낮다.
     # 이 경우 회색지대 상한을 강한경고 직전(TH_DANGER)까지 넓혀, "패턴 없는 80%대"
     # 같은 애매한 고점수(예: 정상 대출 문의 오탐)도 LLM 재검토를 받게 한다.
     gray_zone_high = GRAY_ZONE_HIGH if detection.matched_patterns else TH_DANGER
-    if GRAY_ZONE_LOW <= risk_score < gray_zone_high:
+    if not agent_mode and GRAY_ZONE_LOW <= risk_score < gray_zone_high:
         llm_probability = _gray_zone_llm_review(
             text=call_text,
             risk_score=risk_score,
@@ -102,19 +135,135 @@ def detect_and_persist(log_id: int, top_k: int = 5, use_llm_evidence: bool = Tru
                 risk_level = detector._risk_level(risk_score)
                 is_phishing = risk_score >= 0.6
 
-    detected_label = 1 if is_phishing else 0
-    retrieved_case_ids = [case.id for case in detection.retrieved_cases]
-    previous_level = get_call_log(log_id).risk_level
+    return _persist_detection(
+        log_id=log_id,
+        risk_score=risk_score,
+        risk_level=risk_level,
+        is_phishing=is_phishing,
+        matched_patterns=detection.matched_patterns,
+        core_evidence=detection.core_evidence,
+        retrieved_case_ids=retrieved_case_ids,
+        model_version=base_model_version,
+        fast_score=fast_score,
+    )
 
+
+def fuse_risk(fast_score: Optional[float], state: dict) -> float:
+    """빠른 경로 점수와 상태 추적기 점수를 하나의 위험도로 합친다.
+
+    추적기는 통화 전체의 의도를 읽으므로 더 큰 가중치를 준다. 빠른 경로는 추적기가
+    따라오기 전(수 초)의 조기 신호 역할이다. 추적기가 사기 단계를 확신하면 빠른 경로가
+    낮게 보더라도(룰셋이 모르는 신종 수법) 경고 기준선 아래로 내려가지 않게 받친다.
+    """
+    tracker_risk = float(state["tracker_risk"])
+    if fast_score is None:
+        fused = tracker_risk
+    else:
+        fused = FUSION_FAST_WEIGHT * fast_score + (1 - FUSION_FAST_WEIGHT) * tracker_risk
+
+    stage = int(state["stage_index"])
+    if stage >= STAGE_FLOOR_WARNING and tracker_risk >= TH_WARNING:
+        fused = max(fused, TH_WARNING)
+    if stage >= STAGE_FLOOR_DANGER and tracker_risk >= TH_DANGER:
+        fused = max(fused, TH_DANGER)
+    return round(max(0.0, min(1.0, fused)), 4)
+
+
+def _held_fast_score(log_id: int, fast_score: Optional[float], state: dict) -> Optional[float]:
+    """조각난 실시간 전사에서 빠른 경로 점수가 청크마다 출렁이는 것을 받친다.
+
+    문장이 쪼개져 들어오면 KoELECTRA 점수가 한 청크 사이에 0.96 → 0.02처럼 튄다(추적기 점수는
+    완만하게 움직인다). 추적기가 통화를 의심하는 동안에는 통화 중 가장 높았던 빠른 경로 점수를
+    유지해, 위험도가 경고 기준선 위아래로 오르내리지 않게 한다. 추적기가 정상 쪽으로 보면
+    현재 점수만 쓰므로 정상 통화의 일시적 고점은 남지 않는다.
+    """
+    if fast_score is None or float(state["tracker_risk"]) < FAST_HOLD_TRACKER_RISK:
+        return fast_score
+    peak = state_repository.get_peak_fast_score(log_id)
+    return fast_score if peak is None else max(fast_score, peak)
+
+
+def apply_state_fusion(log_id: int) -> Optional[dict]:
+    """상태 추적기가 새 상태를 만든 직후, 최신 빠른 경로 점수와 융합해 통화 위험도를 갱신한다."""
+    state = state_repository.get_latest_state(log_id)
+    if state is None:
+        return None
+
+    latest = state_repository.get_latest_detection(log_id)
+    return _persist_fused(
+        log_id=log_id,
+        fast_score=state_repository.get_latest_fast_score(log_id),
+        state=state,
+        rule_patterns=detector.rule_detector.find(build_call_text(log_id)),
+        fallback_evidence=latest["core_evidence"] if latest else "",
+        retrieved_case_ids=latest["retrieved_case_ids"] if latest else [],
+        base_model_version="tracker",
+    )
+
+
+def _persist_fused(
+    log_id: int,
+    fast_score: Optional[float],
+    state: dict,
+    rule_patterns: list[str],
+    fallback_evidence: str,
+    retrieved_case_ids: list[int],
+    base_model_version: str,
+) -> dict:
+    """융합 점수로 탐지 결과를 저장한다. 근거 문장은 추적기 요약을 우선 사용한다."""
+    risk_score = fuse_risk(_held_fast_score(log_id, fast_score, state), state)
+    is_phishing = risk_score >= TH_WARNING
+
+    # 규칙 패턴에 추적기가 붙인 수법 태그를 더해 근거 키워드로 쓴다.
+    matched_patterns = list(rule_patterns)
+    tagged_tactics = [
+        tactic
+        for message in state_repository.list_tagged_messages(log_id)
+        for tactic in message["tactics"]
+    ]
+    for pattern in tactics_to_patterns(tagged_tactics):
+        if pattern not in matched_patterns:
+            matched_patterns.append(pattern)
+
+    return _persist_detection(
+        log_id=log_id,
+        risk_score=risk_score,
+        risk_level=risk_level_of(risk_score),
+        is_phishing=is_phishing,
+        matched_patterns=matched_patterns,
+        core_evidence=state["summary"] or fallback_evidence,
+        retrieved_case_ids=retrieved_case_ids,
+        model_version=f"fusion-v1({base_model_version})",
+        fast_score=fast_score,
+        phishing_type=state["phishing_type"] if state["scam_type"] != "none" else None,
+    )
+
+
+def _persist_detection(
+    log_id: int,
+    risk_score: float,
+    risk_level: str,
+    is_phishing: bool,
+    matched_patterns: list[str],
+    core_evidence: str,
+    retrieved_case_ids: list[int],
+    model_version: str,
+    fast_score: Optional[float] = None,
+    phishing_type: Optional[str] = None,
+) -> dict:
+    """탐지 결과를 저장하고, 처음 high가 됐으면 알림 이력을 남긴 뒤 응답용 dict를 만든다."""
+    previous_level = get_call_log(log_id).risk_level
     saved_result = save_detection_result(
         log_id=log_id,
         risk_score=risk_score,
         risk_level=risk_level,
-        detected_label=detected_label,
-        core_evidence=detection.core_evidence,
-        matched_patterns=detection.matched_patterns,
+        detected_label=1 if is_phishing else 0,
+        core_evidence=core_evidence,
+        matched_patterns=matched_patterns,
         retrieved_case_ids=retrieved_case_ids,
         model_version=model_version,
+        phishing_type=phishing_type,
+        fast_score=fast_score,
     )
 
     notification = None
@@ -122,7 +271,7 @@ def detect_and_persist(log_id: int, top_k: int = 5, use_llm_evidence: bool = Tru
         notification = insert_notification(
             log_id=log_id,
             notification=NotificationCreate(
-                reason=detection.core_evidence,
+                reason=core_evidence or "보이스피싱 위험이 높게 탐지되었습니다.",
                 message="보이스피싱 위험이 높게 탐지되었습니다. 통화를 종료하고 공식 대표번호로 확인하세요.",
                 status="sent",
             ),
@@ -134,9 +283,10 @@ def detect_and_persist(log_id: int, top_k: int = 5, use_llm_evidence: bool = Tru
         "is_phishing": is_phishing,
         "risk_level": risk_level,
         "risk_score": round(risk_score, 4),
+        "previous_risk_level": previous_level,
         "phishing_type": latest_call.phishing_type,
-        "matched_patterns": detection.matched_patterns,
-        "core_evidence": detection.core_evidence,
+        "matched_patterns": matched_patterns,
+        "core_evidence": core_evidence,
         "saved_result": saved_result.model_dump(),
         "notification": _compact_notification(notification.model_dump()) if notification else None,
     }

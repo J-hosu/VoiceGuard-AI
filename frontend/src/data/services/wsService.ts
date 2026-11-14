@@ -21,6 +21,12 @@ export interface AnalyzeConnection {
   sendMessage(role: string, content: string, turnIndex: number): void;
   /** 오디오 청크 전송 (웹 실시간: WAV base64) */
   sendAudioChunk(base64: string, chunkIndex: number): void;
+  /** 에이전트 행동 카드에 대한 반응 (확인/닫기) */
+  sendActionResponse(actionId: number, response: 'acknowledged' | 'dismissed'): void;
+  /** 후속 확인 질문에 대한 답 */
+  sendFollowupAnswer(actionId: number, answer: string): void;
+  /** 통화 종료 알림. 서버가 마지막 상태를 확정하고 call_ended를 보낸다. */
+  sendEnd(): void;
   close(): void;
 }
 
@@ -97,6 +103,15 @@ class MockAnalyzeConnection implements AnalyzeConnection {
   // 목은 오디오 전사 능력이 없으므로 청크는 무시한다(실제 백엔드에서만 동작).
   sendAudioChunk(_base64: string, _chunkIndex: number) {}
 
+  // 목 분석기에는 대응 에이전트가 없다. 종료 알림에만 바로 응답한다.
+  sendActionResponse(_actionId: number, _response: 'acknowledged' | 'dismissed') {}
+
+  sendFollowupAnswer(_actionId: number, _answer: string) {}
+
+  sendEnd() {
+    this.emit({ type: 'call_ended', log_id: this.logId, final: {} });
+  }
+
   close() {
     this.closed = true;
     this.cb = null;
@@ -144,7 +159,8 @@ class RealAnalyzeConnection implements AnalyzeConnection {
       // 오디오(실시간 스트리밍) 세션: 이후 audio_chunk(WAV) 프레임을 전송한다.
       this.send({ type: 'start', device_id: DEVICE_ID, name, file_type: 'realtime', audio_format: 'wav' });
     } else {
-      this.send({ type: 'start', device_id: DEVICE_ID, name });
+      // 텍스트 발화 경로도 file_type을 명시한다(백엔드 start 검증 요구).
+      this.send({ type: 'start', device_id: DEVICE_ID, name, file_type: 'realtime' });
     }
   }
 
@@ -155,6 +171,18 @@ class RealAnalyzeConnection implements AnalyzeConnection {
   sendAudioChunk(base64: string, chunkIndex: number) {
     // API_SPEC 7: base64 JSON 방식(chunk_index로 응답 상관관계 추적 용이).
     this.send({ type: 'audio_chunk', chunk_index: chunkIndex, audio_format: 'wav', audio_base64: base64 });
+  }
+
+  sendActionResponse(actionId: number, response: 'acknowledged' | 'dismissed') {
+    this.send({ type: 'action_response', action_id: actionId, response });
+  }
+
+  sendFollowupAnswer(actionId: number, answer: string) {
+    this.send({ type: 'followup_answer', action_id: actionId, answer });
+  }
+
+  sendEnd() {
+    this.send({ type: 'end' });
   }
 
   close() {

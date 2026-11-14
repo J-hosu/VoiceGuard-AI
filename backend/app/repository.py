@@ -497,18 +497,27 @@ def save_detection_result(
     matched_patterns: list[str],
     retrieved_case_ids: list[int],
     model_version: str = "rag-v1",
+    phishing_type: Optional[str] = None,
+    fast_score: Optional[float] = None,
 ) -> DetectionResult:
-    """탐지 결과를 저장하고 통화 로그의 최신 상태를 갱신한다."""
+    """탐지 결과를 저장하고 통화 로그의 최신 상태를 갱신한다.
+
+    phishing_type을 주면(v2 상태 추적기의 유형) 패턴 기반 추정 대신 그 값을 쓴다.
+    fast_score는 상태 추적기 점수와 융합하기 전의 빠른 경로 점수다.
+    """
     status = "phishing" if detected_label == 1 else "normal"
-    phishing_type = _infer_phishing_type(matched_patterns, detected_label)
+    if detected_label != 1:
+        phishing_type = ""
+    elif not phishing_type:
+        phishing_type = _infer_phishing_type(matched_patterns, detected_label)
     with get_connection() as connection:
         cursor = connection.execute(
             """
             INSERT INTO detection_results(
                 log_id, risk_score, risk_level, detected_label, core_evidence,
-                matched_patterns, retrieved_case_ids, model_version
+                matched_patterns, retrieved_case_ids, model_version, fast_score
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 log_id,
@@ -519,6 +528,7 @@ def save_detection_result(
                 json.dumps(matched_patterns, ensure_ascii=False),
                 json.dumps(retrieved_case_ids, ensure_ascii=False),
                 model_version,
+                fast_score,
             ),
         )
         result_id = int(cursor.lastrowid)

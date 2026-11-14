@@ -13,11 +13,92 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from backend.app.api.response_logger import log_api_request, log_api_response
 from backend.app.repository import create_call_log, get_call_log, insert_call_message, list_call_messages
 from backend.app.schemas import CallLogCreate, CallMessageCreate
-from backend.app.services import audio_transcriber, call_analyzer
+from backend.app.services import agent_loop, audio_transcriber, call_analyzer, response_agent
 
 
 logger = logging.getLogger(__name__)
 router = APIRouter()
+
+# 연결이 끊긴 뒤에도 끝까지 돌아야 하는 마무리 작업(통화 종료 처리)의 참조를 잡아 둔다.
+_background_tasks: set[asyncio.Task] = set()
+
+
+class _AgentSession:
+    """WebSocket 연결 하나에 붙는 능동형 대응 루프 실행기.
+
+    오디오 응답(빠른 경로)을 막지 않도록 상태 추적·대응 결정은 별도 태스크에서 돈다.
+    한 번에 한 사이클만 실행하고, 도는 동안 새 발화가 오면 끝난 뒤 한 번 더 돈다.
+    """
+
+    def __init__(self, websocket: WebSocket) -> None:
+        self.websocket = websocket
+        self.log_id: Optional[int] = None
+        self.enabled = True
+        self.ended = False
+        self._task: Optional[asyncio.Task] = None
+        self._dirty = False
+
+    def notify(self) -> None:
+        """새 발화가 저장됐음을 알린다."""
+        if not self.enabled or self.ended or self.log_id is None:
+            return
+        if self._task is not None and not self._task.done():
+            self._dirty = True
+            return
+        self._task = asyncio.create_task(self._run())
+
+    async def _run(self) -> None:
+        while True:
+            self._dirty = False
+            try:
+                cycle = await asyncio.to_thread(agent_loop.run_cycle, self.log_id)
+            except Exception:
+                logger.exception("능동형 대응 루프 실행 실패")
+                cycle = None
+            if cycle:
+                await self.emit(cycle["state_update"], cycle["actions"])
+            if not self._dirty:
+                return
+
+    async def emit(self, state_update: Optional[dict], actions: list[dict]) -> None:
+        """상태 갱신과 행동을 클라이언트로 보낸다. agent_action은 action.id 기준 upsert다."""
+        if state_update:
+            await _send_json(self.websocket, state_update)
+        for action in actions:
+            await _send_json(
+                self.websocket,
+                {"type": "agent_action", "log_id": action["log_id"], "action": action},
+            )
+
+    async def finish(self, send: bool) -> Optional[dict]:
+        """통화를 마무리한다. 진행 중인 사이클을 기다린 뒤 마지막 상태와 통화 후 행동을 만든다."""
+        if self.ended or self.log_id is None:
+            return None
+        self.ended = True
+        if self._task is not None and not self._task.done():
+            await asyncio.wait([self._task])
+
+        if not self.enabled:
+            call = get_call_log(self.log_id)
+            result = {
+                "state_update": None,
+                "actions": [],
+                "final": {"risk_score": round(call.risk_score, 4), "risk_level": call.risk_level},
+            }
+        else:
+            try:
+                result = await asyncio.to_thread(agent_loop.end_call, self.log_id)
+            except Exception:
+                logger.exception("통화 종료 처리 실패")
+                return None
+
+        if send:
+            await self.emit(result["state_update"], result["actions"])
+            await _send_json(
+                self.websocket,
+                {"type": "call_ended", "log_id": self.log_id, "final": result["final"]},
+            )
+        return result
 
 
 @router.websocket("/ws/calls/analyze")
@@ -29,6 +110,9 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
     mp3/wav도 테스트/호환 목적으로 지원하며, 기존 JSON 텍스트 메시지도 유지한다.
     """
     await websocket.accept()
+    # 오디오 응답과 비동기 상태 갱신이 같은 소켓에 동시에 쓰지 않도록 전송을 직렬화한다.
+    websocket.state.send_lock = asyncio.Lock()
+    agent = _AgentSession(websocket)
     log_id: Optional[int] = None
     audio_format = "m4a"
     chunk_index = 0
@@ -70,9 +154,12 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                     audio_bytes=packet["bytes"] or b"",
                     audio_format=audio_format,
                     chunk_index=chunk_index,
+                    agent_mode=agent.enabled,
                 )
                 if not await _send_json(websocket, response):
                     return
+                if response.get("message_count"):
+                    agent.notify()
                 continue
 
             if packet.get("text") is None:
@@ -123,6 +210,8 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                 )
                 log_id = call.id
                 chunk_index = 0
+                agent.log_id = log_id
+                agent.enabled = bool(payload.get("agent", True))
                 if not await _send_json(
                     websocket,
                     {
@@ -154,9 +243,25 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                     audio_bytes=raw_audio,
                     audio_format=chunk_format,
                     chunk_index=chunk_index,
+                    agent_mode=agent.enabled,
                 )
                 if not await _send_json(websocket, response):
                     return
+                if response.get("message_count"):
+                    agent.notify()
+                continue
+
+            if event_type in ("action_response", "followup_answer"):
+                if not await _handle_action_event(websocket, agent, log_id, event_type, payload):
+                    return
+                continue
+
+            if event_type == "end":
+                if log_id is None:
+                    if not await _send_json(websocket, {"type": "error", "message": "종료할 통화가 없습니다."}):
+                        return
+                    continue
+                await agent.finish(send=True)
                 continue
 
             if event_type != "message":
@@ -186,6 +291,9 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                 call_analyzer.detect_and_persist,
                 log_id=log_id,
                 top_k=int(payload.get("top_k", 5)),
+                # 대응 루프가 켜져 있으면 근거 문장은 상태 추적기 요약이 대신한다.
+                use_llm_evidence=not agent.enabled,
+                agent_mode=agent.enabled,
             )
             response = call_analyzer.build_client_text_analysis_response(
                 log_id,
@@ -194,19 +302,60 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
             )
             if not await _send_json(websocket, response):
                 return
+            agent.notify()
     except WebSocketDisconnect:
         return
     except Exception as exc:
         logger.exception("WebSocket 실시간 분석 처리 실패")
         await _send_json(websocket, {"type": "error", "message": str(exc)})
         await _close_websocket(websocket)
+    finally:
+        # 클라이언트가 end 없이 끊어도 마지막 상태와 통화 후 행동은 남긴다(REST로 조회 가능).
+        if not agent.ended and agent.log_id is not None:
+            task = asyncio.create_task(agent.finish(send=False))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
+
+
+async def _handle_action_event(
+    websocket: WebSocket,
+    agent: _AgentSession,
+    log_id: Optional[int],
+    event_type: str,
+    payload: dict,
+) -> bool:
+    """행동 카드 반응(action_response)과 후속 확인 답(followup_answer)을 처리한다."""
+    if log_id is None:
+        return await _send_json(websocket, {"type": "error", "message": "진행 중인 통화가 없습니다."})
+
+    try:
+        action_id = int(payload.get("action_id"))
+        if event_type == "followup_answer":
+            result = await asyncio.to_thread(
+                response_agent.handle_response, log_id, action_id, "answered", payload.get("answer")
+            )
+        else:
+            result = await asyncio.to_thread(
+                response_agent.handle_response, log_id, action_id, str(payload.get("response", ""))
+            )
+    except (TypeError, ValueError) as exc:
+        return await _send_json(websocket, {"type": "error", "message": str(exc)})
+
+    # 갱신된 행동과 새 행동을 같은 agent_action 이벤트로 보낸다(클라이언트는 id로 upsert).
+    await agent.emit(None, [result["action"], *result["next_actions"]])
+    return True
 
 
 async def _send_json(websocket: WebSocket, payload: dict) -> bool:
     """닫혔거나 닫히는 중인 WebSocket에는 응답을 보내지 않는다."""
     try:
         log_api_response("WS /ws/calls/analyze", payload)
-        await websocket.send_json(payload)
+        lock = getattr(websocket.state, "send_lock", None)
+        if lock is None:
+            await websocket.send_json(payload)
+        else:
+            async with lock:
+                await websocket.send_json(payload)
         return True
     except (RuntimeError, WebSocketDisconnect):
         logger.info("이미 종료된 WebSocket이라 응답 전송을 생략합니다.")
@@ -226,6 +375,7 @@ async def _handle_audio_chunk(
     audio_bytes: bytes,
     audio_format: str,
     chunk_index: int,
+    agent_mode: bool = False,
 ) -> dict:
     """실시간 오디오 chunk를 전사하고 누적 통화 분석 응답을 만든다."""
     started_at = time.monotonic()
@@ -293,6 +443,7 @@ async def _handle_audio_chunk(
         call_analyzer.detect_and_persist,
         log_id=log_id,
         use_llm_evidence=False,
+        agent_mode=agent_mode,
     )
     analyzed_at = time.monotonic()
     response = call_analyzer.build_client_audio_analysis_response(

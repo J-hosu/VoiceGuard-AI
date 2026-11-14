@@ -9,7 +9,7 @@
  * (POST /calls/analyze-audio → log_id 발급, 실시간 WS start → 통화 로그 생성).
  */
 import { BASE_URL_HTTP } from '@/core/config/env';
-import type { BackendRiskLevel } from '@/data/models/types';
+import type { AgentAction, BackendRiskLevel, CallTimeline } from '@/data/models/types';
 
 /** GET /calls 목록 항목 */
 export interface CallListItem {
@@ -70,4 +70,46 @@ export async function fetchCallDetail(id: number): Promise<CallDetail> {
     matched_patterns: Array.isArray(data.matched_patterns) ? data.matched_patterns : [],
     core_evidence: data.core_evidence ?? '',
   };
+}
+
+// ───────────────────────── v2: 능동형 대응 루프 (API_SPEC_V2 5절) ─────────────────────────
+
+/** 단계 전환·태그된 발화·에이전트 행동 타임라인 */
+export async function fetchTimeline(id: number): Promise<CallTimeline> {
+  const res = await fetch(`${BASE_URL_HTTP}/calls/${id}/timeline`);
+  if (!res.ok) throw new Error(`타임라인 조회 실패 (${res.status})`);
+  const data = (await res.json()) as Partial<CallTimeline>;
+  return {
+    log_id: data.log_id ?? id,
+    stages: Array.isArray(data.stages) ? data.stages : [],
+    messages: Array.isArray(data.messages) ? data.messages : [],
+    actions: Array.isArray(data.actions) ? data.actions : [],
+  };
+}
+
+/** 행동 카드 반응 또는 후속 확인 답. 갱신된 행동과 이어지는 새 행동을 돌려준다. */
+export async function respondToAction(
+  logId: number,
+  actionId: number,
+  body: { response: 'acknowledged' | 'dismissed' | 'answered'; answer?: string },
+): Promise<{ action: AgentAction; next_actions: AgentAction[] }> {
+  const res = await fetch(`${BASE_URL_HTTP}/calls/${logId}/actions/${actionId}/respond`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ ...body, source: 'app' }),
+  });
+  if (!res.ok) throw new Error(`응답 전송 실패 (${res.status})`);
+  return (await res.json()) as { action: AgentAction; next_actions: AgentAction[] };
+}
+
+export type FeedbackVerdict = 'false_positive' | 'confirmed_phishing' | 'missed_phishing' | 'unsure';
+
+/** 통화 판정에 대한 피드백(오탐 신고 등) */
+export async function sendFeedback(logId: number, verdict: FeedbackVerdict, comment = ''): Promise<void> {
+  const res = await fetch(`${BASE_URL_HTTP}/calls/${logId}/feedback`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ verdict, comment }),
+  });
+  if (!res.ok) throw new Error(`피드백 전송 실패 (${res.status})`);
 }

@@ -1,5 +1,5 @@
 import type { Scenario } from '@/data/mock/mockScenarios';
-import type { RecognizedTurn, SttService } from './sttMock';
+import { MockSttService, type RecognizedTurn, type SttService } from './sttMock';
 
 export type { RecognizedTurn, SttService } from './sttMock';
 
@@ -90,9 +90,10 @@ class WebSpeechSttService implements SttService {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-export function createSttService(_scenario: Scenario, _speed = 1): SttService {
-  // 웹 실시간 STT는 브라우저 음성인식만 사용한다(목 폴백 제거).
-  // 미지원 브라우저(크롬/엣지 외)에서는 start() 시 onError로 안내한다.
+export function createSttService(scenario: Scenario, speed = 1): SttService {
+  // 대본이 있는 데모 시나리오(/realtime?scenario=...)는 대본을 시간축대로 재생한다.
+  // 웹 라이브 세션은 오디오 스트리밍 경로를 쓰므로 여기로 오지 않는다.
+  if (scenario.turns.length > 0) return new MockSttService(scenario, speed);
+  // 그 밖에는 브라우저 음성인식을 사용한다. 미지원 브라우저에서는 start() 시 onError로 안내한다.
   return new WebSpeechSttService();
 }

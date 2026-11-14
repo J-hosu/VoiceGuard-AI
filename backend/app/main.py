@@ -15,10 +15,12 @@ try:
 except ModuleNotFoundError:
     load_dotenv = None
 
+from backend.app.api.agent_routes import router as agent_router
 from backend.app.api.routes import router as rest_router
 from backend.app.api.websocket import router as websocket_router
 from backend.app.database import init_db
 from backend.app.paths import ENV_PATH
+from backend.app.services import agent_loop
 from backend.app.services.call_analyzer import preload_koelectra_model
 
 
@@ -70,7 +72,10 @@ async def lifespan(app: FastAPI):
     init_db()
     await preload_koelectra_model()
     await preload_whisper_model()
+    # 구조화 출력 스키마 준비 호출은 수십 초가 걸릴 수 있어 서버 시작을 막지 않고 뒤에서 돌린다.
+    warm_up_task = asyncio.create_task(asyncio.to_thread(agent_loop.warm_up))
     yield
+    warm_up_task.cancel()
 
 
 app = FastAPI(
@@ -88,4 +93,5 @@ app.add_middleware(
     allow_headers=["*"],
 )
 app.include_router(rest_router)
+app.include_router(agent_router)
 app.include_router(websocket_router)

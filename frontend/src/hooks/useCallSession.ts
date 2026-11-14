@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { categorizeType, extractKeywords } from '@/core/utils/keywords';
 import { riskLevelFromScore, type RiskLevel } from '@/core/utils/riskLevel';
-import type { AnalysisEvent, CallResult, TranscriptTurn } from '@/data/models/types';
+import type { AgentAction, AnalysisEvent, CallResult, ScamStage, TranscriptTurn } from '@/data/models/types';
 import type { Scenario } from '@/data/mock/mockScenarios';
 import { createSttService, type SttService } from '@/data/services/sttService';
 import { createAudioCapture, type AudioCaptureService } from '@/data/services/audioCapture';
@@ -22,6 +22,13 @@ export interface CallSessionState {
   paused: boolean; // 분석 일시정지 상태 (오디오 캡처만 멈추고 WS 세션은 유지)
   finished: boolean;
   error: string | null; // 백엔드 연결/분석 오류 (실사용 시 표시)
+  // ── v2 능동형 대응 루프 (state_update / agent_action) ──
+  stage: ScamStage; // 지금까지 도달한 사기 단계
+  stageIndex: number; // 0(없음)~6(금전 요구)
+  phishingType: string; // 사기 유형 표시 문자열
+  predictedNext: ScamStage | null; // 다음 예상 단계
+  summary: string; // AI가 요약한 현재 상황
+  actions: AgentAction[]; // 에이전트가 결정한 행동(받은 순서)
 }
 
 /**
@@ -31,7 +38,12 @@ export interface CallSessionState {
  */
 export function useCallSession(
   scenario: Scenario,
-  opts: { speed?: number; onDangerCross?: (s: CallSessionState) => void } = {},
+  opts: {
+    speed?: number;
+    onDangerCross?: (s: CallSessionState) => void;
+    /** 에이전트가 새 행동을 결정했을 때 1회 호출된다(진동 등 알림용). */
+    onAction?: (action: AgentAction) => void;
+  } = {},
 ) {
   const dangerThreshold = useSettingsStore((s) => s.dangerThreshold);
   const [state, setState] = useState<CallSessionState>({
@@ -46,6 +58,12 @@ export function useCallSession(
     paused: false,
     finished: false,
     error: null,
+    stage: 'none',
+    stageIndex: 0,
+    phishingType: '',
+    predictedNext: null,
+    summary: '',
+    actions: [],
   });
 
   // 최신 state를 참조로 보관 — 종료 시 grace 대기 후 "그 시점의 최종" turns/logId/score를 읽기 위함.
@@ -74,6 +92,10 @@ export function useCallSession(
   const pausedAtMs = useRef(0);
   const onDanger = useRef(opts.onDangerCross);
   onDanger.current = opts.onDangerCross;
+  const onAction = useRef(opts.onAction);
+  onAction.current = opts.onAction;
+  const seenActions = useRef(new Set<number>()); // 이미 알린 행동 id (upsert 시 중복 알림 방지)
+  const endedResolve = useRef<(() => void) | null>(null); // call_ended 대기 해제
 
   const handleEvent = useCallback(
     (e: AnalysisEvent) => {
@@ -88,6 +110,52 @@ export function useCallSession(
       if (e.type === 'call_started') {
         // 백엔드가 통화 로그를 생성 → 종료 시 이 id로 상세를 조회한다.
         setState((prev) => ({ ...prev, logId: e.call.id }));
+        return;
+      }
+      // v2: 상태 추적기가 통화 전체를 읽고 내린 판단. 위험도는 빠른 경로 점수와 융합된 값이다.
+      if (e.type === 'state_update') {
+        const score = e.risk_score;
+        maxScore.current = Math.max(maxScore.current, score);
+        setState((prev) => {
+          const level = riskLevelFromScore(score, dangerThreshold);
+          const next: CallSessionState = {
+            ...prev,
+            score,
+            level,
+            stage: e.stage,
+            stageIndex: e.stage_index,
+            phishingType: e.phishing_type,
+            predictedNext: e.predicted_next,
+            summary: e.summary,
+            coreEvidence: e.summary || prev.coreEvidence,
+          };
+          if (!warned.current && level === 'danger') {
+            warned.current = true;
+            setTimeout(() => onDanger.current?.(next), 0);
+          }
+          return next;
+        });
+        return;
+      }
+      // v2: 에이전트 행동. 같은 id가 다시 오면(상태 변경) 교체하고, 처음 본 것만 알린다.
+      if (e.type === 'agent_action') {
+        const action = e.action;
+        setState((prev) => {
+          const exists = prev.actions.some((a) => a.id === action.id);
+          const actions = exists
+            ? prev.actions.map((a) => (a.id === action.id ? action : a))
+            : [...prev.actions, action];
+          return { ...prev, actions };
+        });
+        if (!seenActions.current.has(action.id)) {
+          seenActions.current.add(action.id);
+          if (action.status === 'delivered') onAction.current?.(action);
+        }
+        return;
+      }
+      if (e.type === 'call_ended') {
+        endedResolve.current?.();
+        endedResolve.current = null;
         return;
       }
       // 오디오 청크 응답: 백엔드가 무음 경계 청크마다 "그 청크만" 독립 전사해 조각으로 내려준다.
@@ -290,6 +358,7 @@ export function useCallSession(
   // 도착할 때까지" 기다린 뒤(최대 MAX_WAIT_MS) WS를 닫는다. 대기 후의 "최종" state를 반환한다.
   // → 종료 시점에 아직 전사 안 된 마지막 발화까지 대화 내역에 남는다. (지연은 감수)
   const MAX_WAIT_MS = 20000; // 백엔드가 멈춰도 무한 대기하지 않도록 안전 상한
+  const END_WAIT_MS = 15000; // call_ended 대기 상한
   const finish = useCallback(async (): Promise<CallSessionState> => {
     const capture = captureRef.current;
     capture?.flushFinal(); // 남은 partial 오디오를 마지막 청크로 전송(sentChunks 증가)
@@ -356,6 +425,18 @@ export function useCallSession(
     while (recvChunks.current < sentChunks.current && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
+    // 서버에 종료를 알리고, 마지막 상태 확정과 통화 후 행동(call_ended)을 기다린다.
+    const conn = connRef.current;
+    if (conn && latestRef.current.logId > 0) {
+      await new Promise<void>((resolve) => {
+        const timeout = setTimeout(resolve, END_WAIT_MS);
+        endedResolve.current = () => {
+          clearTimeout(timeout);
+          resolve();
+        };
+        conn.sendEnd();
+      });
+    }
     // 마지막 응답의 setState가 latestRef에 반영될 시간을 조금 더 준다.
     await new Promise((resolve) => setTimeout(resolve, 400));
     connRef.current?.close();
@@ -384,6 +465,15 @@ export function useCallSession(
     [scenario.phone, scenario.source, state],
   );
 
+  // 행동 카드 반응(확인/닫기)과 후속 확인 답을 서버로 보낸다. 결과는 agent_action 이벤트로 돌아온다.
+  const respondAction = useCallback((actionId: number, response: 'acknowledged' | 'dismissed') => {
+    connRef.current?.sendActionResponse(actionId, response);
+  }, []);
+
+  const answerFollowup = useCallback((actionId: number, answer: string) => {
+    connRef.current?.sendFollowupAnswer(actionId, answer);
+  }, []);
+
   useEffect(() => {
     return () => {
       sttRef.current?.stop();
@@ -393,5 +483,5 @@ export function useCallSession(
     };
   }, []);
 
-  return { state, start, stop, pause, resume, finish, buildResult };
+  return { state, start, stop, pause, resume, finish, buildResult, respondAction, answerFollowup };
 }

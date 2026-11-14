@@ -3,6 +3,13 @@ import { ActivityIndicator, Pressable, ScrollView, Share, View } from 'react-nat
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import {
+  ActionCard,
+  FollowupCard,
+  StageStepper,
+  TACTIC_LABELS,
+  paletteFromTheme,
+} from '@/components/agentCards';
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
 import { HighlightedText } from '@/components/HighlightedText';
@@ -20,8 +27,15 @@ import {
   toPercent,
 } from '@/core/utils/riskLevel';
 import { evidenceBullets, recommendedAction } from '@/data/mock/infoContent';
-import { fetchCallDetail, type CallDetail } from '@/data/services/callsApi';
-import type { TranscriptTurn } from '@/data/models/types';
+import {
+  fetchCallDetail,
+  fetchTimeline,
+  respondToAction,
+  sendFeedback,
+  type CallDetail,
+  type FeedbackVerdict,
+} from '@/data/services/callsApi';
+import type { AgentAction, CallTimeline, TranscriptTurn } from '@/data/models/types';
 import { useCallStore } from '@/state/callStore';
 import { useSettingsStore } from '@/state/settingsStore';
 import { useTranscriptStore } from '@/state/transcriptStore';
@@ -58,6 +72,46 @@ export default function Result() {
   const [detail, setDetail] = useState<CallDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
+  // v2: 단계 전환·태그된 발화·에이전트 행동. 예전 통화나 구버전 백엔드면 비어 있다.
+  const [timeline, setTimeline] = useState<CallTimeline | null>(null);
+  const [feedback, setFeedback] = useState<FeedbackVerdict | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    if (!Number.isFinite(id)) return;
+    fetchTimeline(id)
+      .then((t) => {
+        if (alive) setTimeline(t);
+      })
+      .catch(() => {
+        // 타임라인이 없어도 결과 화면의 나머지는 그대로 보여준다.
+      });
+    return () => {
+      alive = false;
+    };
+  }, [id]);
+
+  // 통화 후 후속 확인에 답하면 서버가 다음 행동(지급정지 안내 등)을 돌려준다.
+  const answerFollowup = (actionId: number, answer: string) => {
+    respondToAction(id, actionId, { response: 'answered', answer })
+      .then(({ action, next_actions }) => {
+        setTimeline((prev) =>
+          prev
+            ? {
+                ...prev,
+                actions: [...prev.actions.map((a) => (a.id === action.id ? action : a)), ...next_actions],
+              }
+            : prev,
+        );
+      })
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  };
+
+  const submitFeedback = (verdict: FeedbackVerdict) => {
+    sendFeedback(id, verdict)
+      .then(() => setFeedback(verdict))
+      .catch((e) => setError(e instanceof Error ? e.message : String(e)));
+  };
 
   // 목록이 아직 없으면 백엔드에서 받아온다(딥링크/새로고침 대비).
   useEffect(() => {
@@ -211,11 +265,137 @@ export default function Result() {
             })}
           </View>
 
-          {tab === 'summary' ? <SummaryTab view={view} isRisk={isRisk} /> : null}
-          {tab === 'chat' ? <ChatTab turns={transcriptTurns} /> : null}
+          {tab === 'summary' ? (
+            <View style={{ gap: 15 }}>
+              {timeline ? (
+                <AgentSection timeline={timeline} color={headerColor} onAnswer={answerFollowup} />
+              ) : null}
+              <SummaryTab view={view} isRisk={isRisk} />
+              <FeedbackBox isRisk={isRisk} sent={feedback} onSend={submitFeedback} />
+            </View>
+          ) : null}
+          {tab === 'chat' ? <ChatTab turns={transcriptTurns} tagged={timeline?.messages ?? []} /> : null}
           {tab === 'evidence' ? <EvidenceTab view={view} level={level} /> : null}
         </Card>
       </ScrollView>
+    </View>
+  );
+}
+
+/** 요약 탭 상단: 도달한 사기 단계, 통화 후 후속 확인, 에이전트가 실행한 대응 기록. */
+function AgentSection({
+  timeline,
+  color,
+  onAnswer,
+}: {
+  timeline: CallTimeline;
+  color: string;
+  onAnswer: (actionId: number, answer: string) => void;
+}) {
+  const { colors } = useTheme();
+  const palette = paletteFromTheme(colors);
+  const reachedIndex = timeline.stages.reduce((max, s) => Math.max(max, s.stage_index), 0);
+  // 통화 후 후속 확인이 가장 최근 질문이다. 답하지 않은 것이 있으면 그것을 먼저 보여준다.
+  const followups = timeline.actions.filter((a) => a.action_type === 'followup_check');
+  const pending = followups.filter((a) => a.status === 'delivered' && a.payload.phase === 'post_call').pop();
+  const answered = followups.filter((a) => a.status === 'answered').pop();
+  const followup = pending ?? answered;
+  // 피해 발생 시의 긴급 조치(지급정지 등)는 기록 목록에 묻히지 않게 맨 위에 따로 둔다.
+  const urgent = timeline.actions.filter((a: AgentAction) => a.action_type === 'block_guide');
+  const actions = timeline.actions.filter(
+    (a: AgentAction) => a.action_type !== 'followup_check' && a.action_type !== 'block_guide',
+  );
+
+  if (reachedIndex === 0 && actions.length === 0 && urgent.length === 0 && !followup) return null;
+
+  return (
+    <View style={{ gap: 12 }}>
+      {followup ? (
+        <FollowupCard action={followup} palette={palette} onAnswer={(answer) => onAnswer(followup.id, answer)} />
+      ) : null}
+
+      {urgent.map((action) => (
+        <ActionCard key={action.id} action={action} palette={palette} />
+      ))}
+
+      {reachedIndex > 0 ? (
+        <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16 }}>
+          <AppText weight="800" style={{ fontSize: 16, marginBottom: 14 }}>
+            사기 진행 단계
+          </AppText>
+          <StageStepper stageIndex={reachedIndex} color={color} palette={palette} />
+        </View>
+      ) : null}
+
+      {actions.length > 0 ? (
+        <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16 }}>
+          <AppText weight="800" style={{ fontSize: 16, marginBottom: 12 }}>
+            AI 대응 기록
+          </AppText>
+          <View style={{ gap: 10 }}>
+            {actions.map((action) => (
+              <ActionCard key={action.id} action={action} palette={palette} />
+            ))}
+          </View>
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+/** 판정 피드백. 오탐 신고와 놓친 피싱 신고가 쌓여 탐지 개선에 쓰인다. */
+function FeedbackBox({
+  isRisk,
+  sent,
+  onSend,
+}: {
+  isRisk: boolean;
+  sent: FeedbackVerdict | null;
+  onSend: (verdict: FeedbackVerdict) => void;
+}) {
+  const { colors } = useTheme();
+  const options: [FeedbackVerdict, string][] = isRisk
+    ? [
+        ['confirmed_phishing', '실제 피싱이었어요'],
+        ['false_positive', '정상 통화였어요'],
+      ]
+    : [
+        ['missed_phishing', '사실은 피싱이었어요'],
+        ['unsure', '잘 모르겠어요'],
+      ];
+
+  return (
+    <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16 }}>
+      <AppText weight="800" style={{ fontSize: 15 }}>
+        이 판정이 맞았나요?
+      </AppText>
+      <AppText color={colors.textMuted} style={{ fontSize: 12, marginTop: 3, marginBottom: 12 }}>
+        알려주신 내용은 탐지 정확도를 높이는 데 쓰입니다.
+      </AppText>
+      {sent ? (
+        <AppText weight="600" color={colors.textSecondary} style={{ fontSize: 13 }}>
+          의견을 보냈습니다. 감사합니다.
+        </AppText>
+      ) : (
+        <View style={{ flexDirection: 'row', gap: 8 }}>
+          {options.map(([verdict, label]) => (
+            <Pressable key={verdict} style={{ flex: 1 }} onPress={() => onSend(verdict)} accessibilityLabel={label}>
+              <View
+                style={{
+                  paddingVertical: 10,
+                  borderRadius: 11,
+                  alignItems: 'center',
+                  backgroundColor: colors.cardAlt,
+                }}
+              >
+                <AppText weight="700" color={colors.text} style={{ fontSize: 13 }}>
+                  {label}
+                </AppText>
+              </View>
+            </Pressable>
+          ))}
+        </View>
+      )}
     </View>
   );
 }
@@ -277,8 +457,66 @@ function SummaryTab({ view, isRisk }: { view: ResultView; isRisk: boolean }) {
  * 통화 종료 시 로컬에 저장해둔 전사(turns)를 화자별로 표시한다.
  * 저장분이 없으면(예: 이전 버전에서 만든 통화, 다른 기기) 안내문을 보여준다.
  */
-function ChatTab({ turns }: { turns: TranscriptTurn[] }) {
+function ChatTab({ turns, tagged }: { turns: TranscriptTurn[]; tagged: CallTimeline['messages'] }) {
   const { colors } = useTheme();
+
+  // 서버가 발화별 역할과 수법 태그를 갖고 있으면 그것으로 그린다(어느 말이 왜 위험한지 표시).
+  if (tagged.length > 0) {
+    return (
+      <View style={{ gap: 12 }}>
+        {tagged.map((m) => {
+          const isRight = m.role === 'user';
+          const tactics = m.tactics.filter((t) => TACTIC_LABELS[t]);
+          return (
+            <View key={m.message_id} style={{ alignItems: isRight ? 'flex-end' : 'flex-start' }}>
+              <AppText color={colors.textMuted} style={{ fontSize: 11, marginBottom: 4 }}>
+                {isRight ? '나' : '상대방'}
+              </AppText>
+              <View
+                style={{
+                  maxWidth: '82%',
+                  backgroundColor: isRight ? colors.primaryFaint : colors.cardAlt,
+                  paddingHorizontal: 13,
+                  paddingVertical: 10,
+                  borderRadius: 14,
+                  borderTopRightRadius: isRight ? 4 : 14,
+                  borderTopLeftRadius: isRight ? 14 : 4,
+                  borderWidth: tactics.some((t) => !TACTIC_LABELS[t].safe) ? 1 : 0,
+                  borderColor: colors.danger,
+                }}
+              >
+                <AppText color={colors.text} style={{ fontSize: 14, lineHeight: 21 }}>
+                  {m.content}
+                </AppText>
+              </View>
+              {tactics.length > 0 ? (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 5, marginTop: 5, maxWidth: '82%' }}>
+                  {tactics.map((t) => {
+                    const safe = TACTIC_LABELS[t].safe;
+                    return (
+                      <View
+                        key={t}
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 7,
+                          backgroundColor: safe ? colors.safeFaint : colors.dangerFaint,
+                        }}
+                      >
+                        <AppText weight="700" color={safe ? colors.safe : colors.danger} style={{ fontSize: 11 }}>
+                          {TACTIC_LABELS[t].label}
+                        </AppText>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+      </View>
+    );
+  }
 
   if (turns.length === 0) {
     return (

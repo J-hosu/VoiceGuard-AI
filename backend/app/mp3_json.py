@@ -1,14 +1,49 @@
 """타임스탬프 포함 전사 + dataset.json 스키마 통합 (faster-whisper 로컬 STT 버전)
-   - H100 GPU에서 faster-whisper(large-v3)가 전사와 타임스탬프 생성을 수행 (API 키 불필요)
-   - 모델은 WHISPER_MODEL, 연산 정밀도는 WHISPER_COMPUTE 환경변수로 변경 가능
+   - faster-whisper가 전사와 타임스탬프 생성을 수행 (API 키 불필요)
+   - GPU(CUDA)가 있으면 large-v3/float16, 없으면 CPU에서 small/int8을 기본으로 쓴다.
+   - WHISPER_DEVICE(auto|cuda|cpu), WHISPER_MODEL, WHISPER_COMPUTE, WHISPER_BEAM, WHISPER_CPU_THREADS
+     환경변수로 변경 가능
 """
 import json
+import logging
 import os
 import re
 import threading
 
-MODEL = os.environ.get("WHISPER_MODEL", "large-v3")
-COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE", "float16")
+logger = logging.getLogger(__name__)
+
+# 장치별 기본값. CPU에서 large-v3는 실시간 청크를 따라가지 못하므로 작은 모델을 쓴다.
+# beam_size는 파일 전체 전사용이다(실시간 청크는 항상 1). CPU에서 beam 5는 실제 통화 녹음에서
+# 재생 시간만큼 걸려(노트북 기준) 통화 종료 후 재전사가 너무 늦어지므로 1로 둔다.
+_DEVICE_DEFAULTS = {
+    "cuda": {"model": "large-v3", "compute_type": "float16", "beam_size": 5},
+    "cpu": {"model": "small", "compute_type": "int8", "beam_size": 1},
+}
+
+
+def _cuda_available() -> bool:
+    """faster-whisper(CTranslate2)가 쓸 수 있는 CUDA 장치가 있는지 확인한다."""
+    try:
+        import ctranslate2
+
+        return ctranslate2.get_cuda_device_count() > 0
+    except Exception:
+        return False
+
+
+def resolve_runtime() -> dict:
+    """환경변수와 장치 상태로 Whisper 실행 설정(device, model, compute_type)을 정한다."""
+    device = os.environ.get("WHISPER_DEVICE", "auto").strip().lower()
+    if device not in ("cuda", "cpu"):
+        device = "cuda" if _cuda_available() else "cpu"
+    defaults = _DEVICE_DEFAULTS[device]
+    return {
+        "device": device,
+        "model": os.environ.get("WHISPER_MODEL") or defaults["model"],
+        "compute_type": os.environ.get("WHISPER_COMPUTE") or defaults["compute_type"],
+        "beam_size": int(os.environ.get("WHISPER_BEAM") or defaults["beam_size"]),
+        "cpu_threads": int(os.environ.get("WHISPER_CPU_THREADS", "0") or 0),
+    }
 
 # 무음/잡음 구간에서 Whisper가 지어내는 대표적인 문구 (유튜브 자막 학습 흔적).
 # 실제 통화 내용이 아니므로 결과에서 제외한다.
@@ -27,7 +62,17 @@ def load_model():
         if _model is None:
             from faster_whisper import WhisperModel
 
-            _model = WhisperModel(MODEL, device="cuda", compute_type=COMPUTE_TYPE)
+            runtime = resolve_runtime()
+            logger.info(
+                "Whisper 모델 로드: model=%s device=%s compute_type=%s",
+                runtime["model"], runtime["device"], runtime["compute_type"],
+            )
+            _model = WhisperModel(
+                runtime["model"],
+                device=runtime["device"],
+                compute_type=runtime["compute_type"],
+                cpu_threads=runtime["cpu_threads"],
+            )
     return _model
 
 
@@ -46,6 +91,12 @@ def transcribe_audio(audio_file_path: str, retries: int = 1, realtime: bool = Fa
     realtime=True(3초 chunk)는 지연을 줄이기 위해 beam_size=1로 디코딩한다.
     """
     model = load_model()
+    runtime = resolve_runtime()
+    full_beam_size = runtime["beam_size"]
+    # Whisper는 결과 신뢰도가 낮으면 temperature를 올려가며 최대 6번 다시 디코딩한다. CPU에서는
+    # 잡음뿐인 청크 하나가 이 재시도로 수십 초를 잡아먹어 뒤 청크가 밀리므로, 실시간 청크에
+    # 한해 재시도를 한 번으로 줄인다.
+    temperature = (0.0, 0.4) if realtime and runtime["device"] == "cpu" else (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)
     last_err = None
     for _ in range(retries + 1):
         try:
@@ -53,7 +104,11 @@ def transcribe_audio(audio_file_path: str, retries: int = 1, realtime: bool = Fa
                 raw_segments, _info = model.transcribe(
                     audio_file_path,
                     language="ko",
-                    beam_size=1 if realtime else 5,
+                    beam_size=1 if realtime else full_beam_size,
+                    temperature=temperature,
+                    # 반복 환각에 빠지면 최대 길이까지 디코딩하느라 CPU에서 수십 초가 걸린다.
+                    # 실시간 청크(최대 10초)는 그만큼 길 수 없으므로 출력 길이를 묶어 둔다.
+                    max_new_tokens=128 if realtime and runtime["device"] == "cpu" else None,
                     vad_filter=True,
                     condition_on_previous_text=False,
                 )

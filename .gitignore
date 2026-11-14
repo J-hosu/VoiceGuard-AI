@@ -4,7 +4,8 @@ __pycache__/
 /data/
 .env
 samples/
-models/
+/models/
 .DS_Store
 .idea/
 tests/
+/문서/
