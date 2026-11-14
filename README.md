@@ -127,7 +127,7 @@ EXPO_PUBLIC_API_BASE=http://<백엔드-호스트>:8000
 - mp3/wav/m4a 녹음 파일 업로드 분석
 - KoELECTRA 기반 위험도 산출
 - RAG/규칙 기반 유사 사례 검색 및 위험 패턴 탐지
-- OpenAI/OpenRouter 기반 핵심 근거 생성
+- Claude API 기반 핵심 근거 생성 / faster-whisper 로컬 STT
 - 통화 기록, 발화, 탐지 결과, 알림 이력 SQLite 저장
 
 ### 🧱 아키텍처
@@ -140,7 +140,7 @@ flowchart LR
     API --> DB["SQLite"]
     API --> ML["KoELECTRA"]
     API --> RAG["RAG/Rules"]
-    API --> LLM["OpenAI/OpenRouter"]
+    API --> LLM["Claude API"]
     API -->|risk/evidence/alert| Client
 ```
 
@@ -173,7 +173,7 @@ API_SPEC.md               # 상세 API 명세
 - DB: SQLite
 - AI: KoELECTRA, PyTorch, Transformers
 - RAG: SQLite 사례 검색 + 문자 n-gram similarity
-- STT/근거 생성: OpenAI 호환 SDK, OpenRouter
+- STT: faster-whisper (large-v3) / 근거 생성: Anthropic SDK (Claude)
 
 ### 📦 설치
 
@@ -188,13 +188,14 @@ pip install -r requirements.txt
 프로젝트 루트에 `.env`를 생성합니다.
 
 ```env
-OPENAI_API_KEY=sk-or-v1...
-OPENAI_BASE_URL=https://openrouter.ai/api/v1
-LLM_MODEL=openai/gpt-4o-mini
-STT_MODEL=google/gemini-3.5-flash
-OPENROUTER_APP_TITLE=VoiceGuard AI
+ANTHROPIC_API_KEY=sk-ant-...
+LLM_MODEL=claude-opus-5-5
+WHISPER_MODEL=large-v3
 CORS_ALLOW_ORIGINS=http://localhost:8081,http://172.16.80.202:8081
 ```
+
+- 근거 생성·회색지대 재검토는 Claude API(`LLM_MODEL`)를 사용합니다.
+- STT는 GPU 서버에서 faster-whisper(`WHISPER_MODEL`)로 로컬 실행합니다 (API 키 불필요).
 
 ### ▶️ 실행
 

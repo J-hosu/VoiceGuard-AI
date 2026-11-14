@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import asyncio
+import logging
 import os
 from contextlib import asynccontextmanager
 
@@ -22,6 +24,8 @@ from backend.app.services.call_analyzer import preload_koelectra_model
 
 if load_dotenv:
     load_dotenv(ENV_PATH)
+
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_CORS_ORIGINS = [
@@ -50,11 +54,22 @@ def _get_cors_allow_credentials(cors_origins: list[str]) -> bool:
     return "*" not in cors_origins
 
 
+async def preload_whisper_model() -> None:
+    """서버 시작 시 Whisper STT 모델을 미리 로드한다. 실패해도 서버는 계속 뜬다."""
+    try:
+        from backend.app.mp3_json import load_model
+
+        await asyncio.to_thread(load_model)
+    except Exception as exc:
+        logger.warning("Whisper 모델 사전 로드 실패. 첫 전사 요청 때 다시 시도합니다: %s", exc)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """API 서버 시작 시 DB와 모델 리소스를 준비한다."""
     init_db()
     await preload_koelectra_model()
+    await preload_whisper_model()
     yield
 
 

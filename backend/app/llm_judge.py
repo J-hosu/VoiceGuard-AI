@@ -1,7 +1,7 @@
 """LLM 기반 보이스피싱 판정 (기능명세서 3.6 '3차 AI 판단').
 
 베이스라인이 애매하게 본 케이스(30~85%)의 최종 판정과 탐지 근거 문장 생성을 담당한다.
-OpenRouter API 사용, 키는 .env의 OPENROUTER_API_KEY.
+Claude API 사용, 키는 .env의 ANTHROPIC_API_KEY (모델은 LLM_JUDGE_MODEL로 변경 가능).
 
 사용 예:
     from backend.app.llm_judge import judge
@@ -11,12 +11,10 @@ OpenRouter API 사용, 키는 .env의 OPENROUTER_API_KEY.
 import json
 import os
 
-from openai import OpenAI
-
-from backend.app.paths import ENV_PATH
+from backend.app.services import claude_client
 
 
-MODEL = os.environ.get("LLM_JUDGE_MODEL", "anthropic/claude-haiku-4.5")
+MODEL = os.environ.get("LLM_JUDGE_MODEL", claude_client.DEFAULT_MODEL)
 MAX_CHARS = 4000  # 긴 통화는 최근 내용 위주로 자름
 
 SYSTEM_PROMPT = """너는 보이스피싱 탐지 전문가다. 통화 전사 텍스트를 보고 보이스피싱 여부를 판정한다.
@@ -51,19 +49,6 @@ SYSTEM_PROMPT = """너는 보이스피싱 탐지 전문가다. 통화 전사 텍
 {"is_voice_phishing": true/false, "risk_score": 0.0~1.0, "phishing_type": "수사기관 사칭형"|"대출 사기형"|"납치 협박형"|"기타"|null, "reason": ["근거 1", "근거 2"], "recommended_action": "사용자에게 권장할 행동 한 문장"}"""
 
 
-def _load_key():
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if not key and ENV_PATH.exists():
-        with open(ENV_PATH, encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("OPENROUTER_API_KEY="):
-                    key = line.split("=", 1)[1].strip()
-    return key
-
-
-_client = None
-
-
 def _extract_json(raw):
     """모델 응답에서 JSON 객체를 견고하게 추출한다.
     코드펜스·설명 문장이 섞여 나와도 가장 바깥 { ... }를 파싱한다."""
@@ -76,23 +61,16 @@ def _extract_json(raw):
 
 def judge(transcript, retries=1):
     """통화 전사 텍스트를 LLM으로 판정한다. 실패 시 None 반환 (호출측에서 KoELECTRA 점수로 폴백)."""
-    global _client
-    if _client is None:
-        _client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=_load_key())
     text = transcript[-MAX_CHARS:]
     last_err = None
     for _ in range(retries + 1):
         try:
-            r = _client.chat.completions.create(
+            raw = claude_client.complete(
+                f"다음 통화 내용을 판정하라:\n\n{text}",
+                system=SYSTEM_PROMPT,
                 model=MODEL,
-                messages=[
-                    {"role": "system", "content": SYSTEM_PROMPT},
-                    {"role": "user", "content": f"다음 통화 내용을 판정하라:\n\n{text}"},
-                ],
-                temperature=0,
-                max_tokens=500,
             )
-            return _extract_json(r.choices[0].message.content or "")
+            return _extract_json(raw)
         except Exception as e:
             last_err = e
     print(f"[llm_judge] 판정 실패: {last_err}")

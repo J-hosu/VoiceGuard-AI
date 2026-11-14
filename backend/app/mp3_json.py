@@ -1,175 +1,78 @@
-"""타임스탬프 포함 전사 + dataset.json 스키마 통합 (OpenRouter API 버전)
-   - google/gemini-3.5-flash 멀티모달 모델이 전사와 타임스탬프 생성을 수행
-   - 키는 .env의 OPENROUTER_API_KEY, 모델은 STT_MODEL 환경변수로 변경 가능
+"""타임스탬프 포함 전사 + dataset.json 스키마 통합 (faster-whisper 로컬 STT 버전)
+   - H100 GPU에서 faster-whisper(large-v3)가 전사와 타임스탬프 생성을 수행 (API 키 불필요)
+   - 모델은 WHISPER_MODEL, 연산 정밀도는 WHISPER_COMPUTE 환경변수로 변경 가능
 """
-import base64
-from contextlib import contextmanager
 import json
 import os
-import tempfile
-import wave
+import re
+import threading
 
-from openai import OpenAI
+MODEL = os.environ.get("WHISPER_MODEL", "large-v3")
+COMPUTE_TYPE = os.environ.get("WHISPER_COMPUTE", "float16")
 
-from backend.app.paths import ENV_PATH
+# 무음/잡음 구간에서 Whisper가 지어내는 대표적인 문구 (유튜브 자막 학습 흔적).
+# 실제 통화 내용이 아니므로 결과에서 제외한다.
+_HALLUCINATION = re.compile(
+    r"시청해\s*주셔서|구독(과|\s*좋아요)|좋아요와\s*구독|자막\s*(제공|by)|MBC\s*뉴스|KBS\s*뉴스|다음\s*영상에서"
+)
 
-MODEL = os.environ.get("STT_MODEL", "google/gemini-3.5-flash")
-
-PROMPT = """주어진 오디오에 실제로 들리는 발화만 있는 그대로 한국어로 전사하라.
-이 오디오가 어떤 내용일지 미리 추측하거나 전제하지 마라.
-계좌, 이체, 대출, 개인정보 관련 용어가 나오면 정확히 전사하라.
-
-매우 중요:
-- 들리지 않거나 무음/잡음뿐이면 절대 내용을 지어내지 말고 빈 배열 []만 출력하라.
-- 실제로 들린 것만 전사한다. 그럴듯하게 문장을 만들어내는 것(할루시네이션)은 금지한다.
-
-화자 구분:
-- 각 발화에 speaker 필드를 "A" 또는 "B"로 붙인다.
-- A = 통화를 주도하며 안내·설명·요구를 하는 쪽(상담원, 수사관, 기관 직원 등 전화를 건 사람).
-- B = 그 말을 듣고 응답하는 쪽(고객, 수신자).
-- 목소리 톤과 대화 맥락을 함께 보고 판단하되, 구분이 불확실하면 내용상 더 자연스러운 쪽을 고른다.
-
-규칙:
-- start/end 는 해당 발화의 시작/끝 시각이며 "MM:SS" 형식이다.
-- 발화(문장) 단위로 나누고, 시간 순서대로 정렬한다.
-- 숫자, 금액, 날짜, 나이, 계좌번호, 인증번호는 한글이 아닌 아라비아 숫자로 표기한다 (예: "이천삼 년"→"2003년", "삼십만 원"→"30만 원").
-- 아래 JSON 배열만 출력한다. 다른 텍스트나 코드펜스는 출력하지 마라.
-
-[{"start": "MM:SS", "end": "MM:SS", "speaker": "A", "text": "..."}]"""
-
-_client = None
+_model = None
+_model_lock = threading.Lock()
 
 
-@contextmanager
-def _open_supported_audio_file(audio_file_path: str):
-    """OpenRouter 입력 오디오가 지원하는 mp3/wav로 파일을 준비한다.
+def load_model():
+    """Whisper 모델을 1회 로드한다. 서버 시작 시 미리 호출해 첫 요청 지연을 없앤다."""
+    global _model
+    with _model_lock:
+        if _model is None:
+            from faster_whisper import WhisperModel
 
-    m4a/mp4/aac 컨테이너는 그대로 전송하지 않고 임시 wav 파일로 변환한다.
+            _model = WhisperModel(MODEL, device="cuda", compute_type=COMPUTE_TYPE)
+    return _model
+
+
+def _is_hallucination(seg) -> bool:
+    """무음 확률이 높고 신뢰도가 낮은 구간, 또는 알려진 환각 문구를 걸러낸다."""
+    if seg.no_speech_prob > 0.6 and seg.avg_logprob < -1.0:
+        return True
+    return bool(_HALLUCINATION.search(seg.text))
+
+
+def transcribe_audio(audio_file_path: str, retries: int = 1, realtime: bool = False) -> list[dict]:
+    """오디오 파일을 faster-whisper로 전사해 발화 segment 목록을 반환한다.
+
+    반환 형식: [{"start": 초, "end": 초, "speaker": "", "text": "..."}]
+    Whisper는 화자 구분을 하지 않으므로 speaker는 빈 값이다 (정규화 단계에서 화자A로 표시).
+    realtime=True(3초 chunk)는 지연을 줄이기 위해 beam_size=1로 디코딩한다.
     """
-    ext = os.path.splitext(audio_file_path)[1].lower().lstrip(".")
-    if ext in {"mp3", "mpeg", "mpga"}:
-        yield audio_file_path, "mp3"
-        return
-    if ext == "wav":
-        yield audio_file_path, "wav"
-        return
-    if ext in {"m4a", "mp4", "aac"}:
-        converted_path = _convert_audio_to_wav(audio_file_path)
-        try:
-            yield converted_path, "wav"
-        finally:
-            os.unlink(converted_path)
-        return
-
-    raise ValueError(f"지원하지 않는 오디오 파일 형식입니다: .{ext}")
-
-
-def _convert_audio_to_wav(audio_file_path: str) -> str:
-    """PyAV로 m4a 계열 오디오를 16kHz mono wav로 변환한다."""
-    import av
-
-    tmp = tempfile.NamedTemporaryFile(suffix=".wav", delete=False)
-    tmp.close()
-
-    resampler = av.AudioResampler(format="s16", layout="mono", rate=16000)
-    try:
-        with av.open(audio_file_path) as container, wave.open(tmp.name, "wb") as wav_file:
-            audio_stream = next((stream for stream in container.streams if stream.type == "audio"), None)
-            if audio_stream is None:
-                raise ValueError("오디오 스트림을 찾을 수 없습니다.")
-
-            wav_file.setnchannels(1)
-            wav_file.setsampwidth(2)
-            wav_file.setframerate(16000)
-
-            for packet in container.demux(audio_stream):
-                for frame in packet.decode():
-                    for resampled_frame in resampler.resample(frame):
-                        pcm = resampled_frame.to_ndarray().reshape(-1)
-                        wav_file.writeframes(pcm.tobytes())
-    except Exception:
-        os.unlink(tmp.name)
-        raise
-
-    return tmp.name
-
-
-def _load_key():
-    key = os.environ.get("OPENROUTER_API_KEY")
-    if not key and ENV_PATH.exists():
-        with open(ENV_PATH, encoding="utf-8") as f:
-            for line in f:
-                if line.startswith("OPENROUTER_API_KEY="):
-                    key = line.split("=", 1)[1].strip()
-    return key
-
-
-def _parse_time(value) -> float:
-    """"MM:SS" / "H:MM:SS" / 숫자(초)를 초 단위 float로 변환한다."""
-    if isinstance(value, (int, float)):
-        return float(value)
-    sec = 0.0
-    for part in str(value).strip().split(":"):
-        sec = sec * 60 + float(part)
-    return sec
-
-
-def _extract_json_array(raw: str) -> list:
-    """모델 응답에서 JSON 배열을 견고하게 추출한다.
-    코드펜스·설명 문장이 섞여 나와도 가장 바깥 [ ... ]를 파싱한다."""
-    raw = raw.strip()
-    start, end = raw.find("["), raw.rfind("]")
-    if start == -1 or end <= start:
-        raise ValueError(f"JSON 배열 없음: {raw[:80]!r}")
-    return json.loads(raw[start:end + 1])
-
-
-def transcribe_audio(audio_file_path: str, retries: int = 1) -> list[dict]:
-    """오디오 파일을 OpenRouter 멀티모달 모델로 전사해 발화 segment 목록을 반환한다.
-
-    반환 형식: [{"start": 초, "end": 초, "text": "..."}]
-    """
-    global _client
-    if _client is None:
-        _client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=_load_key())
-
-    with _open_supported_audio_file(audio_file_path) as (prepared_audio_path, audio_format):
-        with open(prepared_audio_path, "rb") as f:
-            audio_b64 = base64.b64encode(f.read()).decode()
-
-        messages = [{
-            "role": "user",
-            "content": [
-                {"type": "text", "text": PROMPT},
-                {"type": "input_audio", "input_audio": {"data": audio_b64, "format": audio_format}},
-            ],
-        }]
-
+    model = load_model()
     last_err = None
     for _ in range(retries + 1):
         try:
-            r = _client.chat.completions.create(
-                model=MODEL,
-                messages=messages,
-                temperature=0,
-                max_tokens=32768,
-            )
-            raw_segments = _extract_json_array(r.choices[0].message.content or "")
+            with _model_lock:
+                raw_segments, _info = model.transcribe(
+                    audio_file_path,
+                    language="ko",
+                    beam_size=1 if realtime else 5,
+                    vad_filter=True,
+                    condition_on_previous_text=False,
+                )
+                raw_segments = list(raw_segments)
             break
         except Exception as e:
             last_err = e
     else:
-        raise RuntimeError(f"OpenRouter 전사 실패: {last_err}")
+        raise RuntimeError(f"Whisper 전사 실패: {last_err}")
 
     segments = []
     for seg in raw_segments:
-        text = str(seg.get("text", "")).strip()
-        if not text:
+        text = seg.text.strip()
+        if not text or _is_hallucination(seg):
             continue
         segments.append({
-            "start": round(_parse_time(seg.get("start", 0)), 2),
-            "end": round(_parse_time(seg.get("end", 0)), 2),
-            "speaker": str(seg.get("speaker", "")).strip().upper(),
+            "start": round(seg.start, 2),
+            "end": round(seg.end, 2),
+            "speaker": "",
             "text": text,
         })
     return segments

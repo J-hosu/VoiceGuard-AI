@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-import os
 import re
 from typing import Optional
 
@@ -17,6 +16,7 @@ from backend.app.repository import (
     save_detection_result,
 )
 from backend.app.schemas import NotificationCreate
+from backend.app.services import claude_client
 from backend.app.services.koelectra_scorer import MODEL_DIR, TH_DANGER, TH_WARNING, KoElectraScorer, risk_level_of
 from backend.app.services.rag_detector import RagPhishingDetector
 
@@ -304,25 +304,10 @@ def _gray_zone_llm_review(
     API 키가 없거나 호출이 실패하면 None을 반환해 원래 점수를 그대로 쓰게 한다
     (LLM 장애가 탐지 자체를 막지 않도록).
     """
-    if not os.getenv("OPENAI_API_KEY"):
+    if not claude_client.is_configured():
         return None
 
     try:
-        from openai import OpenAI
-
-        base_url = os.getenv("OPENAI_BASE_URL")
-        uses_openrouter = bool(base_url and "openrouter.ai" in base_url)
-        model_name = os.getenv("LLM_MODEL", "openai/gpt-4o-mini" if uses_openrouter else "gpt-4o-mini")
-
-        headers: dict[str, str] = {}
-        if uses_openrouter:
-            referer = os.getenv("OPENROUTER_HTTP_REFERER")
-            title = os.getenv("OPENROUTER_APP_TITLE")
-            if referer:
-                headers["HTTP-Referer"] = referer
-            if title:
-                headers["X-Title"] = title
-
         prompt = f"""너는 보이스피싱 탐지 시스템의 2차 검토 모듈이다.
 1차 모델(KoELECTRA/규칙 기반)이 이 통화의 보이스피싱 확률을 {risk_score * 100:.1f}%로
 애매하게(회색지대) 판단했다. 아래 통화 내용을 직접 읽고 보이스피싱일 확률을 다시 추정하라.
@@ -339,17 +324,10 @@ def _gray_zone_llm_review(
 아래 JSON 형식으로만 답하라. 다른 텍스트나 설명은 출력하지 마라.
 {{"phishing_probability": 0에서 1 사이 숫자}}"""
 
-        client = OpenAI(base_url=base_url, default_headers=headers)
-        response = client.chat.completions.create(
-            model=model_name,
-            messages=[
-                {"role": "system", "content": "보이스피싱 여부를 신중하고 일관되게 재평가한다."},
-                {"role": "user", "content": prompt},
-            ],
-            temperature=0,
-            max_tokens=50,
+        raw = claude_client.complete(
+            prompt,
+            system="보이스피싱 여부를 신중하고 일관되게 재평가한다.",
         )
-        raw = response.choices[0].message.content or ""
         data = json.loads(_extract_json_object(raw))
         probability = float(data["phishing_probability"])
         return max(0.0, min(1.0, probability))
