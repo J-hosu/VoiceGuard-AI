@@ -31,6 +31,14 @@ export interface CallSessionState {
   actions: AgentAction[]; // 에이전트가 결정한 행동(받은 순서)
 }
 
+/** 말풍선 하나의 최대 길이(글자). 이보다 길어지면 문장이 이어져도 새 말풍선을 만든다. */
+const MAX_BUBBLE_CHARS = 90;
+
+/** 앞 조각이 문장 중간에서 끊겼는지: 문장 끝 기호로 끝나지 않고, 이어 붙여도 너무 길지 않을 때만 true. */
+function continuesSentence(previous: string, next: string): boolean {
+  return !/[.?!。…]["'”’)]?\s*$/.test(previous) && previous.length + next.length + 1 <= MAX_BUBBLE_CHARS;
+}
+
 /**
  * STT(목/실제) → WS(목/실제) 오케스트레이션.
  * 발화 인식마다 WS로 전송하고, 응답으로 위험도/근거/자막을 갱신한다.
@@ -180,9 +188,10 @@ export function useCallSession(
           const turns: TranscriptTurn[] = [...prev.turns];
           for (const inc of incoming) {
             const last = turns[turns.length - 1];
-            // 같은 화자(role)의 연속 발화는 한 말풍선으로 이어붙인다. 화자가 바뀌거나
-            // 화자 미상(unknown)이면 새 말풍선을 만든다.
-            if (last && last.role === inc.role && inc.role !== 'unknown') {
+            // 실시간 음성 조각은 화자 구분 없이 모두 같은 화자(화자A)로 온다. 같은 화자라고 다 이어 붙이면 통화 전체가
+            // 말풍선 하나("방금 들린 말")로 계속 길어진다. 그래서 앞 조각이 문장 중간에서 끊겼을 때(끝에 . ? ! 가 없고
+            // 합쳐도 짧을 때)만 이어 붙이고, 나머지는 새 말풍선으로 둔다. 통화가 끝나면 전체 재전사로 화자가 다시 나뉜다.
+            if (last && last.role === inc.role && inc.role !== 'unknown' && continuesSentence(last.content, inc.content)) {
               const mergedContent = `${last.content} ${inc.content}`.trim();
               turns[turns.length - 1] = {
                 ...last,

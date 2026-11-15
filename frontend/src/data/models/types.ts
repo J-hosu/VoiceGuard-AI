@@ -89,7 +89,8 @@ export type AgentActionType =
   | 'block_guide'
   | 'evidence_preserve'
   | 'report_guide'
-  | 'followup_check';
+  | 'followup_check'
+  | 'linked_case_alert'; // 통화 중 단서 즉시 대조: 같은 계좌·번호가 다른 의심 통화에 있음, 또는 위험한 주소
 
 export type AgentActionStatus = 'delivered' | 'acknowledged' | 'dismissed' | 'answered' | 'expired' | 'failed';
 

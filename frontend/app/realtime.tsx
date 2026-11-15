@@ -56,6 +56,14 @@ const LEVEL_UI: Record<RiskLevel, LevelUi> = {
   },
   danger: { color: '#ef4444', text: '위험', icon: 'alert-octagon', desc: '보이스피싱일 가능성이 매우 높아요.' },
 };
+// 주의 기준(70%)은 아직 아니지만 위험도가 40% 이상으로 오른 구간: '정상'이라고 하기엔 이르다(예: 65%인데 정상).
+const ANALYZING_FROM = 0.4;
+const ANALYZING_UI: LevelUi = {
+  color: '#60a5fa',
+  text: '분석 중',
+  icon: 'activity',
+  desc: '대화를 더 듣고 판단하고 있어요.',
+};
 // 서버 연결·마이크 오류로 분석이 멈췄는데 아직 위험 신호가 없던 경우: "정상"으로 보이면 안 된다.
 const HALTED_UI: LevelUi = {
   color: '#f6a623',
@@ -138,7 +146,7 @@ export default function Realtime() {
       const danger =
         action.action_type === 'block_guide' ||
         (action.action_type === 'warn' && action.payload.level === 'danger');
-      queueAlert(danger ? 'danger' : action.action_type === 'warn' ? 'caution' : 'notice');
+      queueAlert(danger ? 'danger' : action.action_type === 'warn' || action.action_type === 'linked_case_alert' ? 'caution' : 'notice');
     },
     onDangerCross: (s) => {
       if (finishingRef.current) return; // 종료 마무리 중엔 경고 화면으로 튀지 않음
@@ -169,7 +177,8 @@ export default function Realtime() {
   // 그 밖의 오류는 분석이 이어지므로 등급·실시간 표시를 그대로 두고 위험도 카드 아래에 한 줄로만 알린다.
   const fatal = isFatalError(state.error);
   const halted = fatal && state.level === 'safe';
-  const ui = halted ? HALTED_UI : LEVEL_UI[state.level];
+  const analyzing = !halted && state.level === 'safe' && state.score >= ANALYZING_FROM;
+  const ui = halted ? HALTED_UI : analyzing ? ANALYZING_UI : LEVEL_UI[state.level];
   const score100 = Math.round(state.score * 100);
   const keywords = Array.from(new Set(state.turns.flatMap((t) => t.keywords ?? [])));
   const recentSet = new Set(state.turns.slice(-2).flatMap((t) => t.keywords ?? []));
@@ -210,6 +219,7 @@ export default function Realtime() {
   const urgentCards = [
     ...actionCards.filter((a) => a.action_type === 'block_guide'),
     ...actionCards.filter((a) => a.action_type === 'warn' && a.payload.level === 'danger'),
+    ...actionCards.filter((a) => a.action_type === 'linked_case_alert'),
   ];
   const otherCards = actionCards.filter((a) => !urgentCards.includes(a));
 
@@ -303,7 +313,7 @@ export default function Realtime() {
 
           {/* 위험도 카드: 정상일 땐 차분한 중립 카드, 주의·위험이면 등급 색 테두리.
               가장 진한 칸은 아래의 "지금 할 일" 카드에 양보한다. 등급이 바뀌면 화면낭독기가 읽어 준다. */}
-          <PulseOnChange trigger={halted ? 'halted' : state.level}>
+          <PulseOnChange trigger={halted ? 'halted' : analyzing ? 'analyzing' : state.level}>
             {/* 등급이 바뀔 때만 화면낭독기가 읽도록 등급 문구만 담은 숨은 live 영역(점수는 넣지 않는다) */}
             <AppText aria-live="polite" style={SR_ONLY}>
               {`${ui.text}. ${ui.desc}`}
@@ -521,7 +531,7 @@ export default function Realtime() {
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: fatal ? '#f6a623' : state.level !== 'safe' ? ui.color : '#34d399',
+                      backgroundColor: fatal ? '#f6a623' : state.level !== 'safe' || analyzing ? ui.color : '#34d399',
                     }}
                   />
                   <AppText color={TEXT_BODY} style={[{ fontSize: 14, lineHeight: 20, flex: 1 }, keepAll]}>
@@ -529,7 +539,9 @@ export default function Realtime() {
                       ? '분석이 멈춰 위험 신호를 확인할 수 없어요.'
                       : state.level !== 'safe'
                         ? '근거를 정리하고 있어요.'
-                        : '아직 보이스피싱 신호는 없어요.'}
+                        : analyzing
+                          ? '의심되는 말이 있는지 확인하고 있어요.'
+                          : '아직 보이스피싱 신호는 없어요.'}
                   </AppText>
                 </View>
               )}

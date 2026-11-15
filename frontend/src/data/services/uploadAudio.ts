@@ -4,6 +4,7 @@
  * React Native의 FormData는 파일을 {uri, name, type} 객체로 append 한다.
  * (웹 구현은 uploadAudio.web.ts — Metro가 웹 번들에서 자동으로 우선 해석)
  */
+import { getDeviceId } from '@/core/config/deviceId';
 import {
   ANALYZE_AUDIO_URL,
   guessMime,
@@ -21,6 +22,7 @@ export async function analyzeAudioFile(file: PickedAudio): Promise<AudioAnalysis
     name: file.name,
     type: file.mime ?? guessMime(file.name),
   } as unknown as Blob);
+  form.append('device_id', String(getDeviceId()));
 
   const res = await fetch(ANALYZE_AUDIO_URL, {
     method: 'POST',

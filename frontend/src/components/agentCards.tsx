@@ -185,11 +185,12 @@ const ACTION_ICONS: Record<string, IconName> = {
   evidence_preserve: 'record',
   report_guide: 'file',
   followup_check: 'info',
+  linked_case_alert: 'alert-octagon',
 };
 
 function actionColor(action: AgentAction, palette: AgentPalette): string {
   if (action.action_type === 'warn') return action.payload.level === 'danger' ? palette.danger : palette.warning;
-  if (action.action_type === 'block_guide') return palette.danger;
+  if (action.action_type === 'block_guide' || action.action_type === 'linked_case_alert') return palette.danger;
   return palette.accent;
 }
 

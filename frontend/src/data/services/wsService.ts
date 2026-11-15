@@ -1,6 +1,6 @@
+import { getDeviceId } from '@/core/config/deviceId';
 import {
   BASE_URL_WS,
-  DEVICE_ID,
   USE_MOCK_WS,
   WS_ANALYZE_PATH,
 } from '@/core/config/env';
@@ -49,7 +49,7 @@ class MockAnalyzeConnection implements AnalyzeConnection {
     const now = new Date().toISOString();
     const call: CallLog = {
       id: this.logId,
-      device_id: DEVICE_ID,
+      device_id: getDeviceId(),
       name,
       status: 'normal',
       risk_score: 0,
@@ -157,10 +157,10 @@ class RealAnalyzeConnection implements AnalyzeConnection {
   start(name: string, opts?: { audio?: boolean }) {
     if (opts?.audio) {
       // 오디오(실시간 스트리밍) 세션: 이후 audio_chunk(WAV) 프레임을 전송한다.
-      this.send({ type: 'start', device_id: DEVICE_ID, name, file_type: 'realtime', audio_format: 'wav' });
+      this.send({ type: 'start', device_id: getDeviceId(), name, file_type: 'realtime', audio_format: 'wav' });
     } else {
       // 텍스트 발화 경로도 file_type을 명시한다(백엔드 start 검증 요구).
-      this.send({ type: 'start', device_id: DEVICE_ID, name, file_type: 'realtime' });
+      this.send({ type: 'start', device_id: getDeviceId(), name, file_type: 'realtime' });
     }
   }
 

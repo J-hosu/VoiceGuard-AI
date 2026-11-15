@@ -6,6 +6,7 @@
  * FormData에 append 해야 서버가 정상적인 multipart 파일로 인식한다.
  * (Metro가 웹 번들에서 uploadAudio.ts 대신 이 파일을 우선 해석한다)
  */
+import { getDeviceId } from '@/core/config/deviceId';
 import { BASE_URL_HTTP } from '@/core/config/env';
 import {
   ANALYZE_AUDIO_URL,
@@ -29,6 +30,7 @@ export async function analyzeAudioFile(file: PickedAudio): Promise<AudioAnalysis
 
   const form = new FormData();
   form.append('file', uploadFile);
+  form.append('device_id', String(getDeviceId()));
 
   const res = await fetch(ANALYZE_AUDIO_URL, {
     method: 'POST',
@@ -45,6 +47,7 @@ export async function analyzeSessionAudio(audio: Blob): Promise<AudioAnalysisRes
   const uploadFile = new File([audio], 'session.wav', { type: 'audio/wav' });
   const form = new FormData();
   form.append('file', uploadFile);
+  form.append('device_id', String(getDeviceId()));
 
   const res = await fetch(ANALYZE_AUDIO_URL, {
     method: 'POST',

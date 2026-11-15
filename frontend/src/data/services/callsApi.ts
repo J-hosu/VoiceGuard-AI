@@ -8,6 +8,7 @@
  * 저장은 분석 시점에 이미 백엔드에서 이뤄진다
  * (POST /calls/analyze-audio → log_id 발급, 실시간 WS start → 통화 로그 생성).
  */
+import { getDeviceId } from '@/core/config/deviceId';
 import { BASE_URL_HTTP } from '@/core/config/env';
 import type { AgentAction, BackendRiskLevel, CallTimeline, ConversationState } from '@/data/models/types';
 
@@ -62,7 +63,8 @@ async function getWithRetry(url: string, retries = 2): Promise<Response> {
 }
 
 export async function fetchCalls(limit = 100): Promise<CallsResponse> {
-  const res = await getWithRetry(`${BASE_URL_HTTP}/calls?limit=${limit}`);
+  // 이 기기에서 분석한 통화만 (QR로 여러 사람이 같은 서버를 쓰므로)
+  const res = await getWithRetry(`${BASE_URL_HTTP}/calls?limit=${limit}&device_id=${getDeviceId()}`);
   if (!res.ok) throw new Error(`통화 목록 조회 실패 (${res.status})`);
   const data = (await res.json()) as Partial<CallsResponse>;
   const calls = (Array.isArray(data.calls) ? data.calls : []).map((c) => ({

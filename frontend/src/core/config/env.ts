@@ -52,5 +52,4 @@ export const ANALYZE_AUDIO_PATH = '/calls/analyze-audio';
 /** 실시간 분석 WS 엔드포인트 경로 */
 export const WS_ANALYZE_PATH = '/ws/calls/analyze';
 
-/** start 메시지에 쓸 고정 device_id (백엔드 발급 규칙 미정 → MVP 고정값) */
-export const DEVICE_ID = 1;
+// 기기별 번호는 '@/core/config/deviceId'의 getDeviceId()를 쓴다(예전 고정값 1은 모든 사용자의 기록이 섞였다).

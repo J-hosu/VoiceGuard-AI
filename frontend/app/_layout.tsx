@@ -5,6 +5,7 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { DemoPanel } from '@/components/DemoPanel';
+import { loadDeviceId } from '@/core/config/deviceId';
 import { useTheme } from '@/core/theme/theme';
 import { useAppStore } from '@/state/appStore';
 import { useCallStore } from '@/state/callStore';
@@ -22,7 +23,8 @@ export default function RootLayout() {
   useEffect(() => {
     void hydrateSettings();
     void hydrateApp();
-    void fetchCalls(); // 히스토리는 백엔드에서 조회
+    // 히스토리는 백엔드에서 이 기기 번호로 조회한다(네이티브는 저장된 번호를 먼저 불러온다).
+    void loadDeviceId().finally(() => void fetchCalls());
   }, [hydrateSettings, hydrateApp, fetchCalls]);
 
   const stack = (
