@@ -599,11 +599,21 @@ function ChatTab({ turns, tagged }: { turns: TranscriptTurn[]; tagged: CallTimel
   );
 }
 
+/** 받침이 없거나 ㄹ받침이면 '로', 그 밖에는 '으로' */
+function withRo(word: string): string {
+  const text = word.trim();
+  const code = text.charCodeAt(text.length - 1) - 0xac00;
+  if (Number.isNaN(code) || code < 0 || code > 11171) return '(으)로';
+  const jong = code % 28;
+  return jong === 0 || jong === 8 ? '로' : '으로';
+}
+
 function EvidenceTab({ view, level }: { view: ResultView; level: 'safe' | 'warning' | 'danger' }) {
   const { colors } = useTheme();
   const main = riskColor(level, colors);
   // 백엔드는 단어 위치를 주지 않으므로 핵심근거 문장에서 키워드를 근사 추출.
   const keywords = extractKeywords(view.coreEvidence, 6);
+  const showSignals = level !== 'safe';
 
   return (
     <View style={{ gap: 22 }}>
@@ -625,7 +635,11 @@ function EvidenceTab({ view, level }: { view: ResultView; level: 'safe' | 'warni
           }}
         >
           <AppText weight="700" style={{ fontSize: 15, lineHeight: 22, flex: 1 }}>
-            해당 통화는{'\n'}"{view.category}"으로{'\n'}의심됩니다
+            {level === 'safe' ? (
+              <>해당 통화는{'\n'}정상 통화로{'\n'}보입니다</>
+            ) : (
+              <>해당 통화는{'\n'}"{view.category}"{withRo(view.category)}{'\n'}의심됩니다</>
+            )}
           </AppText>
           <View
             style={{
@@ -647,8 +661,8 @@ function EvidenceTab({ view, level }: { view: ResultView; level: 'safe' | 'warni
         </View>
       </View>
 
-      {/* 탐지된 패턴 */}
-      {view.matchedPatterns.length > 0 ? (
+      {/* 탐지된 패턴 — 최종 판단이 정상이면 보이지 않는다(규칙에 걸린 표현이 '위험 패턴'처럼 보여 판정과 어긋난다) */}
+      {showSignals && view.matchedPatterns.length > 0 ? (
         <View>
           <AppText weight="800" style={{ fontSize: 18 }}>
             탐지된 위험 패턴
@@ -661,8 +675,8 @@ function EvidenceTab({ view, level }: { view: ResultView; level: 'safe' | 'warni
         </View>
       ) : null}
 
-      {/* 의심되는 주요 단어 (근거 문장에서 근사) */}
-      {keywords.length > 0 ? (
+      {/* 의심되는 주요 단어 (근거 문장에서 근사) — 정상 판정의 근거 문장("송금 요구는 없다")에서 뽑으면 거꾸로 읽히므로 숨긴다 */}
+      {showSignals && keywords.length > 0 ? (
         <View>
           <AppText weight="800" style={{ fontSize: 18 }}>
             의심되는 주요 단어
@@ -684,7 +698,7 @@ function EvidenceTab({ view, level }: { view: ResultView; level: 'safe' | 'warni
           <View style={{ backgroundColor: colors.cardAlt, borderRadius: 16, padding: 16, marginTop: 14 }}>
             <HighlightedText
               text={view.coreEvidence}
-              keywords={keywords}
+              keywords={showSignals ? keywords : []}
               baseColor={colors.textSecondary}
               highlightColor={colors.text}
               weightHighlight="700"
