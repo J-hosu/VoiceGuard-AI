@@ -173,6 +173,7 @@ def label_diarized_speakers(segments: list[dict], roles: list[str]) -> bool:
     발화마다 따로 정하지 않고 화자 번호별로 역할을 모아 다수결하므로, 추적기가 한두 발화의 역할을 틀려도
     한 사람의 말이 양쪽 말풍선으로 갈리지 않는다. 나는 한 명만 둔다(두 화자가 모두 user 다수면 user 비율이 높은 쪽).
     역할 근거가 전혀 없으면(추적기를 쓰지 않은 통화) 말을 가장 많이 한 화자를 상대방으로, 다른 화자를 나로 둔다.
+    사용자 역할은 있는데 어느 화자도 '나' 다수가 아니면(화자 분리가 짧은 대답을 상대방 말에 섞음) 발화별 역할을 쓴다.
     반환: 화자 분리 결과가 있어 라벨을 정했으면 True(Whisper 결과면 False, 아무것도 바꾸지 않는다).
     """
     user, suspect, talk = Counter(), Counter(), Counter()
@@ -192,6 +193,15 @@ def label_diarized_speakers(segments: list[dict], roles: list[str]) -> bool:
     speakers = sorted(talk)
     if any(user[k] or suspect[k] for k in speakers):
         mine = [k for k in speakers if user[k] > suspect[k]]
+        if not mine and any(user[k] for k in speakers):
+            # 사용자 말은 있는데 어느 화자도 '나' 다수가 아니다: 짧은 대답('없어요', '네')이 상대방 발화에 섞여
+            # 화자 분리가 사람을 가르지 못한 경우다. 화자 단위로 정하면 사용자 말까지 상대방 쪽에 붙으므로
+            # 발화마다 추적기 역할을 쓴다.
+            for index, segment in enumerate(segments):
+                if segment.get("spk") is not None:
+                    role = roles[index] if index < len(roles) else "unknown"
+                    segment["speaker"] = "화자B" if role == "user" else "화자A"
+            return True
         me = max(mine, key=lambda k: (user[k] / (user[k] + suspect[k]), user[k])) if mine else None
     else:
         loudest = max(speakers, key=lambda k: talk[k])
