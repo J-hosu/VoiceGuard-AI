@@ -13,6 +13,7 @@ from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from backend.app.api.response_logger import log_api_request, log_api_response
 from backend.app.repository import create_call_log, get_call_log, insert_call_message, list_call_messages
 from backend.app.schemas import CallLogCreate, CallMessageCreate
+from backend.app.services import evidence
 from backend.app.services import agent_loop, audio_transcriber, call_analyzer, response_agent
 
 
@@ -388,6 +389,11 @@ async def _handle_audio_chunk(
             **_current_risk_fields(log_id),
             "message": "빈 오디오 chunk입니다.",
         }
+
+    try:
+        evidence.record_audio(log_id, chunk_index, audio_bytes, f"실시간 음성 조각 #{chunk_index}")
+    except Exception as exc:  # 증거 기록 실패가 분석을 막지 않게 한다
+        logger.warning("음성 조각 해시 기록 실패(log_id=%s, chunk=%s): %s", log_id, chunk_index, exc)
 
     try:
         raw_segments = await asyncio.to_thread(audio_transcriber.transcribe_audio_bytes, audio_bytes, audio_format)

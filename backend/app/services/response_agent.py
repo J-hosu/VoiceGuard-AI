@@ -156,8 +156,89 @@ def handle_response(
     return {"action": updated, "next_actions": next_actions}
 
 
-def on_call_end(log_id: int) -> list[dict]:
-    """통화가 끝났을 때 실행할 행동(신고 안내, 통화 후 후속 확인)을 만든다."""
+ENTITY_LABELS = {"account": "계좌", "phone": "전화번호", "url": "주소", "case_number": "사건번호"}
+
+
+def on_new_entities(log_id: int, state: dict, entities: list[dict]) -> list[dict]:
+    """새로 뽑힌 단서를 다른 통화·위험 주소 규칙과 바로 대조해, 걸리면 통화 중인 사용자에게 알린다(값마다 한 번)."""
+    if not entities:
+        return []
+    from backend.app.services import case_linking
+
+    existing = state_repository.list_actions(log_id)
+    alerted = {
+        str(item.get("value", ""))
+        for action in existing
+        if action["action_type"] == "linked_case_alert"
+        for item in action["payload"].get("matches", []) + action["payload"].get("urls", [])
+    }
+    created: list[dict] = []
+    for match in case_linking.match_entities(log_id, entities):
+        if match["value"] in alerted:
+            continue
+        label = ENTITY_LABELS.get(match["entity_type"], "단서")
+        calls = match["calls"]
+        latest = calls[0]
+        risky = sum(1 for call in calls if call["risk_level"] in ("medium", "high"))
+        spec = {
+            "title": f"이 {label}은(는) 다른 의심 통화에도 나왔어요",
+            "message": (
+                f"방금 나온 {label} {match['value']}이(가) 다른 통화 {len(calls)}건에서도 나왔습니다"
+                f"(가장 최근 {str(latest['called_at'])[:10]}{', ' + latest['phishing_type'] if latest['phishing_type'] else ''}). "
+                "돈을 보내거나 정보를 알려 주기 전에 전화를 끊고 공식 번호로 확인하세요."
+            ),
+            "reason": f"같은 {label}이(가) 위험 통화 {risky}건을 포함한 다른 통화 {len(calls)}건에 있음",
+            "payload": {"kind": "linked", "matches": [{"entity_type": match["entity_type"], "value": match["value"], "calls": calls}]},
+        }
+        created.append(state_repository.insert_action(log_id=log_id, state_version=state["state_version"], action_type="linked_case_alert", **spec))
+        alerted.add(match["value"])
+    for url in case_linking.risky_urls(entities):
+        if url["url"] in alerted:
+            continue
+        spec = {
+            "title": "이 주소는 위험해 보여요",
+            "message": f"{url['url']} — {', '.join(url['reasons'])}. 접속하거나 앱을 설치하지 마세요.",
+            "reason": "통화에서 들린 주소의 모양을 문자 검사와 같은 규칙으로 점검(접속은 하지 않음)",
+            "payload": {"kind": "url", "urls": [{"value": url["url"], "reasons": url["reasons"]}]},
+        }
+        created.append(state_repository.insert_action(log_id=log_id, state_version=state["state_version"], action_type="linked_case_alert", **spec))
+        alerted.add(url["url"])
+    return created
+
+
+RECORDING_ACTIONS = ("official_number", "block_guide")
+
+
+def on_recording(log_id: int, state: dict, detection: dict) -> list[dict]:
+    """녹음 파일 분석이 끝났을 때 행동을 만든다.
+
+    이미 끝난 통화라 "지금 끊으세요" 경고, 통화 중 후속 확인, 보호자 알림은 만들지 않는다. 사기로 보이면 직접 확인할
+    공식 번호와(이미 돈·정보를 줬다면) 피해 차단 순서, 그리고 통화 후 확인만 남긴다. 지난 녹음이라 n8n 알림은 보내지 않는다.
+    """
+    created: list[dict] = []
+    if detection["risk_level"] in ("medium", "high") and state["scam_type"] != "none":
+        existing = state_repository.list_actions(log_id)
+        candidates = [
+            action_type
+            for action_type in RECORDING_ACTIONS
+            if not _has_action(existing, action_type)
+            and (action_type != "block_guide" or state["compliance"] == "completed")
+        ]
+        authored = _write_with_claude(log_id, state, [c for c in candidates if c in LLM_AUTHORED])
+        for action_type in candidates:
+            spec = _build_action(action_type, state, detection, authored.get(action_type), log_id)
+            if spec is not None:
+                created.append(
+                    state_repository.insert_action(
+                        log_id=log_id, state_version=state["state_version"], action_type=action_type, **spec
+                    )
+                )
+    created.extend(on_call_end(log_id, notify=False))
+    return created
+
+
+def on_call_end(log_id: int, notify: bool = True) -> list[dict]:
+    """통화가 끝났을 때 실행할 행동(신고 안내, 통화 후 후속 확인)을 만든다. notify=False면 n8n 알림을 보내지 않는다."""
     call = get_call_log(log_id)
     if call.risk_level not in ("medium", "high"):
         return []
@@ -180,7 +261,7 @@ def on_call_end(log_id: int) -> list[dict]:
             state_repository.insert_action(log_id, version, "followup_check", **_followup("post_call"))
         )
     # 통화 종료 알림은 통화당 한 번만 보낸다(종료 처리가 두 번 불려도 created가 비어 있으면 건너뜀).
-    if created:
+    if created and notify:
         webhook_emitter.emit("call.ended", _event_data(log_id, state))
     return created
 

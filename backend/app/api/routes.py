@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import os
 import tempfile
 from typing import Optional
@@ -32,7 +33,9 @@ from backend.app.schemas import (
     TrainingCase,
 )
 from backend.app import state_repository
-from backend.app.services import agent_loop, audio_transcriber, call_analyzer
+from backend.app.services import agent_loop, audio_transcriber, call_analyzer, evidence
+
+logger = logging.getLogger(__name__)
 
 
 router = APIRouter()
@@ -111,6 +114,39 @@ def get_training_cases(limit: int = 100) -> list[TrainingCase]:
     """최근 저장된 학습 사례를 반환한다."""
     response = list_training_cases(limit=limit)
     return log_api_response("GET /training-cases", response)
+
+
+RECORDING_STEP = 6  # 녹음 파일은 발화 6개마다 빠른 경로를 채점해 통화 중 최고 점수를 남긴다(실시간과 같은 방식)
+
+
+def _analyze_recording_segments(log_id: int, segments: list[dict], top_k: int) -> tuple[dict, list]:
+    """녹음 파일 발화를 실시간처럼 나눠 넣으며 빠른 경로를 채점하고, 끝나면 상태 추적·대응까지 한 번에 돌린다.
+
+    실시간 통화와 같은 결과 화면(사기 단계, 발화별 태그, AI 대응 기록, 수사 단서)이 나오게 한다.
+    추적기(Claude)를 쓸 수 없으면 빠른 경로 결과를 그대로 돌려준다.
+    """
+    saved = []
+    detection: dict = {}
+    for start in range(0, len(segments), RECORDING_STEP):
+        for turn_index, segment in enumerate(segments[start:start + RECORDING_STEP], start=start + 1):
+            saved.append(
+                insert_call_message(
+                    log_id=log_id,
+                    message=CallMessageCreate(content=segment["text"], turn_index=turn_index),
+                )
+            )
+        detection = call_analyzer.detect_and_persist(log_id=log_id, top_k=top_k, use_llm_evidence=False, agent_mode=True)
+    try:
+        fused = agent_loop.analyze_recording(log_id)
+    except Exception as exc:  # 추적기 실패는 결과를 막지 않는다
+        logger.warning("녹음 파일 상태 추적 실패(log_id=%s): %s", log_id, exc)
+        fused = None
+    if fused:
+        detection = {**detection, **fused}
+        state = state_repository.get_latest_state(log_id)
+        if state and state.get("phishing_type"):
+            detection["phishing_type"] = state["phishing_type"]
+    return detection, saved
 
 
 @router.post("/calls/analyze-audio")
@@ -205,19 +241,8 @@ async def analyze_call_audio(
             file_type="recording",
         )
     )
-    saved_messages = []
-    for turn_index, segment in enumerate(segments, start=1):
-        saved_messages.append(
-            insert_call_message(
-                log_id=call.id,
-                message=CallMessageCreate(
-                    content=segment["text"],
-                    turn_index=turn_index,
-                ),
-            )
-        )
-
-    detection = await asyncio.to_thread(call_analyzer.detect_and_persist, log_id=call.id, top_k=top_k)
+    evidence.record_audio(call.id, 0, raw_bytes, f"녹음 파일 {file.filename or ''}".strip())
+    detection, saved_messages = await asyncio.to_thread(_analyze_recording_segments, call.id, segments, top_k)
     converted_text = audio_transcriber.join_transcript_texts(
         [message.content for message in saved_messages]
     )
@@ -326,6 +351,8 @@ async def retranscribe_call_audio(
         raise HTTPException(status_code=422, detail="오디오에서 발화를 전사하지 못했습니다.")
 
     # 기존 청크 전사 발화를 지우고 전체 재전사 결과로 교체한다.
+    # 통화 전체 녹음(종료 후 한 번 올라옴)도 실시간 조각 뒤에 이어서 해시를 남긴다.
+    evidence.record_audio(log_id, 100000, raw_bytes, "통화 전체 녹음(종료 후 재전사용)")
     delete_call_messages(log_id)
     saved_messages = []
     for turn_index, segment in enumerate(segments, start=1):

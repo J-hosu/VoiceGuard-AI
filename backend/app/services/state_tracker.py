@@ -218,7 +218,7 @@ def update_state(log_id: int, force: bool = False, retag_all: bool = False) -> O
         output = claude_client.complete_json(
             prompt,
             schema=OUTPUT_SCHEMA,
-            system=SYSTEM_PROMPT,
+            system=SYSTEM_PROMPT + _approved_knowledge(),
             model=model,
             effort="low",
         )
@@ -267,6 +267,17 @@ def update_state(log_id: int, force: bool = False, retag_all: bool = False) -> O
         model_version=f"tracker-v1:{model}",
     )
     return {"state": state, "utterance_tags": changed_tags, "entities": new_entities}
+
+
+def _approved_knowledge() -> str:
+    """사람이 승인한 최근 공식 경보 수법(scam_knowledge). 읽지 못하면 지식 없이 추적한다."""
+    try:
+        from backend.app.services import scam_knowledge
+
+        return scam_knowledge.tracker_knowledge_block()
+    except Exception as exc:
+        logger.warning("승인된 수법 지식을 읽지 못함: %s", exc)
+        return ""
 
 
 def _reconcile_stage(output: dict, previous: Optional[dict]) -> tuple[str, str]:

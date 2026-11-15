@@ -13,6 +13,7 @@ from backend.app import state_repository
 from backend.app.codes import STAGE_TACTICS, phishing_type_label
 from backend.app.repository import get_call_log
 from backend.app.services import call_analyzer, claude_client, response_agent, state_tracker
+from backend.app.services import evidence
 
 
 logger = logging.getLogger(__name__)
@@ -60,6 +61,8 @@ def run_cycle(log_id: int, force: bool = False) -> Optional[dict]:
 
     state = tracked["state"]
     actions = response_agent.decide(log_id, state, detection)
+    # 새로 뽑힌 계좌·번호·주소를 다른 통화와 바로 대조한다(통화 중 단서 즉시 대조).
+    actions.extend(response_agent.on_new_entities(log_id, state, tracked["entities"]))
     return {
         "state_update": {
             "type": "state_update",
@@ -80,6 +83,25 @@ def retrack(log_id: int) -> Optional[dict]:
     tracked = state_tracker.update_state(log_id, force=True, retag_all=True)
     detection = call_analyzer.apply_state_fusion(log_id) if tracked else None
     response_agent.on_call_end(log_id)
+    evidence.seal_transcript(log_id)
+    return detection
+
+
+def analyze_recording(log_id: int) -> Optional[dict]:
+    """녹음 파일: 저장된 발화 전체를 한 번에 추적하고(발화별 역할·수법 태그 포함) 위험도를 융합한 뒤,
+    지난 통화에 맞는 행동(공식 번호 확인, 피해 차단 안내, 통화 후 확인)을 만든다.
+
+    반환: 융합된 탐지 결과 dict. 추적에 실패하면 None(빠른 경로 결과를 그대로 쓴다).
+    """
+    tracked = state_tracker.update_state(log_id, force=True, retag_all=True)
+    if tracked is None:
+        return None
+    detection = call_analyzer.apply_state_fusion(log_id)
+    if detection is None:
+        return None
+    response_agent.on_new_entities(log_id, tracked["state"], tracked["entities"])
+    response_agent.on_recording(log_id, tracked["state"], detection)
+    evidence.seal_transcript(log_id)
     return detection
 
 
@@ -91,6 +113,7 @@ def end_call(log_id: int) -> dict:
     cycle = run_cycle(log_id, force=True)
     actions = list(cycle["actions"]) if cycle else []
     actions.extend(response_agent.on_call_end(log_id))
+    evidence.seal_transcript(log_id)
 
     call = get_call_log(log_id)
     state = state_repository.get_latest_state(log_id)

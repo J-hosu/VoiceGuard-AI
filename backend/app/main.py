@@ -21,11 +21,12 @@ from backend.app.access_gate import AccessGateMiddleware
 from backend.app.api.agent_routes import router as agent_router
 from backend.app.api.analyze_routes import router as analyze_router
 from backend.app.api.investigation_routes import router as investigation_router
+from backend.app.api.quality_routes import router as quality_router
 from backend.app.api.routes import router as rest_router
 from backend.app.api.websocket import router as websocket_router
 from backend.app.database import init_db
 from backend.app.paths import ENV_PATH, PROJECT_ROOT
-from backend.app.services import agent_loop
+from backend.app.services import agent_loop, scam_knowledge
 from backend.app.services.call_analyzer import preload_koelectra_model
 
 
@@ -75,6 +76,7 @@ async def preload_whisper_model() -> None:
 async def lifespan(app: FastAPI):
     """API 서버 시작 시 DB와 모델 리소스를 준비한다."""
     init_db()
+    scam_knowledge.ensure_tables()
     await preload_koelectra_model()
     await preload_whisper_model()
     # 구조화 출력 스키마 준비 호출은 수십 초가 걸릴 수 있어 서버 시작을 막지 않고 뒤에서 돌린다.
@@ -100,6 +102,7 @@ app.add_middleware(
 app.include_router(rest_router)
 app.include_router(agent_router)
 app.include_router(investigation_router)
+app.include_router(quality_router)
 app.include_router(analyze_router)
 app.include_router(websocket_router)
 # 접속 코드 확인(ACCESS_CODE가 설정됐을 때만 동작). 가장 바깥에서 HTTP와 WebSocket을 모두 거른다.

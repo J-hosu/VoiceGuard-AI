@@ -98,6 +98,19 @@ a { color: var(--accent-ink); }
 }
 .app-link:hover { background: var(--navy-2); }
 
+
+/* ───────── 탭 ───────── */
+.tabs { display: flex; gap: 4px; padding: 3px; border: 1px solid var(--navy-line); border-radius: 10px; background: var(--navy-2); }
+.tab-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border: 0; border-radius: 8px; background: transparent;
+  color: #C7D3E4; font-size: 13.5px; font-weight: 600; white-space: nowrap;
+}
+.tab-btn:hover { background: #1B2740; color: #fff; }
+.tab-btn[aria-selected="true"] { background: var(--accent); color: #fff; }
+.tab-btn .ic { width: 15px; height: 15px; }
+.tab-badge { min-width: 18px; padding: 0 6px; border-radius: 999px; background: #F59E0B; color: #111827; font-size: 11.5px; line-height: 18px; text-align: center; }
+
 /* ───────── 레이아웃 ───────── */
 .layout {
   flex: 1; min-height: 0;
@@ -488,6 +501,74 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
 }
+
+/* ───────── 우선순위 · 증거 ───────── */
+.sorts { display: flex; gap: 6px; margin-top: 8px; align-items: center; }
+.sorts-label { font-size: 12.5px; color: var(--ink-3); margin-right: 2px; }
+.prio { display: inline-flex; align-items: center; gap: 4px; margin-top: 3px; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; background: #EEF2FF; color: #3730A3; border: 1px solid #C7D2FE; }
+.prio.hot { background: var(--high-soft); color: var(--high-ink); border-color: var(--high-line); }
+.prio-reasons { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.proof-row { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 6px 14px; font-size: 13.5px; }
+.proof-row dt { color: var(--ink-3); }
+.hash { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 12.5px; word-break: break-all; color: var(--ink-2); }
+.ok { color: var(--low-ink); font-weight: 700; }
+.bad { color: var(--high-ink); font-weight: 700; }
+
+/* ───────── 탭 화면 공통 ───────── */
+.view { flex: 1; min-height: 0; overflow-y: auto; padding: 24px 28px 56px; }
+.view-inner { max-width: 1180px; margin: 0 auto; display: flex; flex-direction: column; gap: 16px; }
+.view-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.view-head h1 { font-size: 22px; line-height: 1.35; }
+.view-head p { color: var(--ink-3); font-size: 14px; margin-top: 4px; max-width: 760px; }
+.view-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; }
+.kpi { padding: 12px 14px; border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); }
+.kpi dt { font-size: 12.5px; color: var(--ink-3); }
+.kpi dd { font-size: 24px; font-weight: 700; line-height: 1.3; font-variant-numeric: tabular-nums; }
+.kpi dd small { font-size: 13px; font-weight: 500; color: var(--ink-3); margin-left: 4px; }
+.seg { display: inline-flex; gap: 4px; flex-wrap: wrap; }
+.note { font-size: 13px; color: var(--ink-3); }
+.mtable { width: 100%; border-collapse: collapse; font-size: 13.5px; }
+.mtable th, .mtable td { padding: 8px 10px; border-bottom: 1px solid var(--line-2); text-align: left; vertical-align: top; }
+.mtable th { color: var(--ink-3); font-weight: 600; font-size: 12.5px; background: #F8FAFC; }
+.mtable td.num, .mtable th.num { text-align: right; }
+.after { color: var(--accent-ink); font-weight: 700; }
+
+/* ───────── 관계 그래프 ───────── */
+.graph-wrap { position: relative; border: 1px solid var(--line); border-radius: var(--radius); background: #FBFCFE; overflow: hidden; }
+.graph-svg { display: block; width: 100%; height: 640px; }
+.graph-svg .edge { stroke: #CBD5E1; stroke-width: 1.2; }
+.graph-svg .edge.shared { stroke: #F59E0B; stroke-width: 2.2; }
+.graph-svg .case-node { cursor: pointer; }
+.graph-svg .case-node circle { stroke: #fff; stroke-width: 2.5; }
+.graph-svg .case-node:hover circle, .graph-svg .case-node:focus circle { stroke: var(--ink); }
+.graph-svg text { font-family: var(--font); pointer-events: none; }
+.graph-legend { display: flex; flex-wrap: wrap; gap: 8px 16px; font-size: 12.5px; color: var(--ink-2); }
+.lg { display: inline-flex; align-items: center; gap: 6px; }
+.lg i { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+.lg i.sq { border-radius: 3px; }
+
+/* ───────── 신종 수법 ───────── */
+.kcard { border: 1px solid var(--line); border-radius: var(--radius); background: var(--surface); padding: 16px 18px; display: flex; flex-direction: column; gap: 10px; }
+.kcard.pending { border-color: #FCD34D; box-shadow: 0 0 0 3px #FEF3C7 inset; }
+.kcard-head { display: flex; justify-content: space-between; gap: 12px; align-items: flex-start; flex-wrap: wrap; }
+.kcard h3 { font-size: 16px; line-height: 1.45; }
+.kcard .src { font-size: 12.5px; color: var(--ink-3); }
+.kgrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; }
+.kgrid h4 { font-size: 12.5px; color: var(--ink-3); margin: 0 0 4px; font-weight: 600; }
+.kgrid li { font-size: 13.5px; line-height: 1.55; padding-left: 12px; position: relative; }
+.kgrid li::before { content: ''; position: absolute; left: 2px; top: 9px; width: 4px; height: 4px; border-radius: 50%; background: var(--ink-3); }
+.kstatus { font-size: 12.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px; }
+.kstatus.pending { background: #FEF3C7; color: #92400E; }
+.kstatus.approved { background: var(--low-soft); color: var(--low-ink); }
+.kstatus.rejected { background: #F1F5F9; color: var(--ink-3); }
+@media (max-width: 900px) {
+  .tabs { order: 3; width: 100%; overflow-x: auto; }
+  .view { padding: 14px 16px 48px; }
+  .kgrid { grid-template-columns: minmax(0, 1fr); }
+  .graph-svg { height: 480px; }
+}
+@media print { .tabs, .sorts { display: none !important; } }
 </style>
 </head>
 <body>
@@ -498,6 +579,12 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     <span class="brand-mark" id="brandMark" aria-hidden="true"></span>
     <span class="brand-name">VoiceGuard AI <span>· 수사 지원</span></span>
   </div>
+  <nav class="tabs" role="tablist" aria-label="화면" id="tabs">
+    <button type="button" class="tab-btn" role="tab" data-tab="cases" aria-selected="true">사건 목록</button>
+    <button type="button" class="tab-btn" role="tab" data-tab="graph" aria-selected="false">관계 그래프</button>
+    <button type="button" class="tab-btn" role="tab" data-tab="knowledge" aria-selected="false">신종 수법 <span class="tab-badge" id="kBadge" hidden></span></button>
+    <button type="button" class="tab-btn" role="tab" data-tab="quality" aria-selected="false">모델 품질</button>
+  </nav>
   <dl class="stats" aria-label="통화 요약">
     <div class="stat"><dt>전체 통화</dt><dd id="statTotal">–</dd></div>
     <div class="stat"><dt>위험 통화</dt><dd id="statRisky">–</dd></div>
@@ -507,7 +594,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
   <a class="app-link" href="/" id="appLink" aria-label="앱으로 돌아가기"><span>앱으로<span class="link-long"> 돌아가기</span></span></a>
 </header>
 
-<main class="layout">
+<main class="layout" id="viewCases">
   <section class="list-pane" aria-label="통화 목록">
     <div class="list-head">
       <div class="list-title-row">
@@ -520,6 +607,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
         <input id="q" type="search" placeholder="유형·이름으로 검색" autocomplete="off" spellcheck="false">
       </div>
       <div class="filters" role="group" aria-label="목록 필터" id="filters"></div>
+      <div class="sorts" role="group" aria-label="정렬" id="sorts"></div>
     </div>
     <div class="list-status" id="listStatus" role="status" aria-live="polite"></div>
     <div class="list-scroll" id="listScroll">
@@ -538,6 +626,10 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     </div>
   </section>
 </main>
+
+<main class="view" id="viewGraph" hidden><div class="view-inner" id="graphInner"></div></main>
+<main class="view" id="viewKnowledge" hidden><div class="view-inner" id="knowledgeInner"></div></main>
+<main class="view" id="viewQuality" hidden><div class="view-inner" id="qualityInner"></div></main>
 
 <div class="sr-only" id="announce" role="status" aria-live="polite"></div>
 
@@ -569,7 +661,8 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
   var CALM_TACTICS = { official_channel: true, no_pressure: true };
   var ACTION = {
     warn: '경고', verify_guide: '검증 질문 안내', official_number: '공식 번호 안내',
-    guardian_alert: '보호자 알림', block_guide: '긴급 조치 안내', evidence_preserve: '증거 보존', report_guide: '신고 안내'
+    guardian_alert: '보호자 알림', block_guide: '긴급 조치 안내', evidence_preserve: '증거 보존', report_guide: '신고 안내',
+    linked_case_alert: '단서 대조 경고'
   };
   var ANSWER = {
     hung_up: '끊었어요', still_talking: '아직 통화 중이에요', verified_safe: '직접 확인해 보니 정상이었어요',
@@ -630,7 +723,10 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     back: 'M19 12H5 M11 6l-6 6 6 6',
     alert: 'M12 4l9 16H3z M12 10v4 M12 17v.5',
     link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1 M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
-    refresh: 'M20 11a8 8 0 0 0-14.5-4L4 9 M4 4v5h5 M4 13a8 8 0 0 0 14.5 4L20 15 M20 20v-5h-5'
+    refresh: 'M20 11a8 8 0 0 0-14.5-4L4 9 M4 4v5h5 M4 13a8 8 0 0 0 14.5 4L20 15 M20 20v-5h-5',
+    play: 'M7 5l12 7-12 7z',
+    download: 'M12 4v11 M7 10l5 5 5-5 M5 20h14',
+    lock: 'M6 11h12v9H6z M8.5 11V8a3.5 3.5 0 0 1 7 0v3'
   };
   function icon(name) {
     var svg = document.createElementNS(SVG_NS, 'svg');
@@ -706,7 +802,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
   /* ───────── 상태 ───────── */
   var state = {
     cases: [], stats: null, listLoaded: false, listBusy: false,
-    filter: 'all', query: '',
+    filter: 'all', query: '', sort: 'recent', tab: 'cases',
     selectedId: null, detail: null, detailToken: 0, detailAbort: null, detailBusy: false, detailSig: '',
     transcriptOpen: false, turnSet: {},
     rows: {}, listScrollY: 0
@@ -715,10 +811,11 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
   /* ───────── 목록 ───────── */
   function rowSig(c) {
     return [c.name, c.created_at, c.risk_score, c.risk_level, c.phishing_type, c.stage, c.message_count,
-      c.entity_count, c.followup_answer, c.damage_reported, c.linked].join('|');
+      c.entity_count, c.followup_answer, c.damage_reported, c.linked, c.priority].join('|');
   }
   function sortCases(list) {
     return list.slice().sort(function (a, b) {
+      if (state.sort === 'priority' && (b.priority || 0) !== (a.priority || 0)) return (b.priority || 0) - (a.priority || 0);
       var ta = String(a.created_at || ''), tb = String(b.created_at || '');
       if (ta !== tb) return ta < tb ? 1 : -1;
       return (b.log_id || 0) - (a.log_id || 0);
@@ -750,7 +847,8 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
       tags.childNodes.length ? tags : null));
     btn.appendChild(h('span', { class: 'row-risk' },
       h('span', { class: 'row-pct', text: pct(c.risk_score) }),
-      h('span', { class: 'row-lvl' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), '위험도 ' + LEVEL[level])));
+      h('span', { class: 'row-lvl' }, h('span', { class: 'dot', 'aria-hidden': 'true' }), '위험도 ' + LEVEL[level]),
+      c.priority != null ? h('span', { class: 'prio' + (c.priority >= 60 ? ' hot' : ''), title: arr(c.priority_reasons).join(', '), text: '우선 ' + c.priority }) : null));
   }
   function renderList(markNew) {
     var ul = $('caseList');
@@ -989,7 +1087,10 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
             h('span', { class: 'pill ' + level }, h('span', { class: 'dot', 'aria-hidden': 'true' }), LEVEL[level]))),
         h('div', { class: 'fact' }, h('dt', { text: '도달 단계' }), h('dd', { text: stageLabel(src.stage, level) })),
         time ? h('div', { class: 'fact' }, h('dt', { text: '통화 시각' }), h('dd', { text: timeFull(time) })) : null,
-        count != null ? h('div', { class: 'fact' }, h('dt', { text: '발화 수' }), h('dd', { text: count + '개' })) : null) : null,
+        count != null ? h('div', { class: 'fact' }, h('dt', { text: '발화 수' }), h('dd', { text: count + '개' })) : null,
+        row.priority != null ? h('div', { class: 'fact' }, h('dt', { text: '수사 우선순위' }), h('dd', null,
+          h('span', { class: 'prio' + (row.priority >= 60 ? ' hot' : ''), text: row.priority + ' / 100' }),
+          arr(row.priority_reasons).length ? h('span', { class: 'prio-reasons' }, arr(row.priority_reasons).map(function (r) { return h('span', { class: 'tag', text: r }); })) : null)) : null) : null,
       damage ? h('div', { class: 'banner', role: 'note' }, icon('alert'),
         h('p', null, h('strong', { text: '피해 확인' }), damageText)) : null);
     clear($('detailHead')).appendChild(head);
@@ -1020,7 +1121,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     arr(d.transcript).forEach(function (m) { if (m && m.turn_index != null) state.turnSet[m.turn_index] = true; });
     renderHead(d, id);
     var body = clear($('detailBody'));
-    var parts = [secOverview(d), secStages(d), secEntities(d), secLinks(d), secOfficial(d), secKey(d), secActions(d), secFollowups(d), secTranscript(d)];
+    var parts = [secOverview(d), secStages(d), secEntities(d), secLinks(d), secOfficial(d), secKey(d), secActions(d), secFollowups(d), secEvidence(d), secTranscript(d)];
     var shown = 0;
     parts.forEach(function (p) { if (p) { body.appendChild(p); shown++; } });
     if (!shown) {
@@ -1315,6 +1416,342 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     jumpToTurn._t = setTimeout(function () { el.classList.remove('is-target'); }, 2600);
   }
 
+
+  /* ───────── 증거 무결성 ───────── */
+  function secEvidence(d) {
+    var e = d && d.evidence;
+    if (!e || (!e.audio_chunks && !e.transcript_sealed)) return null;
+    var dl = h('dl', { class: 'proof-row' });
+    if (e.audio_chunks) {
+      dl.appendChild(h('dt', { text: '원본 음성' }));
+      dl.appendChild(h('dd', null, e.audio_chunks + '개 조각 · ' + Number(e.audio_bytes || 0).toLocaleString() + ' bytes · ',
+        h('span', { class: e.audio_chain_ok ? 'ok' : 'bad', text: e.audio_chain_ok ? '해시 체인 정상' : '해시 체인 불일치' })));
+      dl.appendChild(h('dt', { text: '음성 체인 마지막 값' }));
+      dl.appendChild(h('dd', { class: 'hash', text: e.audio_last_chain_hash }));
+    }
+    if (e.transcript_sealed) {
+      dl.appendChild(h('dt', { text: '전사문 봉인' }));
+      dl.appendChild(h('dd', null, timeFull(e.transcript_sealed_at) + ' · 발화 ' + e.utterances + '개 · ',
+        h('span', { class: e.transcript_ok ? 'ok' : 'bad', text: e.transcript_ok ? '현재 전사문과 일치' : '봉인 뒤 전사문이 바뀜' })));
+      dl.appendChild(h('dt', { text: '전사문 해시' }));
+      dl.appendChild(h('dd', { class: 'hash', text: e.transcript_hash }));
+    }
+    return card('증거 무결성 (SHA-256)', '', dl,
+      h('p', { class: 'note', text: '음성은 받은 즉시 해시를 체인으로 남기고, 통화가 끝나면 전사문을 봉인합니다. 원본 음성은 개인정보 보호를 위해 전사 후 지웁니다.' }));
+  }
+
+  /* ───────── 요청 ───────── */
+  function postJSON(url, body) {
+    return fetch(url, {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
+      body: JSON.stringify(body || {})
+    }).then(function (res) {
+      if (!res.ok) { var err = new Error('HTTP ' + res.status); err.status = res.status; throw err; }
+      return res.json();
+    });
+  }
+
+  /* ───────── 탭 ───────── */
+  var VIEWS = { cases: 'viewCases', graph: 'viewGraph', knowledge: 'viewKnowledge', quality: 'viewQuality' };
+  function tabFromHash() {
+    var m = /^#tab=(\w+)/.exec(location.hash || '');
+    return m && VIEWS[m[1]] ? m[1] : null;
+  }
+  function showTab(name, setHash) {
+    if (!VIEWS[name]) name = 'cases';
+    state.tab = name;
+    Object.keys(VIEWS).forEach(function (k) { $(VIEWS[k]).hidden = k !== name; });
+    Array.prototype.forEach.call(document.querySelectorAll('.tab-btn'), function (b) {
+      b.setAttribute('aria-selected', String(b.getAttribute('data-tab') === name));
+    });
+    if (setHash) {
+      if (name === 'cases') history.replaceState(null, '', state.selectedId != null ? '#case=' + state.selectedId : location.pathname);
+      else history.replaceState(null, '', '#tab=' + name);
+    }
+    if (name === 'graph') loadGraph();
+    if (name === 'knowledge') loadKnowledge();
+    if (name === 'quality') loadQuality();
+    document.title = { cases: 'VoiceGuard AI · 수사 지원 대시보드', graph: '관계 그래프 · VoiceGuard AI', knowledge: '신종 수법 · VoiceGuard AI', quality: '모델 품질 · VoiceGuard AI' }[name];
+  }
+  function viewMessage(inner, text, isError, retry) {
+    clear(inner).appendChild(h('div', { class: 'card empty' + (isError ? ' error' : '') },
+      h('strong', { text: text }), retry ? h('button', { type: 'button', class: 'btn', onclick: retry }, icon('refresh'), '다시 시도') : null));
+  }
+  function viewHead(title, desc, actions) {
+    return h('div', { class: 'view-head' }, h('div', null, h('h1', { text: title }), desc ? h('p', { text: desc }) : null),
+      actions ? h('div', { class: 'view-actions' }, actions) : null);
+  }
+
+  /* ───────── 관계 그래프 ───────── */
+  var ENTITY_COLOR = { account: '#7C3AED', phone: '#0EA5E9', url: '#DB2777', case_number: '#64748B', org: '#0F766E' };
+  var LEVEL_COLOR = { high: '#DC2626', medium: '#D97706', low: '#059669' };
+  function loadGraph() {
+    var inner = $('graphInner');
+    if (!inner.firstChild) viewMessage(inner, '관계 그래프를 불러오는 중입니다.');
+    getJSON('/investigation/graph?min_risk=' + (state.graphMin || 0.5) + '&limit=80', 20000).then(function (g) {
+      renderGraph(g || { nodes: [], edges: [] });
+    }).catch(function (e) { viewMessage(inner, '관계 그래프를 불러오지 못했습니다. ' + errorText(e), true, loadGraph); });
+  }
+  function layoutGraph(nodes, edges, w, hh) {
+    // 사건(원)은 안쪽 원 위에, 단서(네모)는 자기 사건들 근처에서 시작해 힘으로 자리를 잡는다(같은 데이터면 같은 그림).
+    var byId = {}, cases = nodes.filter(function (n) { return n.kind === 'case'; });
+    cases.forEach(function (n, i) {
+      var a = (i / Math.max(1, cases.length)) * Math.PI * 2;
+      n.x = w / 2 + Math.cos(a) * w * 0.3; n.y = hh / 2 + Math.sin(a) * hh * 0.32;
+      byId[n.id] = n;
+    });
+    var nb = {};
+    edges.forEach(function (e) { (nb[e.target] = nb[e.target] || []).push(e.source); });
+    nodes.forEach(function (n, i) {
+      n.vx = 0; n.vy = 0;
+      if (n.kind === 'case') return;
+      var ps = (nb[n.id] || []).map(function (id) { return byId[id]; }).filter(Boolean);
+      var cx = ps.length ? ps.reduce(function (t, p) { return t + p.x; }, 0) / ps.length : w / 2;
+      var cy = ps.length ? ps.reduce(function (t, p) { return t + p.y; }, 0) / ps.length : hh / 2;
+      var j = (i * 137.5) % 360 * Math.PI / 180;
+      n.x = cx + Math.cos(j) * 26; n.y = cy + Math.sin(j) * 26;
+      byId[n.id] = n;
+    });
+    var links = edges.map(function (e) { return { s: byId[e.source], t: byId[e.target] }; }).filter(function (l) { return l.s && l.t; });
+    var it, i, j2, a, b, dx, dy, d2, f, d;
+    for (it = 0; it < 420; it++) {
+      var alpha = 1 - it / 420;
+      for (i = 0; i < nodes.length; i++) {
+        for (j2 = i + 1; j2 < nodes.length; j2++) {
+          a = nodes[i]; b = nodes[j2]; dx = a.x - b.x; dy = a.y - b.y; d2 = dx * dx + dy * dy + 1;
+          if (d2 > 90000) continue;
+          f = 520 / d2; a.vx += dx * f; a.vy += dy * f; b.vx -= dx * f; b.vy -= dy * f;
+        }
+      }
+      links.forEach(function (l) {
+        dx = l.t.x - l.s.x; dy = l.t.y - l.s.y; d = Math.sqrt(dx * dx + dy * dy) || 1;
+        f = (d - 64) * 0.06; l.s.vx += dx / d * f; l.s.vy += dy / d * f; l.t.vx -= dx / d * f; l.t.vy -= dy / d * f;
+      });
+      nodes.forEach(function (n) {
+        n.vx += (w / 2 - n.x) * 0.012; n.vy += (hh / 2 - n.y) * 0.018;
+        n.x += Math.max(-18, Math.min(18, n.vx)) * (0.25 + alpha); n.y += Math.max(-18, Math.min(18, n.vy)) * (0.25 + alpha);
+        n.vx *= 0.5; n.vy *= 0.5;
+        n.x = Math.max(70, Math.min(w - 170, n.x)); n.y = Math.max(30, Math.min(hh - 30, n.y));
+      });
+    }
+    return links;
+  }
+  function svgEl(tag, attrs) {
+    var el = document.createElementNS(SVG_NS, tag);
+    for (var k in attrs) if (attrs[k] != null) el.setAttribute(k, String(attrs[k]));
+    return el;
+  }
+  function renderGraph(g) {
+    var inner = clear($('graphInner'));
+    var nodes = arr(g.nodes), edges = arr(g.edges);
+    var sharedOnly = !!state.graphShared;
+    if (sharedOnly) {
+      var keep = {};
+      nodes.forEach(function (n) { if (n.kind === 'entity' && n.case_count > 1) keep[n.id] = true; });
+      edges = edges.filter(function (e) { return keep[e.target]; });
+      edges.forEach(function (e) { keep[e.source] = true; });
+      nodes = nodes.filter(function (n) { return keep[n.id]; });
+    }
+    var cases = nodes.filter(function (n) { return n.kind === 'case'; }).length;
+    var ents = nodes.filter(function (n) { return n.kind === 'entity'; });
+    inner.appendChild(viewHead('관계 그래프',
+      '위험 통화(원)와 그 통화에서 나온 계좌·전화번호·주소·사건번호·사칭 기관(네모)을 잇습니다. 주황 선은 여러 통화를 잇는 단서입니다. 원을 누르면 그 사건을 엽니다.',
+      [h('div', { class: 'seg', role: 'group', 'aria-label': '그래프 범위' },
+        h('button', { type: 'button', class: 'chip-btn', 'aria-pressed': String(!sharedOnly), onclick: function () { state.graphShared = false; loadGraph(); } }, '전체'),
+        h('button', { type: 'button', class: 'chip-btn', 'aria-pressed': String(sharedOnly), onclick: function () { state.graphShared = true; loadGraph(); } }, '겹치는 단서만')),
+       h('button', { type: 'button', class: 'btn', onclick: loadGraph }, icon('refresh'), '새로 고침')]));
+    inner.appendChild(h('dl', { class: 'kpis' },
+      h('div', { class: 'kpi' }, h('dt', { text: '위험 통화' }), h('dd', { text: String(cases) })),
+      h('div', { class: 'kpi' }, h('dt', { text: '단서' }), h('dd', { text: String(ents.length) })),
+      h('div', { class: 'kpi' }, h('dt', { text: '여러 통화를 잇는 단서' }), h('dd', { text: String(ents.filter(function (n) { return n.case_count > 1; }).length) }))));
+    if (!nodes.length) {
+      inner.appendChild(h('div', { class: 'card empty' }, h('strong', { text: sharedOnly ? '여러 통화에 함께 나온 단서가 아직 없습니다.' : '그릴 위험 통화가 없습니다.' })));
+      return;
+    }
+    var W = 1120, H = 640;
+    var links = layoutGraph(nodes, edges, W, H);
+    var svg = svgEl('svg', { class: 'graph-svg', viewBox: '0 0 ' + W + ' ' + H, role: 'img', 'aria-label': '사건과 단서의 관계 그래프' });
+    links.forEach(function (l) {
+      svg.appendChild(svgEl('line', { class: 'edge' + (l.t.case_count > 1 ? ' shared' : ''), x1: l.s.x, y1: l.s.y, x2: l.t.x, y2: l.t.y }));
+    });
+    nodes.forEach(function (n) {
+      if (n.kind === 'entity') {
+        var size = n.case_count > 1 ? 16 : 11;
+        var gEl = svgEl('g', {});
+        gEl.appendChild(svgEl('rect', { x: n.x - size / 2, y: n.y - size / 2, width: size, height: size, rx: 3,
+          fill: ENTITY_COLOR[n.entity_type] || '#64748B', stroke: n.case_count > 1 ? '#F59E0B' : '#fff', 'stroke-width': n.case_count > 1 ? 3 : 1.5 }));
+        var label = String(n.label || '');
+        var t = svgEl('text', { x: n.x + size / 2 + 4, y: n.y + 4, 'font-size': 11.5, fill: '#334155' });
+        t.textContent = (label.length > 12 ? label.slice(0, 11) + '…' : label) + (n.case_count > 1 ? ' · ' + n.case_count + '건' : '');
+        gEl.appendChild(t);
+        var tip = svgEl('title', {}); tip.textContent = (ENTITY[n.entity_type] || n.entity_type) + ': ' + label; gEl.appendChild(tip);
+        svg.appendChild(gEl);
+      } else {
+        var r = 12 + Math.round((n.priority || 0) / 12);
+        var a = svgEl('a', { class: 'case-node', href: '#case=' + n.log_id, tabindex: 0 });
+        a.appendChild(svgEl('circle', { cx: n.x, cy: n.y, r: r, fill: LEVEL_COLOR[n.risk_level] || '#64748B' }));
+        var id = svgEl('text', { x: n.x, y: n.y + 4, 'font-size': 11, 'font-weight': 700, fill: '#fff', 'text-anchor': 'middle' });
+        id.textContent = '#' + n.log_id; a.appendChild(id);
+        var tt = svgEl('title', {}); tt.textContent = n.label + ' · 위험도 ' + pct(n.risk_score) + ' · 우선순위 ' + (n.priority || 0); a.appendChild(tt);
+        svg.appendChild(a);
+      }
+    });
+    inner.appendChild(h('div', { class: 'graph-wrap' }, svg));
+    inner.appendChild(h('div', { class: 'graph-legend' },
+      h('span', { class: 'lg' }, h('i', { style: 'background:#DC2626' }), '위험 높음 통화'),
+      h('span', { class: 'lg' }, h('i', { style: 'background:#D97706' }), '주의 통화'),
+      Object.keys(ENTITY_COLOR).map(function (k) { return h('span', { class: 'lg' }, h('i', { class: 'sq', style: 'background:' + ENTITY_COLOR[k] }), ENTITY[k] || k); }),
+      h('span', { class: 'lg' }, h('i', { class: 'sq', style: 'background:#fff;border:3px solid #F59E0B' }), '여러 통화를 잇는 단서')));
+  }
+
+  /* ───────── 신종 수법 ───────── */
+  var K_STATUS = { pending: '검토 대기', approved: '승인 · 탐지 반영', rejected: '반려', skipped: '관련 없음' };
+  function loadKnowledge() {
+    var inner = $('knowledgeInner');
+    if (!inner.firstChild) viewMessage(inner, '신종 수법 카드를 불러오는 중입니다.');
+    var filter = state.kFilter || 'pending';
+    Promise.all([getJSON('/knowledge/status', 15000), getJSON('/knowledge/cards?status=' + filter, 15000), getJSON('/eval/runs?limit=3', 15000)])
+      .then(function (r) { renderKnowledge(r[0], arr(r[1] && r[1].cards), arr(r[2] && r[2].runs)); })
+      .catch(function (e) { viewMessage(inner, '신종 수법 카드를 불러오지 못했습니다. ' + errorText(e), true, loadKnowledge); });
+  }
+  function refreshKnowledgeBadge() {
+    getJSON('/knowledge/status', 15000).then(function (st) {
+      var n = st && st.counts ? st.counts.pending : 0;
+      $('kBadge').hidden = !n; $('kBadge').textContent = String(n || '');
+    }).catch(function () {});
+  }
+  function renderKnowledge(st, cards, runs) {
+    var inner = clear($('knowledgeInner'));
+    var counts = (st && st.counts) || {};
+    var lastRun = arr(st && st.runs)[0];
+    var collecting = !!(st && st.collecting);
+    $('kBadge').hidden = !counts.pending; $('kBadge').textContent = String(counts.pending || '');
+    inner.appendChild(viewHead('신종 수법 자동 수집',
+      'n8n이 매일 오전 9시 금융감독원·경찰청의 새 사례를 모으면 AI가 수법 카드로 정리합니다. 사람이 승인한 카드만 실시간 탐지(상태 추적기)에 들어가고, 승인할 때마다 회귀 평가가 돌아 기존 탐지가 흔들리지 않았는지 확인합니다.',
+      [h('button', { type: 'button', class: 'btn primary', disabled: collecting, onclick: function () {
+        postJSON('/knowledge/collect', {}).then(function () { setTimeout(loadKnowledge, 800); }).catch(function (e) { alertText(errorText(e)); });
+      } }, icon('refresh'), collecting ? '수집 중…' : '지금 수집')]));
+    inner.appendChild(h('dl', { class: 'kpis' },
+      h('div', { class: 'kpi' }, h('dt', { text: '검토 대기' }), h('dd', { text: String(counts.pending || 0) })),
+      h('div', { class: 'kpi' }, h('dt', { text: '승인 · 탐지 반영' }), h('dd', { text: String(counts.approved || 0) })),
+      h('div', { class: 'kpi' }, h('dt', { text: '반려' }), h('dd', { text: String(counts.rejected || 0) })),
+      h('div', { class: 'kpi' }, h('dt', { text: '마지막 수집' }), h('dd', null, lastRun ? timeShort(lastRun.started_at) : '–',
+        lastRun ? h('small', { text: lastRun.status === 'failed' ? '실패' : '새 카드 ' + lastRun.new_cards + '개 / 글 ' + lastRun.fetched + '개' }) : null))));
+    var run = runs[0];
+    if (run && String(run.trigger || '').indexOf('knowledge:') === 0) {
+      inner.appendChild(h('p', { class: 'note' }, '승인 뒤 회귀 평가: ',
+        run.status === 'running' ? '진행 중 (' + run.scenarios + '개 대본)' :
+          run.status === 'done' ? (run.passed_count + '/' + run.total + ' 통과' + (run.passed ? ' · 기존 탐지 유지' : ' · 실패 대본 확인 필요')) : '실패'));
+    }
+    var filter = state.kFilter || 'pending';
+    inner.appendChild(h('div', { class: 'seg', role: 'group', 'aria-label': '카드 상태' },
+      ['pending', 'approved', 'rejected', 'all'].map(function (k) {
+        return h('button', { type: 'button', class: 'chip-btn', 'aria-pressed': String(filter === k), onclick: function () { state.kFilter = k; loadKnowledge(); } },
+          k === 'all' ? '전체' : K_STATUS[k]);
+      })));
+    if (!cards.length) {
+      inner.appendChild(h('div', { class: 'card empty' }, h('strong', { text: filter === 'pending' ? '검토할 새 수법이 없습니다.' : '카드가 없습니다.' }),
+        filter === 'pending' ? '‘지금 수집’을 누르거나 n8n 일정 실행을 기다리세요.' : ''));
+    }
+    cards.forEach(function (c) { inner.appendChild(knowledgeCard(c)); });
+    if (collecting) setTimeout(function () { if (state.tab === 'knowledge') loadKnowledge(); }, 4000);
+    if (run && run.status === 'running') setTimeout(function () { if (state.tab === 'knowledge') loadKnowledge(); }, 6000);
+  }
+  function alertText(text) { $('announce').textContent = text; }
+  function list(items) { return h('ul', null, arr(items).map(function (x) { return h('li', { text: x }); })); }
+  function knowledgeCard(c) {
+    var actions = c.status === 'pending' ? h('div', { class: 'view-actions' },
+      h('button', { type: 'button', class: 'btn primary', onclick: function () { review(c.id, 'approve'); } }, icon('check'), '승인 · 탐지에 반영'),
+      h('button', { type: 'button', class: 'btn', onclick: function () { review(c.id, 'reject'); } }, '반려')) : null;
+    return h('article', { class: 'kcard ' + c.status },
+      h('div', { class: 'kcard-head' },
+        h('div', null,
+          h('h3', { text: c.title }),
+          h('p', { class: 'src' }, (c.source_name || '공식 출처') + (c.published_at ? ' · ' + c.published_at : '') + ' · ',
+            safeUrl(c.source_url) ? h('a', { href: safeUrl(c.source_url), target: '_blank', rel: 'noopener noreferrer' }, '원문 보기') : '원문 없음')),
+        h('div', { class: 'seg' }, h('span', { class: 'tag', text: c.scam_type_label || c.scam_type }), h('span', { class: 'kstatus ' + c.status, text: K_STATUS[c.status] || c.status }))),
+      h('p', { text: c.summary }),
+      h('div', { class: 'kgrid' },
+        h('div', null, h('h4', { text: '알아챌 신호' }), list(c.red_flags)),
+        h('div', null, h('h4', { text: '사기범 말투' }), list(c.script_phrases)),
+        h('div', null, h('h4', { text: '권장 대응' }), list(c.recommended_actions))),
+      c.reviewed_at ? h('p', { class: 'note', text: K_STATUS[c.status] + ' · ' + timeFull(c.reviewed_at) + (c.reviewer ? ' · ' + c.reviewer : '') }) : null,
+      actions);
+  }
+  function review(id, decision) {
+    postJSON('/knowledge/cards/' + encodeURIComponent(id) + '/review', { decision: decision, reviewer: '대시보드' })
+      .then(function () { alertText(decision === 'approve' ? '승인했습니다. 회귀 평가를 시작합니다.' : '반려했습니다.'); loadKnowledge(); })
+      .catch(function (e) { alertText(errorText(e)); });
+  }
+
+  /* ───────── 모델 품질 ───────── */
+  var OUTCOME = { hit: '맞힌 사기', missed: '놓친 사기', false_alarm: '오경보', correct_normal: '맞힌 정상', unsure: '모름' };
+  function loadQuality() {
+    var inner = $('qualityInner');
+    if (!inner.firstChild) viewMessage(inner, '모델 품질을 불러오는 중입니다.');
+    getJSON('/quality/summary', 20000).then(renderQuality)
+      .catch(function (e) { viewMessage(inner, '모델 품질을 불러오지 못했습니다. ' + errorText(e), true, loadQuality); });
+  }
+  function startEval(suite) {
+    postJSON('/eval/run', { suite: suite }).then(function () { alertText('회귀 평가를 시작했습니다.'); loadQuality(); })
+      .catch(function (e) { alertText(e && e.status === 422 ? '평가할 대본이 없습니다.' : errorText(e)); });
+  }
+  function renderQuality(q) {
+    var inner = clear($('qualityInner'));
+    var m = (q && q.model) || {}, fb = (q && q.feedback) || {}, counts = fb.counts || {};
+    var runs = arr(q && q.runs), running = runs.some(function (r) { return r.status === 'running'; });
+    inner.appendChild(viewHead('모델 품질과 개선 루프',
+      '사용자 확인(실제 피싱·오경보)을 시스템 판정과 맞대어 오경보와 놓친 사기를 찾고, 그 통화를 평가 대본과 재학습 데이터로 씁니다. 모델은 평가를 통과해야 교체합니다.',
+      [h('button', { type: 'button', class: 'btn primary', disabled: running, onclick: function () { startEval('regression'); } }, icon('play'), running ? '평가 중…' : '회귀 평가 실행'),
+       h('button', { type: 'button', class: 'btn', disabled: running || !q.eval_scenarios_from_feedback, onclick: function () { startEval('all'); } }, '사용자 확인 대본 포함'),
+       h('a', { class: 'btn', href: '/quality/retrain-candidates' }, icon('download'), '재학습 후보 내려받기 (' + (q.retrain_candidates || 0) + ')')]));
+    inner.appendChild(card('현재 모델', '',
+      h('dl', { class: 'proof-row' },
+        h('dt', { text: '분류기' }), h('dd', { text: (m.name || '') + ' · ' + (m.base_model || '') + ' · ' + (m.trained_at || '') }),
+        h('dt', { text: '학습 데이터' }), h('dd', { text: m.training_calls ? m.training_calls.toLocaleString() + '통 (사기 ' + m.training_scam.toLocaleString() + ' / 정상 ' + m.training_normal.toLocaleString() + ')' : '–' }),
+        h('dt', { text: '상태 추적기' }), h('dd', { text: m.tracker || '–' }),
+        h('dt', { text: '위험도 계산' }), h('dd', { text: m.fusion || '–' }),
+        h('dt', { text: '가중치 SHA-256' }), h('dd', { class: 'hash', text: m.weights_sha256 || '–' })),
+      arr(m.metrics).length ? h('table', { class: 'mtable' },
+        h('thead', null, h('tr', null, h('th', { text: '평가' }), h('th', { class: 'num', text: '이전' }), h('th', { class: 'num', text: '현재' }), h('th', { text: '비고' }))),
+        h('tbody', null, arr(m.metrics).map(function (x) {
+          return h('tr', null, h('td', { text: x.label }), h('td', { class: 'num', text: x.before }), h('td', { class: 'num after', text: x.after }), h('td', { class: 'note', text: x.note || '' }));
+        }))) : null));
+    inner.appendChild(card('사용자 확인과 시스템 판정', (fb.total || 0) + '건',
+      h('dl', { class: 'kpis' },
+        ['hit', 'false_alarm', 'missed', 'correct_normal'].map(function (k) {
+          return h('div', { class: 'kpi' }, h('dt', { text: OUTCOME[k] }), h('dd', { text: String(counts[k] || 0) }));
+        }),
+        h('div', { class: 'kpi' }, h('dt', { text: '판정 일치율' }), h('dd', { text: fb.agreement == null ? '–' : Math.round(fb.agreement * 100) + '%' }))),
+      arr(fb.recent).length ? h('table', { class: 'mtable' },
+        h('thead', null, h('tr', null, h('th', { text: '사건' }), h('th', { text: '사용자 확인' }), h('th', { text: '시스템 판정' }), h('th', { text: '결과' }), h('th', { text: '시각' }))),
+        h('tbody', null, arr(fb.recent).map(function (r) {
+          return h('tr', null,
+            h('td', null, h('a', { href: '#case=' + r.log_id, text: '#' + r.log_id + ' ' + (r.phishing_type || '') })),
+            h('td', { text: r.verdict_label }), h('td', { text: '위험도 ' + pct(r.risk_score) }),
+            h('td', { class: r.outcome === 'false_alarm' || r.outcome === 'missed' ? 'bad' : '', text: OUTCOME[r.outcome] || r.outcome }),
+            h('td', { text: timeShort(r.feedback_at) }));
+        }))) : h('p', { class: 'note', text: '아직 사용자 확인이 없습니다.' }),
+      h('p', { class: 'note', text: '오경보·놓친 사기로 확인된 ' + (q.eval_scenarios_from_feedback || 0) + '건은 평가 대본으로 쓰이고, 확인된 통화 전체는 재학습 후보로 내려받을 수 있습니다.' })));
+    inner.appendChild(card('회귀 평가 기록', runs.length + '회',
+      runs.length ? h('table', { class: 'mtable' },
+        h('thead', null, h('tr', null, h('th', { text: '시각' }), h('th', { text: '대본' }), h('th', { text: '계기' }), h('th', { class: 'num', text: '통과' }),
+          h('th', { class: 'num', text: '사기 탐지' }), h('th', { class: 'num', text: '오경보' }), h('th', { class: 'num', text: '첫 경고' }))),
+        h('tbody', null, runs.map(function (r) {
+          var done = r.status === 'done';
+          return h('tr', null,
+            h('td', { text: timeShort(r.started_at || r.created_at) }),
+            h('td', { text: r.suite === 'all' ? '기본 + 사용자 확인' : r.suite === 'feedback' ? '사용자 확인' : '기본 12개' }),
+            h('td', { text: String(r.trigger || '').indexOf('knowledge:') === 0 ? '수법 카드 승인' : r.trigger === 'dashboard' ? '대시보드' : String(r.trigger || '') }),
+            h('td', { class: 'num ' + (done ? (r.passed ? 'ok' : 'bad') : ''), text: done ? r.passed_count + '/' + r.total : r.status === 'running' ? '진행 중' : '실패' }),
+            h('td', { class: 'num', text: done && r.recall != null ? Math.round(r.recall * 100) + '%' : '–' }),
+            h('td', { class: 'num', text: done && r.false_alarm_rate != null ? Math.round(r.false_alarm_rate * 100) + '%' : '–' }),
+            h('td', { class: 'num', text: done && r.avg_first_warning_turn != null ? r.avg_first_warning_turn + '번째 발화' : '–' }));
+        }))) : h('p', { class: 'note', text: '아직 실행한 평가가 없습니다.' })));
+    if (running) setTimeout(function () { if (state.tab === 'quality') loadQuality(); }, 6000);
+  }
+
   /* ───────── 이벤트 ───────── */
   $('caseList').addEventListener('click', function (e) {
     var btn = e.target.closest ? e.target.closest('.row') : null;
@@ -1335,12 +1772,35 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     $('listScroll').scrollTop = 0;
   });
   $('q').addEventListener('input', function (e) { state.query = e.target.value; renderList(false); });
+  function renderSorts() {
+    var box = clear($('sorts'));
+    box.appendChild(h('span', { class: 'sorts-label', text: '정렬' }));
+    [['recent', '최신순'], ['priority', '우선순위순']].forEach(function (o) {
+      box.appendChild(h('button', { type: 'button', class: 'chip-btn', 'data-sort': o[0], 'aria-pressed': String(state.sort === o[0]) }, o[1]));
+    });
+  }
+  $('sorts').addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-sort]') : null;
+    if (!btn) return;
+    state.sort = btn.getAttribute('data-sort');
+    state.cases = sortCases(state.cases);
+    renderSorts();
+    renderList(false);
+    $('listScroll').scrollTop = 0;
+  });
+  $('tabs').addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('[data-tab]') : null;
+    if (btn) showTab(btn.getAttribute('data-tab'), true);
+  });
   $('backBtn').addEventListener('click', function () {
     setReveal(false);
     var rec = state.rows[state.selectedId];
     if (rec) rec.btn.focus({ preventScroll: true });
   });
   window.addEventListener('hashchange', function () {
+    var tab = tabFromHash();
+    if (tab) { if (tab !== state.tab) showTab(tab, false); return; }
+    if (state.tab !== 'cases') showTab('cases', false);
     var id = hashId();
     if (id != null && id !== state.selectedId) select(id, { hash: false, reveal: true });
   });
@@ -1354,7 +1814,10 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
   $('backBtn').insertBefore(icon('back'), $('backBtn').firstChild);
   state.known = {};
   renderFilters();
+  renderSorts();
   loadList(false);
+  refreshKnowledgeBadge();
+  if (tabFromHash()) showTab(tabFromHash(), false);
 })();
 </script>
 </body>

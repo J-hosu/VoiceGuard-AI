@@ -1,0 +1,172 @@
+{
+  "name": "VoiceGuard 신종 수법 자동 수집",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "0 9 * * *"
+            }
+          ]
+        }
+      },
+      "id": "5d9f0b62-1b2a-4f53-9d33-0c7d6f4f1a01",
+      "name": "매일 오전 9시",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "0b6b3f0e-7d2a-4bb9-8a40-71b9d1a0c101",
+              "name": "base_url",
+              "value": "https://<VoiceGuard 서버 주소>",
+              "type": "string"
+            },
+            {
+              "id": "0b6b3f0e-7d2a-4bb9-8a40-71b9d1a0c102",
+              "name": "access_code",
+              "value": "<접속 코드>",
+              "type": "string"
+            },
+            {
+              "id": "0b6b3f0e-7d2a-4bb9-8a40-71b9d1a0c103",
+              "name": "slack_channel",
+              "value": "#voiceguard-alerts",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "5d9f0b62-1b2a-4f53-9d33-0c7d6f4f1a02",
+      "name": "수집 설정",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.base_url }}/knowledge/collect?wait=true&max_per_source=8",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "X-Access-Code",
+              "value": "={{ $json.access_code }}"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 600000
+        }
+      },
+      "id": "5d9f0b62-1b2a-4f53-9d33-0c7d6f4f1a03",
+      "name": "공식 출처에서 새 사례 수집",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "// 수집 결과를 검토 요청 문장으로 바꾼다. 새 수법 카드가 없으면 text를 비워 둔다.\nconst r = $input.first().json;\nconst base = $('수집 설정').first().json.base_url;\nconst channel = $('수집 설정').first().json.slack_channel;\nconst cards = Array.isArray(r.cards) ? r.cards.filter(Boolean) : [];\nif (r.status === 'failed') {\n  return [{ json: { channel, text: `⚠️ VoiceGuard 신종 수법 수집 실패: ${r.error || '원인 미상'}` } }];\n}\nif (!cards.length) {\n  return [{ json: { channel, text: '' } }];\n}\nconst lines = cards.slice(0, 5).map((c) => `• ${c.title} (${c.scam_type_label || c.scam_type})`);\nconst text = [\n  `🆕 금감원·경찰청 새 사례에서 수법 카드 ${cards.length}개가 만들어졌습니다. 검토 후 승인해야 탐지에 반영됩니다.`,\n  ...lines,\n  `검토하기: ${base}/dashboard#tab=knowledge`,\n].join('\\n');\nreturn [{ json: { channel, text } }];"
+      },
+      "id": "5d9f0b62-1b2a-4f53-9d33-0c7d6f4f1a04",
+      "name": "검토 요청 문구 만들기",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "6f2c1b9e-3a7d-4c11-9f0a-5b1c2d3e4f05",
+              "leftValue": "={{ $json.text }}",
+              "rightValue": "",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "5d9f0b62-1b2a-4f53-9d33-0c7d6f4f1a05",
+      "name": "알릴 것이 있나",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [880, 0]
+    },
+    {
+      "parameters": {
+        "authentication": "oAuth2",
+        "resource": "message",
+        "operation": "post",
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "value": "={{ $json.channel }}",
+          "mode": "name"
+        },
+        "messageType": "text",
+        "text": "={{ $json.text }}",
+        "otherOptions": {}
+      },
+      "id": "5d9f0b62-1b2a-4f53-9d33-0c7d6f4f1a06",
+      "name": "슬랙으로 검토 요청",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [1100, -100],
+      "disabled": true
+    },
+    {
+      "parameters": {},
+      "id": "5d9f0b62-1b2a-4f53-9d33-0c7d6f4f1a07",
+      "name": "새 수법 없음",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [1100, 100]
+    }
+  ],
+  "connections": {
+    "매일 오전 9시": {
+      "main": [[{ "node": "수집 설정", "type": "main", "index": 0 }]]
+    },
+    "수집 설정": {
+      "main": [[{ "node": "공식 출처에서 새 사례 수집", "type": "main", "index": 0 }]]
+    },
+    "공식 출처에서 새 사례 수집": {
+      "main": [[{ "node": "검토 요청 문구 만들기", "type": "main", "index": 0 }]]
+    },
+    "검토 요청 문구 만들기": {
+      "main": [[{ "node": "알릴 것이 있나", "type": "main", "index": 0 }]]
+    },
+    "알릴 것이 있나": {
+      "main": [
+        [{ "node": "슬랙으로 검토 요청", "type": "main", "index": 0 }],
+        [{ "node": "새 수법 없음", "type": "main", "index": 0 }]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "pinData": {}
+}

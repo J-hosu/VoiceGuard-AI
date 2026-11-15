@@ -13,7 +13,9 @@ import threading
 logger = logging.getLogger(__name__)
 
 # 장치별 기본값. CPU에서 large-v3는 실시간 청크를 따라가지 못하므로 작은 모델을 쓴다.
-# beam_size는 파일 전체 전사용이다(실시간 청크는 항상 1). CPU에서 beam 5는 실제 통화 녹음에서
+# beam_size는 파일 전체와 실시간 청크에 함께 쓴다(CPU의 실시간 청크만 지연 때문에 1).
+# GPU(H100)에서 실시간 청크도 beam 5로 바꾼 결과: 실제 상담 녹음 25통 글자 오류율 13.0% → 12.2%,
+# 청크당 0.11초 → 0.13초 (docs/MODEL_TRAINING_LOG.md 전사 비교). CPU에서 beam 5는 실제 통화 녹음에서
 # 재생 시간만큼 걸려(노트북 기준) 통화 종료 후 재전사가 너무 늦어지므로 1로 둔다.
 _DEVICE_DEFAULTS = {
     "cuda": {"model": "large-v3", "compute_type": "float16", "beam_size": 5},
@@ -89,7 +91,7 @@ def transcribe_audio(audio_file_path: str, retries: int = 1, realtime: bool = Fa
 
     반환 형식: [{"start": 초, "end": 초, "speaker": "", "text": "..."}]
     Whisper는 화자 구분을 하지 않으므로 speaker는 빈 값이다 (정규화 단계에서 화자A로 표시).
-    realtime=True(3초 chunk)는 지연을 줄이기 위해 beam_size=1로 디코딩한다.
+    realtime=True(무음에서 자른 실시간 청크)는 CPU에서만 지연을 줄이려고 beam_size=1로 디코딩한다.
     """
     model = load_model()
     runtime = resolve_runtime()
@@ -105,7 +107,7 @@ def transcribe_audio(audio_file_path: str, retries: int = 1, realtime: bool = Fa
                 raw_segments, _info = model.transcribe(
                     audio_file_path,
                     language="ko",
-                    beam_size=1 if realtime else full_beam_size,
+                    beam_size=1 if realtime and runtime["device"] == "cpu" else full_beam_size,
                     temperature=temperature,
                     # 반복 환각에 빠지면 최대 길이까지 디코딩하느라 CPU에서 수십 초가 걸린다.
                     # 실시간 청크(최대 10초)는 그만큼 길 수 없으므로 출력 길이를 묶어 둔다.

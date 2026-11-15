@@ -142,6 +142,22 @@ def render_markdown(report: dict) -> str:
         for action in report["actions"]:
             lines.append(f"- {action['at']} · {action['title']}")
 
+    proof = report.get("evidence") or {}
+    if proof.get("audio_chunks") or proof.get("transcript_sealed"):
+        lines += ["", "## 증거 무결성 (SHA-256)", ""]
+        if proof.get("audio_chunks"):
+            lines.append(
+                f"- 원본 음성 {proof['audio_chunks']}개 조각 ({proof['audio_bytes']:,} bytes, {proof['audio_first_at']} ~ {proof['audio_last_at']})"
+                f" · 체인 검증 {'정상' if proof['audio_chain_ok'] else '불일치'}"
+            )
+            lines.append(f"- 음성 해시 체인 마지막 값: {proof['audio_last_chain_hash']}")
+        if proof.get("transcript_sealed"):
+            lines.append(
+                f"- 전사문 봉인 {proof['transcript_sealed_at']} (발화 {proof['utterances']}개): {proof['transcript_hash']}"
+                f" · 현재 전사문과 {'일치' if proof['transcript_ok'] else '불일치'}"
+            )
+        lines.append("- 음성 원본은 개인정보 보호를 위해 전사 후 지우고 해시만 남긴다. 원본을 따로 보관했다면 위 해시와 맞춰 볼 수 있다.")
+
     lines += ["", "## 통화 전문", ""]
     for message in report["transcript"]:
         lines.append(f"{message['turn_index']}. [{ROLE_LABELS.get(message['role'], '미상')}] {message['content']}")

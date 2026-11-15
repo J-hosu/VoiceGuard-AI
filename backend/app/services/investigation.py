@@ -7,12 +7,13 @@ docs/API_SPEC_V2.md 10절 참고.
 from __future__ import annotations
 
 import logging
+from datetime import datetime
 from typing import Optional
 
 from backend.app import state_repository
-from backend.app.codes import DAMAGE_ANSWERS, FOLLOWUP_ANSWERS, SCAM_TYPES, STAGE_LABELS
+from backend.app.codes import DAMAGE_ANSWERS, FOLLOWUP_ANSWERS, SCAM_TYPES, STAGE_LABELS, stage_index
 from backend.app.database import get_connection
-from backend.app.services import claude_client, official_cases, report_builder
+from backend.app.services import claude_client, evidence, official_cases, report_builder
 
 
 logger = logging.getLogger(__name__)
@@ -69,14 +70,19 @@ def list_cases(min_risk: float = 0.0, limit: int = 100) -> list[dict]:
             (min_risk, limit),
         ).fetchall()
 
-    linked = _linked_call_ids()
+    link_counts = _link_counts()
+    linked = set(link_counts)
     cases = []
     for row in rows:
         stage = row["stage"] or "none"
         scam_type = row["scam_type"] or "none"
         answer = row["followup_answer"] or ""
+        priority, reasons = _priority(row, stage, answer, link_counts.get(row["id"], 0))
         cases.append(
             {
+                "priority": priority,
+                "priority_reasons": reasons,
+                "linked_count": link_counts.get(row["id"], 0),
                 "log_id": row["id"],
                 "name": row["name"],
                 "file_type": row["file_type"],
@@ -99,14 +105,37 @@ def list_cases(min_risk: float = 0.0, limit: int = 100) -> list[dict]:
     return cases
 
 
-def _usable_for_link(entity_type: str, normalized: str) -> bool:
-    if entity_type in ("account", "phone", "case_number"):
-        return normalized.isdigit() and len(normalized) >= MIN_LINK_DIGITS
-    return len(normalized) >= 6
+def _priority(row, stage: str, answer: str, linked_count: int) -> tuple[int, list[str]]:
+    """수사관이 먼저 볼 사건을 고르는 점수(0~100)와 그 이유.
+
+    위험도 40 + 피해 확인 25 + 다른 통화와 겹치는 단서 15(3건이면 만점) + 도달 단계 10 + 최근성 10(7일에 걸쳐 줄어듦).
+    """
+    reasons: list[str] = []
+    score = 40 * float(row["risk_score"] or 0.0)
+    if row["risk_level"] == "high":
+        reasons.append("위험도 높음")
+    if answer in DAMAGE_ANSWERS:
+        score += 25
+        reasons.append("피해 확인: " + FOLLOWUP_ANSWERS.get(answer, answer))
+    if linked_count:
+        score += 15 * min(linked_count, 3) / 3
+        reasons.append(f"다른 통화 {linked_count}건과 단서 겹침")
+    stage_idx = stage_index(stage)
+    score += 10 * stage_idx / 6
+    if stage_idx >= 5:
+        reasons.append(f"{STAGE_LABELS.get(stage, stage)} 단계까지 진행")
+    try:
+        age_hours = (datetime.now() - datetime.strptime(str(row["created_at"])[:19], "%Y-%m-%d %H:%M:%S")).total_seconds() / 3600
+    except ValueError:
+        age_hours = 999.0
+    score += 10 * max(0.0, 1 - age_hours / 168)
+    if age_hours <= 24:
+        reasons.append("최근 24시간")
+    return round(min(100.0, score)), reasons
 
 
-def _linked_call_ids() -> set[int]:
-    """다른 통화와 단서가 겹치는 통화 id 집합."""
+def _link_counts() -> dict[int, int]:
+    """통화마다 단서가 겹치는 다른 통화 수."""
     placeholders = ",".join("?" * len(LINKABLE_TYPES))
     with get_connection() as connection:
         rows = connection.execute(
@@ -119,11 +148,77 @@ def _linked_call_ids() -> set[int]:
             """,
             LINKABLE_TYPES,
         ).fetchall()
-    linked: set[int] = set()
+    partners: dict[int, set[int]] = {}
     for row in rows:
-        if _usable_for_link(row["entity_type"], row["normalized"]):
-            linked.update(int(value) for value in row["log_ids"].split(","))
-    return linked
+        if not _usable_for_link(row["entity_type"], row["normalized"]):
+            continue
+        ids = {int(value) for value in row["log_ids"].split(",")}
+        for log_id in ids:
+            partners.setdefault(log_id, set()).update(ids - {log_id})
+    return {log_id: len(others) for log_id, others in partners.items()}
+
+
+GRAPH_TYPES = ("account", "phone", "url", "case_number", "org")
+
+
+def graph(min_risk: float = 0.5, limit: int = 80) -> dict:
+    """관계 그래프: 위험 통화(사건)와 그 통화에서 나온 계좌·번호·주소·사건번호·사칭 기관을 잇는다.
+
+    같은 단서가 여러 통화에 나오면 그 단서 노드가 통화들을 묶는다(연결 근거).
+    """
+    cases = [case for case in list_cases(min_risk=min_risk, limit=limit)]
+    if not cases:
+        return {"nodes": [], "edges": [], "shared": 0}
+    ids = [case["log_id"] for case in cases]
+    placeholders = ",".join("?" * len(ids))
+    type_placeholders = ",".join("?" * len(GRAPH_TYPES))
+    with get_connection() as connection:
+        rows = connection.execute(
+            f"""
+            SELECT log_id, entity_type, value, normalized FROM case_entities
+            WHERE log_id IN ({placeholders}) AND entity_type IN ({type_placeholders})
+            """,
+            (*ids, *GRAPH_TYPES),
+        ).fetchall()
+    entity_nodes: dict[str, dict] = {}
+    edges = []
+    for row in rows:
+        if row["entity_type"] != "org" and not _usable_for_link(row["entity_type"], row["normalized"]):
+            continue
+        key = f"e:{row['entity_type']}:{row['normalized']}"
+        node = entity_nodes.setdefault(key, {"id": key, "kind": "entity", "entity_type": row["entity_type"], "label": row["value"], "cases": set()})
+        node["cases"].add(row["log_id"])
+        edges.append({"source": f"c:{row['log_id']}", "target": key})
+    nodes = [
+        {
+            "id": f"c:{case['log_id']}",
+            "kind": "case",
+            "log_id": case["log_id"],
+            "label": f"#{case['log_id']} {case['phishing_type']}",
+            "risk_level": case["risk_level"],
+            "risk_score": case["risk_score"],
+            "priority": case["priority"],
+            "damage_reported": case["damage_reported"],
+        }
+        for case in cases
+    ]
+    shared = 0
+    for node in entity_nodes.values():
+        node["case_count"] = len(node.pop("cases"))
+        shared += 1 if node["case_count"] > 1 else 0
+        nodes.append(node)
+    return {"nodes": nodes, "edges": list({(e["source"], e["target"]): e for e in edges}.values()), "shared": shared}
+
+
+def _usable_for_link(entity_type: str, normalized: str) -> bool:
+    if entity_type in ("account", "phone", "case_number"):
+        return normalized.isdigit() and len(normalized) >= MIN_LINK_DIGITS
+    return len(normalized) >= 6
+
+
+def _linked_call_ids() -> set[int]:
+    """다른 통화와 단서가 겹치는 통화 id 집합."""
+    return set(_link_counts())
 
 
 def find_links(log_id: int) -> list[dict]:
@@ -230,6 +325,7 @@ def enrich_report(report: dict) -> dict:
     report["links"] = find_links(log_id)
     report["similar_official_cases"] = similar_official_cases(report)
     report["damage_reported"] = any(item["answer"] in DAMAGE_ANSWERS for item in report["followups"])
+    report["evidence"] = evidence.verify(log_id)
     return report
 
 
