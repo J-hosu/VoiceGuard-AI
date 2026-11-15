@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>VoiceGuard 시스템 구조</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #f6f8fb; --ink: #0f172a; --muted: #5b6478; --line: #c9d2e0;
+    --user: #2563eb; --user-bg: #eaf1ff;
+    --net: #0f766e; --net-bg: #e6f6f4;
+    --ai: #7c3aed; --ai-bg: #f1ebff;
+    --core: #0f172a; --core-bg: #ffffff;
+    --inv: #b45309; --inv-bg: #fff4e5;
+    --store: #475569; --store-bg: #eef2f7;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { width: 1600px; height: 900px; background: var(--bg); color: var(--ink);
+         font-family: 'Noto Sans KR', 'Malgun Gothic', sans-serif; padding: 40px 48px; word-break: keep-all; }
+  h1 { font-size: 30px; font-weight: 900; letter-spacing: -0.5px; }
+  .sub { color: var(--muted); font-size: 16px; margin-top: 6px; }
+  .grid { display: grid; grid-template-columns: 300px 40px 190px 40px 1fr 40px 230px; gap: 0; margin-top: 28px; height: 748px; }
+  .col { display: flex; flex-direction: column; gap: 14px; }
+  .label { font-size: 13px; font-weight: 700; color: var(--muted); letter-spacing: 1px; margin-bottom: 2px; }
+  .card { border-radius: 16px; padding: 14px 16px; border: 1.5px solid var(--line); background: #fff; }
+  .card h3 { font-size: 17px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+  .card p, .card li { font-size: 13.5px; color: var(--muted); line-height: 1.55; }
+  .card ul { list-style: none; margin-top: 6px; }
+  .card li::before { content: '· '; }
+  .user { background: var(--user-bg); border-color: #bcd0ff; } .user h3 { color: var(--user); }
+  .net { background: var(--net-bg); border-color: #a9ddd6; } .net h3 { color: var(--net); }
+  .inv { background: var(--inv-bg); border-color: #f2cf9c; } .inv h3 { color: var(--inv); }
+  .store { background: var(--store-bg); border-color: #cfd8e3; } .store h3 { color: var(--store); }
+  .arrow { display: flex; align-items: center; justify-content: center; color: #94a3b8; font-size: 26px; font-weight: 700; }
+  .server { border: 2px solid #1e293b; border-radius: 20px; background: #fff; padding: 16px 18px; height: 100%; display: flex; flex-direction: column; gap: 12px; }
+  .server .title { display: flex; justify-content: space-between; align-items: baseline; }
+  .server .title b { font-size: 19px; }
+  .server .title span { font-size: 13px; color: var(--muted); }
+  .lane { display: grid; grid-template-columns: 120px 1fr; gap: 10px; align-items: stretch; flex: 1; }
+  .lane .tag { border-radius: 12px; font-size: 13px; font-weight: 700; display: flex; align-items: center; justify-content: center; text-align: center; padding: 6px; }
+  .boxes { display: flex; gap: 10px; }
+  .box { flex: 1; border-radius: 12px; padding: 10px 12px; border: 1.5px solid var(--line); background: #fff; min-width: 0; }
+  .box b { font-size: 14.5px; display: block; }
+  .box small { font-size: 12.5px; color: var(--muted); line-height: 1.5; display: block; margin-top: 3px; }
+  .ai { background: var(--ai-bg); border-color: #d3c2ff; } .ai b { color: var(--ai); }
+  .fast { background: #ecfdf5; border-color: #a7e3c4; } .fast b { color: #047857; }
+  .fuse { background: #0f172a; border-color: #0f172a; } .fuse b, .fuse small { color: #fff !important; }
+  .t-in { background: #e2e8f0; } .t-detect { background: #dcfce7; color: #065f46; } .t-act { background: #ede9fe; color: #5b21b6; }
+  .t-check { background: #e0f2fe; color: #075985; } .t-inv { background: #ffedd5; color: #9a3412; }
+  .flow { font-size: 12.5px; color: var(--muted); text-align: center; margin-top: -4px; }
+  .pill { display: inline-block; font-size: 11.5px; font-weight: 700; padding: 2px 8px; border-radius: 999px; background: #0f172a; color: #fff; margin-left: 6px; vertical-align: middle; }
+</style>
+</head>
+<body>
+  <h1>VoiceGuard AI 시스템 구조</h1>
+  <div class="sub">휴대폰 앱(웹 PWA)은 QR로 접속하고, 모든 분석은 GPU 서버의 FastAPI 백엔드에서 실시간으로 돈다.</div>
+  <div class="grid">
+    <div class="col">
+      <div class="label">사용자</div>
+      <div class="card user">
+        <h3>📱 일반 사용자 앱</h3>
+        <ul>
+          <li>실시간 통화 분석 (마이크 → 음성 조각)</li>
+          <li>문자 검사 (글 붙여넣기·캡처)</li>
+          <li>문서 점검 (공문·영장 사진)</li>
+          <li>녹음 파일 분석</li>
+          <li>경고 팝업·진동, 결과·통화 기록</li>
+        </ul>
+      </div>
+      <div class="card user">
+        <h3>🖥️ 발표용 넓은 화면</h3>
+        <p>앱 옆에 'AI 분석 과정' 패널: 위험도 추이, 사기 단계, 발화별 분석, 추출된 단서, AI 대응</p>
+      </div>
+      <div class="card inv">
+        <h3>🕵️ 수사관 대시보드</h3>
+        <p>사건 목록·통계, 사건 상세, 다른 통화와 겹치는 단서, 유사 공식 사례, 신고용 요약 문서</p>
+      </div>
+      <div class="card user" style="background:#fff">
+        <h3>👪 보호자</h3>
+        <p>위험 통화 알림을 Slack(또는 Telegram)으로 받는다</p>
+      </div>
+    </div>
+    <div class="arrow">⇄</div>
+    <div class="col" style="justify-content:center">
+      <div class="label">연결</div>
+      <div class="card net">
+        <h3>🔒 Cloudflare 터널</h3>
+        <p>HTTPS 공개 주소 → 서버. 포트를 열지 않는다</p>
+      </div>
+      <div class="card net">
+        <h3>🎟️ 접속 코드</h3>
+        <p>QR 링크의 코드가 있어야 들어온다</p>
+      </div>
+      <div class="card net">
+        <h3>⚡ WebSocket</h3>
+        <p>음성 조각·분석 결과·AI 대응을 실시간으로 주고받는다</p>
+      </div>
+    </div>
+    <div class="arrow">⇄</div>
+    <div class="server">
+      <div class="title"><b>FastAPI 백엔드 <span class="pill">H100 GPU 서버</span></b><span>통화 1건 = 발화가 들어올 때마다 아래 흐름 반복</span></div>
+      <div class="lane">
+        <div class="tag t-in">① 입력</div>
+        <div class="boxes">
+          <div class="box"><b>음성 인식</b><small>faster-whisper large-v3<br>음성 조각 → 한국어 전사</small></div>
+          <div class="box"><b>문자·문서·녹음 파일</b><small>REST API로 받아 같은 판정 흐름에 넣는다</small></div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="tag t-detect">② 감지·판단</div>
+        <div class="boxes">
+          <div class="box fast"><b>빠른 경로 분류기</b><small>KLUE-RoBERTa 미세조정 (v3)<br>학습 데이터 통화 7,992건 (v2: 4,091)</small></div>
+          <div class="box ai"><b>상태 추적기</b><small>Claude Haiku 5.5<br>사기 단계·유형·순응도·단서</small></div>
+          <div class="box fuse"><b>위험도 융합</b><small>0.3 × 분류기 + 0.7 × 추적기<br>주의 0.70 / 강한 경고 0.85</small></div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="tag t-act">③ 개입</div>
+        <div class="boxes">
+          <div class="box ai"><b>대응 에이전트</b><small>규칙이 고르고 Claude가 쓴다<br>강한 경고 · 공식번호 확인 · 되물을 질문 · 차단 안내 · 보호자 알림</small></div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="tag t-check">④ 후속 확인</div>
+        <div class="boxes">
+          <div class="box"><b>통화 중·통화 후 질문</b><small>"아직 통화 중인가요?" "돈을 보냈나요?" → 지급정지·신고 안내, 사용자 확인 저장</small></div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="tag t-inv">⑤ 수사 지원</div>
+        <div class="boxes">
+          <div class="box"><b>단서 연관</b><small>계좌·번호·URL·사건번호가<br>겹치는 통화 찾기</small></div>
+          <div class="box ai"><b>사건 개요</b><small>Claude Opus 5.5가<br>3~5문장으로 정리</small></div>
+          <div class="box"><b>유사 공식 사례</b><small>금감원·경찰청 사례 121건<br>문자 n-gram 검색</small></div>
+        </div>
+      </div>
+      <div class="lane">
+        <div class="tag" style="background:#f1f5f9">문자·문서</div>
+        <div class="boxes">
+          <div class="box fast"><b>문자 검사</b><small>스미싱 분류기 40% + Claude 60%<br>링크 모양 점검</small></div>
+          <div class="box ai"><b>문서 점검</b><small>Claude Opus 5.5 이미지 판독<br>위조 공문 특징 11종 점검</small></div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow">⇄</div>
+    <div class="col">
+      <div class="label">저장 · 연동</div>
+      <div class="card store">
+        <h3>🗄️ SQLite</h3>
+        <ul>
+          <li>통화·발화·탐지 결과</li>
+          <li>대화 상태(버전별)</li>
+          <li>AI 대응·후속 답변</li>
+          <li>수사 단서·사건 개요</li>
+          <li>사용자 확인(피드백)</li>
+        </ul>
+      </div>
+      <div class="card store">
+        <h3>🔁 n8n 워크플로</h3>
+        <p>위험 통화·통화 종료·후속 답변 이벤트를 받아 보호자에게 알림</p>
+      </div>
+      <div class="card store">
+        <h3>🧠 학습 (H100)</h3>
+        <p>AI Hub 상담 데이터·KISA 118·금감원 녹취·공식 사례 기반 생성 통화로 재학습, 평가 통과 시 교체</p>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

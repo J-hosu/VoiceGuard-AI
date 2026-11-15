@@ -2,14 +2,312 @@
 
 # 🛡️ VoiceGuard AI
 
-### 실시간 통화 음성 분석 기반 보이스피싱 탐지·예방 서비스
+### 감지에서 끝나지 않는 능동형 보이스피싱 대응 AI
 
-실시간 통화 음성을 전사하고, 누적 통화 내용을 바탕으로 **AI가 보이스피싱 위험도와 핵심 근거를 즉시** 알려줍니다.
-React Native(Expo) 앱·웹 프론트엔드와 FastAPI 백엔드로 구성된 풀스택 프로젝트입니다.
+통화를 들으며 **사기가 어디까지 진행됐는지 추적**하고, 상황에 맞는 행동을 **AI가 먼저 안내**하며,
+통화가 끝난 뒤에도 **피해가 없는지 다시 확인**합니다. 위험 통화에서 나온 단서는 **수사 지원 대시보드**로 모입니다.
 
-<sub>KNU AI BOOT 7조 자율 프로젝트</sub>
+<img src="docs/images/v2/demo_realtime.gif" width="300" alt="실시간 통화 분석 시연"/>
+
+<sub>KNU AI BOOT 7조 자율 프로젝트 → 2026 해커톤 고도화 버전 (v2)</sub>
 
 </div>
+
+* * *
+
+## 📌 한눈에 보기
+
+| 문제 | VoiceGuard의 답 |
+| --- | --- |
+| 기존 탐지 앱은 "위험합니다"라고 알리고 끝난다 | 사기 진행 단계(접근 → 사칭 → 위기 조성 → 고립 → 정보 요구 → 금전 요구)를 추적하고, 단계에 맞는 행동을 고른다 |
+| 경고를 본 뒤에도 피해자는 무엇을 해야 할지 모른다 | "지금 끊으세요", "검찰청 1301로 직접 확인", "되물어 볼 질문", 지급정지 순서까지 화면에서 바로 안내 |
+| 통화가 끝나면 끝 | 통화 중·통화 후에 다시 묻고("돈을 보냈나요?"), 답에 맞춰 피해 차단 절차를 안내 |
+| 피해 신고 내용이 수사로 이어지기 어렵다 | 계좌·전화번호·URL 같은 단서를 자동으로 뽑고, 다른 통화와 겹치는 단서를 찾아 수사관 대시보드와 신고용 요약으로 정리 |
+| 은행·보험 상담 같은 정상 통화에도 경고가 뜬다 | AI Hub 금융·민원 상담 데이터로 재학습해 정상 상담 오경보를 **30.2% → 0.7%** 로 줄임 (분류기 단독, 아래 성능 참고) |
+
+* * *
+
+## 🔄 AI 워크플로
+
+<img src="docs/images/v2/workflow.png" alt="AI 워크플로"/>
+
+| 단계 | 하는 일 | 쓰는 것 |
+| --- | --- | --- |
+| ① 감지 | 통화를 들으며 받아 적고 바로 사기 확률을 낸다 | faster-whisper large-v3, KLUE-RoBERTa 분류기 |
+| ② 판단 | 대화 흐름으로 사기 단계·유형·사용자가 따르는 정도·수사 단서를 추적한다 | Claude 상태 추적기 (구조화 출력) |
+| ③ 개입 | 위험도·단계·유형에 맞는 대응을 골라 문구를 만든다 | 대응 에이전트 (규칙 선택 + Claude 작성), 보호자 알림은 n8n |
+| ④ 후속 확인 | 통화 중 45초 뒤, 통화 후에 다시 묻고 답에 맞춰 안내한다 | 후속 질문 → 지급정지·신고 안내, 답은 사용자 확인으로 저장 |
+| ⑤ 개선 | 평가 세트로 탐지를 재고 데이터를 보강해 다시 학습한다 | 회귀 평가 12개 대본, AI Hub 상담 데이터·실제 녹음 평가, 재학습 후 평가 통과 시 교체 |
+
+화면에 보이는 위험도는 `0.3 × 분류기 + 0.7 × 상태 추적기`입니다. 분류기는 추적기가 따라오기 전 몇 초의 조기 신호를,
+추적기는 통화 전체의 의도를 맡습니다. 주의 0.70, 강한 경고 0.85 (`docs/API_SPEC_V2.md` 4.2절).
+
+* * *
+
+## 📱 일반 사용자 기능
+
+- 🎧 **실시간 통화 분석** — 마이크 음성을 조각으로 보내 실시간 전사, 위험도, 사기 진행 단계, AI 대응 카드 표시
+- 🚨 **강한 경고** — 위험 단계에 들어가면 전체 화면 경고와 진동
+- 🧭 **AI 대응** — 지금 할 일, 공식 대표번호(탭하면 전화), 상대에게 되물어 볼 질문, 피해 차단 순서
+- 🔁 **후속 확인** — "아직 통화 중인가요?", "돈을 보냈나요 / 앱을 설치했나요?" → 답에 맞는 지급정지·신고 안내
+- 💬 **문자 검사** — 받은 문자·메신저를 붙여 넣거나 캡처를 올리면 스미싱 여부와 링크 위험 판단
+- 📄 **문서 점검** — 검찰·법원·금감원 공문, 영장 사진을 올리면 위조 문서의 특징을 점검
+- 📁 **녹음 파일 분석** — 지난 통화 녹음을 올려 같은 기준으로 분석
+- 🗂️ **통화 기록·결과** — 결과 요약, 대화 내용(발화별 수법 태그), 탐지 근거, 판정 피드백
+
+<table>
+  <tr>
+    <td align="center"><img src="docs/images/v2/app_home.png" width="190"/><br/><b>홈</b></td>
+    <td align="center"><img src="docs/images/v2/app_realtime.png" width="190"/><br/><b>실시간 분석</b></td>
+    <td align="center"><img src="docs/images/v2/app_warning.png" width="190"/><br/><b>강한 경고</b></td>
+    <td align="center"><img src="docs/images/v2/app_realtime_agent.png" width="190"/><br/><b>단계 추적 · AI 대응</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/v2/app_result.png" width="190"/><br/><b>결과 · 후속 확인</b></td>
+    <td align="center"><img src="docs/images/v2/app_result_followup.png" width="190"/><br/><b>AI 대응 기록 · 근거</b></td>
+    <td align="center"><img src="docs/images/v2/app_message.png" width="190"/><br/><b>문자 검사</b></td>
+    <td align="center"><img src="docs/images/v2/app_document.png" width="190"/><br/><b>문서 점검</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/v2/app_result_transcript.png" width="190"/><br/><b>대화 내용 · 수법 태그</b></td>
+    <td align="center"><img src="docs/images/v2/app_history.png" width="190"/><br/><b>통화 기록</b></td>
+    <td align="center"><img src="docs/images/v2/app_upload.png" width="190"/><br/><b>녹음 파일 분석</b></td>
+    <td align="center"><img src="docs/images/v2/app_info.png" width="190"/><br/><b>대응 정보</b></td>
+  </tr>
+</table>
+
+* * *
+
+## 🕵️ 수사 지원 기능
+
+- 🔎 **단서 자동 추출** — 계좌번호, 전화번호, URL, 사칭 기관, 이름·직함, 요구 금액, 설치 요구 앱, 사건번호
+- 🔗 **통화 간 연관** — 같은 계좌·번호·URL·사건번호가 나온 다른 통화를 찾아 연결
+- 📊 **수사관 대시보드** (`/dashboard`) — 사건 목록·통계, 단계 경과, 위험 발화, AI 대응, 사용자 확인 내용, 전체 대화
+- 📝 **신고용 요약** — Claude가 쓴 3~5문장 사건 개요 + 단서 + 발화 근거 + 유사 공식 사례(금감원·경찰청 121건, 출처 링크)
+
+<table>
+  <tr>
+    <td align="center" colspan="2"><img src="docs/images/v2/web_demo_panel.png" width="820"/><br/><b>발표용 넓은 화면 — 앱 옆 'AI 분석 과정' 패널 (위험도 추이, 판단, 단계, 발화별 분석, 단서, AI 대응)</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/v2/web_dashboard.png" width="400"/><br/><b>수사관 대시보드</b></td>
+    <td align="center"><img src="docs/images/v2/web_case_detail.png" width="400"/><br/><b>사건 상세 · 겹치는 단서 · 유사 공식 사례</b></td>
+  </tr>
+  <tr>
+    <td align="center"><img src="docs/images/v2/web_report.png" width="400"/><br/><b>신고용 요약 문서</b></td>
+    <td align="center"><img src="docs/images/v2/web_result.png" width="400"/><br/><b>발표 화면 · 분석 결과</b></td>
+  </tr>
+</table>
+
+* * *
+
+## 🧱 시스템 구조
+
+<img src="docs/images/v2/architecture.png" alt="시스템 구조"/>
+
+발화 하나가 들어왔을 때의 흐름:
+
+```mermaid
+flowchart LR
+    MIC["📱 마이크 음성 조각"] -->|WebSocket| STT["Whisper large-v3<br/>전사"]
+    STT --> CLS["KLUE-RoBERTa<br/>분류기 (빠른 경로)"]
+    STT --> TRK["Claude 상태 추적기<br/>단계·유형·순응도·단서"]
+    CLS --> FUSE["위험도 융합<br/>0.3 × 분류기 + 0.7 × 추적기"]
+    TRK --> FUSE
+    FUSE --> AGT["대응 에이전트<br/>경고·공식번호·되물을 질문·차단 안내"]
+    AGT -->|WebSocket| APP["📱 화면·경고 팝업·진동"]
+    AGT -->|웹훅| N8N["n8n → 보호자 Slack/Telegram"]
+    TRK --> DB[("SQLite<br/>상태·단서·대응")]
+    DB --> DASH["🕵️ 수사관 대시보드<br/>단서 연관·신고 요약"]
+```
+
+* * *
+
+## 📈 탐지 성능
+
+자세한 데이터·방법·한계는 [docs/MODEL_TRAINING_LOG.md](docs/MODEL_TRAINING_LOG.md)에 있습니다. "경보"는 점수가 주의 기준 0.70 이상인 경우입니다.
+
+### 통화 분류기 (빠른 경로)
+
+| 평가 | v1 (KoELECTRA) | v2 (KLUE-RoBERTa) | **v3 (현재)** |
+| --- | --- | --- | --- |
+| 사기 통화 탐지, 통화 전체 (평가 통화 837건) | 49.5% | 99.7% | **99.3%** |
+| 사기 통화가 통화 중 한 번이라도 경보 | - | 99.7% | **100%** |
+| 정상 통화가 통화 중 한 번이라도 경보 (837건 중 정상 530) | 31.9% | 8.1% | **5.1%** |
+| KISA 118 피해 상담 통화 오경보 | 59.8% | 4.2% | **2.9%** |
+| AI Hub 상담 데이터 정상 통화 5,041건 (학습에 안 쓴 Validation) 오경보 | - | 30.2% | **0.7%** |
+| └ 은행 상담 / 증권 상담 | - | 69.2% / 55.4% | **1.4% / 2.1%** |
+| 실제 녹음된 정상 상담 32통 (Whisper 전사) 오경보 | - | 4통 | **0통** |
+| 별도로 쓴 대본 12종 (사기 6 · 정상 6) | 9/12 (사기 3/6 탐지) | 12/12 | **12/12** |
+
+### 전체 시스템 (분류기 + Claude 상태 추적기 + 대응 에이전트)
+
+| 평가 | 이전 | **현재** |
+| --- | --- | --- |
+| 회귀 평가 대본 12개 (사기 6 · 정상 6) | 12/12 | **12/12** (경고 시점은 같거나 빨라짐) |
+| 분류기가 1.00을 준 정상 상담 14건 (프롬프트 조정용 dev) | 경고 9건 | **경고 3건** |
+| 처음 보는 test 28건 (정상 상담 14 · 사기 14) | 정상 경고 9/14, 사기 탐지 13/14 | **정상 경고 4/14, 사기 탐지 13/14** (첫 경고 평균 7.1 → 6.8번째 발화) |
+
+### 문자 · 문서
+
+| 기능 | 평가 | 결과 |
+| --- | --- | --- |
+| 문자 검사 | 학습에 안 쓴 문자 3,600건 (분류기 단독) | 정확도 99.4%, F1 99.2% |
+| 문자 검사 | 따로 쓴 최신 수법 문자 16건 (분류기 40% + Claude 60%) | 16/16 |
+| 문서 점검 | 경찰청·금감원·검찰이 공개한 위조 문서 + 실제 공문 (test 23장) | 정확도 95.7%, 위조 14/15 탐지, 오경보 0/8 |
+
+* * *
+
+## 🗃️ 데이터
+
+| 데이터 | 출처 | 쓰임 |
+| --- | --- | --- |
+| 보이스피싱 녹취 전사 (기관 사칭 575 · 대출 사기 131) | 금융감독원 「그놈 목소리」 (KorCCVi 전사) | 사기 통화 |
+| 공식 사례 기반 생성 통화 (사기 668 · 같은 주제의 정상 363) | 금감원 피해사례·소비자경보, 경찰청 예·경보 121건 → Claude 생성 | 새 유형(지인 사칭·카드배송·납치 등) 보강 |
+| KISA 118 전화상담 합성데이터 1,283통 | 공공데이터포털 (15156113 등) | 피싱이 주제지만 정상인 상담 |
+| 금융분야 고객상담 데이터 (은행·보험·증권) | AI Hub | 정상 상담 통화 (어려운 정상 사례 + 평가) |
+| 민원(콜센터) 질의-응답 데이터 (금융·보험, 다산콜센터, 질병관리청, 홈쇼핑) | AI Hub | 정상 통화 + 실제 녹음 평가 |
+| 한국어 스미싱 문자 | Hugging Face `jmjmjm3/kor-smishing-message` (CC BY-NC-SA 4.0) | 문자 검사 분류기 |
+| 위조 공문 평가 세트 61장 | 경찰청·금감원·검찰·언론 공개 이미지, 법제처 서식 등 | 문서 점검 평가 (목록: `backend/eval/documents_manifest.json`) |
+
+데이터 원본과 학습된 모델은 이용 조건(AI Hub 재배포 금지, 비상업 라이선스 등) 때문에 저장소에 올리지 않습니다 (`data/`, `models/`는 git 제외).
+
+* * *
+
+## 🧰 기술 스택
+
+**Frontend**
+
+![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
+![Expo](https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
+![Zustand](https://img.shields.io/badge/Zustand-2D3748?style=for-the-badge&logoColor=white)
+![PWA](https://img.shields.io/badge/PWA-5A0FC8?style=for-the-badge&logo=pwa&logoColor=white)
+
+**Backend · Infra**
+
+![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
+![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
+![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
+![n8n](https://img.shields.io/badge/n8n-EA4B71?style=for-the-badge&logo=n8n&logoColor=white)
+![Cloudflare](https://img.shields.io/badge/Cloudflare_Tunnel-F38020?style=for-the-badge&logo=cloudflare&logoColor=white)
+![NVIDIA](https://img.shields.io/badge/H100_GPU-76B900?style=for-the-badge&logo=nvidia&logoColor=white)
+
+**AI**
+
+![Claude](https://img.shields.io/badge/Claude_API-D97757?style=for-the-badge&logo=anthropic&logoColor=white)
+![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
+![HuggingFace](https://img.shields.io/badge/Hugging_Face-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)
+![Whisper](https://img.shields.io/badge/faster--whisper-412991?style=for-the-badge&logoColor=white)
+
+| 역할 | 모델 |
+| --- | --- |
+| 음성 인식 | faster-whisper large-v3 (GPU 서버) |
+| 통화 분류기 | KLUE-RoBERTa (`klue/roberta-base`) 미세조정 |
+| 문자 분류기 | KLUE-RoBERTa 미세조정 |
+| 실시간 상태 추적기 · 대응 에이전트 · 문자 판단 | Claude Haiku 5.5 |
+| 사건 개요 · 문서 점검 | Claude Opus 5.5 |
+
+* * *
+
+## 🗂️ 프로젝트 구조
+
+```text
+frontend/                     # Expo (iOS · Android · Web PWA)
+  app/
+    (tabs)/                   #   홈 · 통화 기록 · 정보
+    realtime.tsx              #   실시간 통화 분석 (단계 추적 · AI 대응)
+    warning.tsx               #   강한 경고 팝업
+    result.tsx                #   결과 (요약 · 대화 내용 · 탐지 근거 · 후속 확인)
+    message.tsx / document.tsx#   문자 검사 / 문서 점검
+    upload.tsx                #   녹음 파일 분석
+  src/components/             #   ScoreGauge, StageStepper, ActionCard, DemoPanel ...
+  src/hooks/useCallSession.ts #   WebSocket 세션 (음성 조각 전송 · 상태 반영)
+
+backend/app/
+  api/
+    websocket.py              # 실시간 통화 WebSocket
+    routes.py                 # 통화 · 녹음 파일 REST
+    agent_routes.py           # 상태 · 타임라인 · 대응 응답 · 피드백 · 신고 패키지
+    analyze_routes.py         # 문자 검사 · 문서 점검
+    investigation_routes.py   # 수사 지원 API · 대시보드
+  services/
+    state_tracker.py          # Claude 상태 추적기
+    response_agent.py         # 대응 에이전트 (행동 선택 · 문구 · 후속 확인)
+    call_analyzer.py          # 빠른 경로 + 위험도 융합
+    agent_loop.py             # 감지 → 판단 → 개입 한 사이클
+    message_analyzer.py       # 문자 검사
+    document_analyzer.py      # 문서 점검
+    investigation.py          # 단서 연관 · 사건 개요
+    report_builder.py         # 신고용 요약
+    official_cases.py         # 유사 공식 사례 검색
+    webhook_emitter.py        # n8n 이벤트
+  web/dashboard.html          # 수사관 대시보드
+  train_transformer.py        # 분류기 학습
+  build_dataset_v3.py         # 학습 데이터 v3 (AI Hub 상담 추가)
+  eval_*.py                   # 평가 (회귀 · 앞부분 탐지 · 외부 데이터 · 실제 음성 · 문자 · 문서)
+n8n/                          # 보호자 알림 워크플로 템플릿
+docs/                         # API 명세 · 학습 기록 · 구조도
+```
+
+* * *
+
+## ▶️ 실행
+
+### 백엔드
+
+```bash
+python3 -m venv .venv && source .venv/bin/activate
+pip install -r requirements.txt
+uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
+```
+
+프로젝트 루트 `.env` (값은 예시, 키는 저장소에 올리지 않습니다):
+
+```env
+ANTHROPIC_API_KEY=sk-ant-...
+TRACKER_MODEL=claude-haiku-5-5      # 실시간 상태 추적기
+AGENT_MODEL=claude-haiku-5-5        # 대응 에이전트 · 문자 판단
+REPORT_MODEL=claude-opus-5-5        # 사건 개요 · 문서 점검
+WHISPER_MODEL=large-v3
+ACCESS_CODE=...                     # 설정하면 접속 코드가 있어야 들어온다 (QR 링크에 포함)
+N8N_WEBHOOK_URL=...                 # 보호자 알림 (선택)
+PUBLIC_BASE_URL=...                 # 알림 메시지 속 대시보드 링크 (선택)
+```
+
+### 프론트엔드
+
+```bash
+cd frontend && npm install
+npm run web                                         # 개발
+EXPO_PUBLIC_API_BASE=same-origin npm run build:web  # 배포용 웹 빌드 (백엔드가 같은 주소로 제공)
+```
+
+### 배포 구조
+
+휴대폰 → Cloudflare 터널(HTTPS) → GPU 서버의 FastAPI(웹 앱 + API + WebSocket). 참가자는 QR 링크로 접속해 홈 화면에
+추가합니다(PWA). 넓은 화면에서 열면 앱 옆에 'AI 분석 과정' 패널이 함께 보이고, 수사관 화면은 `/dashboard`입니다.
+
+### 평가
+
+```bash
+python -m backend.app.eval_loop                       # 전체 시스템 회귀 평가 (Claude API 비용 발생)
+SPLIT=hash TRAINING_DATA=data/PhishCatch-Data-v2.json python -m backend.app.eval_prefix   # 통화 앞부분 탐지율
+EVAL_DATA=data/aihub/finance_consult.json,data/aihub/minwon.json python -m backend.app.eval_external  # 실제 상담 오경보
+AUDIO_DIR=data/aihub/audio_valid python -m backend.app.eval_audio                       # 실제 음성(Whisper) 오경보
+python -m backend.app.eval_messages                   # 문자 검사
+SPLIT=test python -m backend.app.eval_documents       # 문서 점검
+```
+
+* * *
+
+## 📚 문서
+
+- [docs/API_SPEC_V2.md](docs/API_SPEC_V2.md) — v2 API 명세 (WebSocket 이벤트, 상태·대응·수사 API, 문자·문서 분석)
+- [docs/MODEL_TRAINING_LOG.md](docs/MODEL_TRAINING_LOG.md) — 모델 학습·평가 기록 (데이터, 설정, 결과, 한계)
+- [docs/API_SPEC.md](docs/API_SPEC.md) — v1 API 명세
+- `docs/diagrams/` — 구조도 원본 (HTML)
 
 * * *
 
@@ -21,218 +319,3 @@ React Native(Expo) 앱·웹 프론트엔드와 FastAPI 백엔드로 구성된 �
 | **장지훈** | 디자인 및 프론트엔드 개발 |
 | **박준영** | RAG + 규칙 기반 탐지, API 개발 |
 | **최세민** | AI 모델 학습 및 전처리, API 개발 |
-
-* * *
-
-## 🧰 기술 스택
-
-**Frontend**
-
-![React](https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![React Native](https://img.shields.io/badge/React_Native-20232A?style=for-the-badge&logo=react&logoColor=61DAFB)
-![Expo](https://img.shields.io/badge/Expo-000020?style=for-the-badge&logo=expo&logoColor=white)
-![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=for-the-badge&logo=typescript&logoColor=white)
-![Zustand](https://img.shields.io/badge/Zustand-2D3748?style=for-the-badge&logoColor=white)
-
-**Backend**
-
-![Python](https://img.shields.io/badge/Python-3776AB?style=for-the-badge&logo=python&logoColor=white)
-![FastAPI](https://img.shields.io/badge/FastAPI-009688?style=for-the-badge&logo=fastapi&logoColor=white)
-![Uvicorn](https://img.shields.io/badge/Uvicorn-2094F3?style=for-the-badge&logoColor=white)
-![WebSocket](https://img.shields.io/badge/WebSocket-010101?style=for-the-badge&logoColor=white)
-![SQLite](https://img.shields.io/badge/SQLite-003B57?style=for-the-badge&logo=sqlite&logoColor=white)
-
-**AI / STT**
-
-![PyTorch](https://img.shields.io/badge/PyTorch-EE4C2C?style=for-the-badge&logo=pytorch&logoColor=white)
-![HuggingFace](https://img.shields.io/badge/Hugging_Face-FFD21E?style=for-the-badge&logo=huggingface&logoColor=black)
-![OpenAI](https://img.shields.io/badge/OpenAI-412991?style=for-the-badge&logo=openai&logoColor=white)
-![OpenRouter](https://img.shields.io/badge/OpenRouter-6467F2?style=for-the-badge&logoColor=white)
-
-* * *
-
-## 🎨 프론트엔드 (React Native · Expo)
-
-**Expo Router** 기반 파일 라우팅으로 **iOS · Android · Web을 하나의 코드베이스**로 지원하는 크로스플랫폼 앱입니다.
-WebSocket으로 실시간 전사·위험도를 표시하고, 녹음 파일 업로드 분석과 통화 히스토리·예방 정보를 제공합니다.
-
-- 🎧 **실시간 청취 분석** — 마이크 오디오를 3초 청크로 WebSocket 전송, 실시간 전사·위험도 갱신
-- 📁 **음성 파일 분석** — mp3/wav 녹음 파일 업로드 후 위험도·근거 분석
-- 📊 **분석 결과** — 위험도(%), 탐지된 위험 패턴, 의심 단어, AI 핵심 근거 제시
-- 🗂️ **히스토리** — 통화별 위험/주의/정상 분류 및 상세 조회
-- 📚 **정보** — 보이스피싱 유형별 대응 방법 안내
-
-### 📱 주요 화면
-
-<table>
-  <tr>
-    <td align="center"><img src="docs/images/home.png" width="200"/><br/><b>홈</b></td>
-    <td align="center"><img src="docs/images/realtime.png" width="200"/><br/><b>실시간 청취 분석</b></td>
-    <td align="center"><img src="docs/images/detection.png" width="200"/><br/><b>분석 결과 · 요약</b></td>
-    <td align="center"><img src="docs/images/result-evidence.png" width="200"/><br/><b>분석 결과 · 탐지 근거</b></td>
-  </tr>
-  <tr>
-    <td align="center"><img src="docs/images/upload.png" width="200"/><br/><b>음성 파일 분석</b></td>
-    <td align="center"><img src="docs/images/history.png" width="200"/><br/><b>히스토리</b></td>
-    <td align="center"><img src="docs/images/info.png" width="200"/><br/><b>정보 · 대응 방법</b></td>
-    <td align="center"><img src="docs/images/home-2.png" width="200"/><br/><b>홈 · 분석 내역</b></td>
-  </tr>
-</table>
-
-### 🗂️ 프론트엔드 구조
-
-```text
-frontend/
-  app/                    # expo-router 화면
-    (tabs)/               #   홈 / 히스토리 / 정보 탭
-    realtime.tsx          #   실시간 청취 분석
-    upload.tsx            #   음성 파일 업로드 분석
-    result.tsx            #   분석 결과 상세
-    warning.tsx           #   실시간 위험 경고
-  src/
-    components/           # 재사용 UI 컴포넌트 (RiskGauge, CallCard ...)
-    data/
-      services/           # 백엔드 통신 (callsApi, wsService, uploadAudio, STT)
-      models/             # 타입 정의
-    hooks/                # useCallSession 등
-    state/                # zustand 스토어 (call, transcript, settings)
-    core/                 # theme, config, utils
-```
-
-### ▶️ 프론트엔드 실행
-
-```bash
-cd frontend
-npm install
-npm run web       # 웹
-npm run android   # 안드로이드
-npm run ios       # iOS
-```
-
-`frontend/.env`에 백엔드 주소를 설정합니다.
-
-```env
-EXPO_PUBLIC_API_BASE=http://<백엔드-호스트>:8000
-```
-
-* * *
-
-## ⚙️ 백엔드 (FastAPI)
-
-실시간 통화 음성을 받아 전사하고, 누적 통화 내용을 기반으로 보이스피싱 위험도와 핵심 근거를 반환하는 FastAPI 백엔드입니다.
-
-### 🌟 주요 기능
-
-- WebSocket 기반 실시간 mp3/wav/m4a 오디오 chunk 분석
-- mp3/wav/m4a 녹음 파일 업로드 분석
-- KoELECTRA 기반 위험도 산출
-- RAG/규칙 기반 유사 사례 검색 및 위험 패턴 탐지
-- Claude API 기반 핵심 근거 생성 / faster-whisper 로컬 STT
-- 통화 기록, 발화, 탐지 결과, 알림 이력 SQLite 저장
-
-### 🧱 아키텍처
-
-```mermaid
-flowchart LR
-    Client["Client"] -->|WS audio chunk| API["FastAPI"]
-    Client -->|REST audio file| API
-    API --> STT["STT"]
-    API --> DB["SQLite"]
-    API --> ML["KoELECTRA"]
-    API --> RAG["RAG/Rules"]
-    API --> LLM["Claude API"]
-    API -->|risk/evidence/alert| Client
-```
-
-### 📁 백엔드 구조
-
-```text
-backend/app/
-  main.py                 # FastAPI 앱 진입점
-  api/
-    routes.py             # REST API
-    websocket.py          # 실시간 통화 WebSocket
-  services/
-    audio_transcriber.py  # 오디오 입력 정규화 및 전사 호출
-    call_analyzer.py      # 위험도 분석 및 응답 생성
-    rag_detector.py       # RAG/규칙 기반 탐지
-    evidence_generator.py # 생성형 근거 생성
-  database.py             # SQLite 초기화
-  repository.py           # DB CRUD
-  schemas.py              # Pydantic 스키마
-  paths.py                # 공통 경로
-data/                     # DB, 학습 데이터
-models/                   # 학습 모델
-API_SPEC.md               # 상세 API 명세
-```
-
-### 🛠️ 사용 기술
-
-- Backend: Python, FastAPI, Uvicorn
-- Realtime: WebSocket
-- DB: SQLite
-- AI: KoELECTRA, PyTorch, Transformers
-- RAG: SQLite 사례 검색 + 문자 n-gram similarity
-- STT: faster-whisper (large-v3) / 근거 생성: Anthropic SDK (Claude)
-
-### 📦 설치
-
-```bash
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-```
-
-### 🔑 환경 변수
-
-프로젝트 루트에 `.env`를 생성합니다.
-
-```env
-ANTHROPIC_API_KEY=sk-ant-...
-LLM_MODEL=claude-opus-5-5
-WHISPER_MODEL=large-v3
-CORS_ALLOW_ORIGINS=http://localhost:8081,http://172.16.80.202:8081
-```
-
-- 근거 생성·회색지대 재검토는 Claude API(`LLM_MODEL`)를 사용합니다.
-- STT는 GPU 서버에서 faster-whisper(`WHISPER_MODEL`)로 로컬 실행합니다 (API 키 불필요).
-
-### ▶️ 실행
-
-로컬 실행:
-
-```bash
-uvicorn backend.app.main:app
-```
-
-같은 네트워크의 프론트/모바일에서 접속:
-
-```bash
-uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
-```
-
-개발 reload:
-
-```bash
-uvicorn backend.app.main:app --reload --reload-dir backend --reload-exclude ".venv/*" --reload-exclude ".venv/**"
-```
-
-Swagger:
-
-```text
-http://127.0.0.1:8000/docs
-```
-
-### 🔗 핵심 API
-
-| Method | Path | 설명 |
-| --- | --- | --- |
-| GET | `/health` | 서버 상태 확인 |
-| WS | `/ws/calls/analyze` | 실시간 통화 오디오 분석 |
-| POST | `/calls/analyze-audio` | 녹음 파일 업로드 분석 |
-| GET | `/calls` | 통화 기록 목록 조회 |
-| GET | `/calls/{log_id}` | 통화 기록 상세 조회 |
-| POST | `/training-cases/import-json` | RAG/학습 사례 업로드 |
-| GET | `/training-cases` | 저장된 학습 사례 조회 |
-
-상세 요청/응답은 [API_SPEC.md](docs/API_SPEC.md)를 참고합니다.
