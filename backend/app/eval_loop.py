@@ -7,13 +7,16 @@ backend/eval/scenarios.json의 통화 대본을 두 발화씩 흘려보내며 �
 실행:
     python -m backend.app.eval_loop              # 전체
     python -m backend.app.eval_loop agency loan  # id에 해당 문자열이 들어간 시나리오만
+    SCENARIOS=data/aihub/hard_normal_scenarios.json python -m backend.app.eval_loop  # 다른 대본 파일
 """
 
 from __future__ import annotations
 
 import json
+import os
 import sys
 import time
+from pathlib import Path
 
 from dotenv import load_dotenv
 
@@ -22,8 +25,9 @@ from backend.app.paths import BACKEND_DIR, DATA_DIR, ENV_PATH
 
 load_dotenv(ENV_PATH)
 
-EVAL_DB_PATH = DATA_DIR / "eval.db"
-SCENARIOS_PATH = BACKEND_DIR / "eval" / "scenarios.json"
+# 평가를 여러 개 동시에 돌릴 때는 EVAL_DB로 서로 다른 파일을 쓴다.
+EVAL_DB_PATH = Path(os.environ.get("EVAL_DB") or DATA_DIR / "eval.db")
+SCENARIOS_PATH = Path(os.environ.get("SCENARIOS") or BACKEND_DIR / "eval" / "scenarios.json")
 STEP = 2  # 한 번에 흘려보낼 발화 수(실시간에서 추적기가 도는 간격과 비슷하게)
 
 
@@ -103,7 +107,7 @@ def main(filters: list[str]) -> int:
     print(f"시나리오 {passed}/{len(rows)} 통과 | precision={precision:.2f} recall={recall:.2f} "
           f"fpr={(fp / (fp + tn) if fp + tn else 0.0):.2f} (TP={tp} FP={fp} FN={fn} TN={tn})")
 
-    out_path = DATA_DIR / "eval_last_run.json"
+    out_path = Path(os.environ.get("EVAL_OUT") or DATA_DIR / "eval_last_run.json")
     out_path.write_text(json.dumps(rows, ensure_ascii=False, indent=2), encoding="utf-8")
     print(f"상세 결과: {out_path}")
     return 0 if passed == len(rows) else 1

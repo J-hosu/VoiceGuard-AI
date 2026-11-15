@@ -47,6 +47,13 @@ WINDOW_TURNS = 10        # 런타임 최근 구간 채점(koelectra_scorer.WINDO
 # 1이면 문장부호를 지우고 학습한다(출처별 전사 말투 차이를 줄임). 추론도 같은 전처리를 따른다.
 NORMALIZE = os.environ.get("NORMALIZE", "0") == "1"
 MIN_PHISHING_TURNS = 2   # 사기 통화를 이보다 짧게 자르면 사기 신호가 없는 조각에 사기 라벨이 붙는다
+# 출처별 반복(학습 쪽만). 예: OVERSAMPLE="normal_kisa118=2,normal_twin=2" → id가 그 접두어로 시작하는 학습 통화를
+# 2배로 넣는다(반복분은 앞부분 증강에서 다른 지점으로 잘린다). 클래스 가중 손실은 정상 전체의 무게를 고정하므로,
+# 정상 데이터를 크게 늘리면 기존의 어려운 정상 사례(KISA 상담, 쌍둥이 통화)의 몫이 줄어드는 것을 되돌릴 때 쓴다.
+OVERSAMPLE = {
+    prefix.strip(): int(factor)
+    for prefix, factor in (item.split("=") for item in os.environ.get("OVERSAMPLE", "").split(",") if "=" in item)
+}
 
 
 def _join(turns):
@@ -76,6 +83,13 @@ def load_split():
     with open(DATA_PATH, encoding="utf-8") as f:
         cases = json.load(f)["cases"]
     train_cases, eval_cases = split_cases(cases)
+    if OVERSAMPLE:
+        extra = []
+        for case in train_cases:
+            factor = next((f for prefix, f in OVERSAMPLE.items() if case["id"].startswith(prefix)), 1)
+            extra.extend([case] * (factor - 1))
+        print(f"출처별 반복(OVERSAMPLE={OVERSAMPLE}): 학습 통화 {len(extra)}건 추가")
+        train_cases = train_cases + extra
 
     X_tr = [_join(c["turns"]) for c in train_cases]
     y_tr = [c["label"] for c in train_cases]

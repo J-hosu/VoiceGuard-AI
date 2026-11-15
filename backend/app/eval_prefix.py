@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 from collections import defaultdict
+from pathlib import Path
 
 from backend.app.dataset_split import split_cases
 from backend.app.paths import DATA_DIR, TRAINING_DATA_PATH
@@ -108,7 +109,7 @@ def main() -> None:
             f"전체 {rate_at(group, MAX_TURNS) * 100:5.1f}%  한번이라도 {ever_group * 100:5.1f}%"
         )
 
-    out_path = DATA_DIR / "eval_prefix_last_run.json"
+    out_path = Path(os.environ.get("EVAL_OUT") or DATA_DIR / "eval_prefix_last_run.json")
     with open(out_path, "w", encoding="utf-8") as f:
         json.dump(rows, f, ensure_ascii=False)
     print(f"\n상세: {out_path}")
