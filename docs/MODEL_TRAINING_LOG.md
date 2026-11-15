@@ -9,6 +9,49 @@
 
 ---
 
+## 2026-11-15 · 실시간 전사(음성 인식) 설정 비교
+
+전사가 틀리면 분류기와 추적기도 틀리므로, 실제 녹음으로 지금 설정과 바꿀 수 있는 설정을 비교했다.
+
+- 데이터: AI Hub 민원(콜센터) 녹음 32통(금융보험·다산콜센터, 46~145초) 중 정답 대본을 찾은 25통.
+  대본은 파일 전체 전사와 3글자 겹침이 가장 큰 라벨 대화로 골랐다(평균 유사도 0.84, 0.3 미만은 제외).
+- 지표: 글자 오류율(CER, 공백·문장부호 제외). 대본은 상담 각본이라 실제 발화와 조금 다를 수 있어 0%가 바닥은 아니다.
+- 실시간 조각은 앱과 같은 방식으로 잘랐다: 최소 1.2초 쌓은 뒤 0.25초 조용하면 자르고, 10초면 강제로 자른다.
+- 모델: faster-whisper large-v3 (fp16, H100). 코드: 서버 `~/voiceguard_tools/stt_bench.py`.
+
+| 설정 | CER | 조각당 전사 시간 (평균 / p90) |
+| --- | --- | --- |
+| 파일 전체 전사 (녹음 파일 분석, 통화 종료 후 재전사) | 8.8% | - |
+| **이전 실시간**: 무음 조각, beam 1 | 13.0% | 0.11초 / 0.14초 |
+| **현재 실시간**: 무음 조각, beam 5 | **12.2%** | 0.13초 / 0.17초 |
+| 고정 3초 조각, beam 1 (참고, 처음 4통) | 23.5% | 0.12초 |
+| 무음 조각 + 앞 조각 문맥 / + 도메인 단어(hotwords) (처음 4통) | 14.1% / 14.7% | 0.15초 |
+| 10초 창을 다시 전사해 새 단어만 붙이기 (단순 구현) | 28.8% | 0.33초 |
+
+- 조각 단위 전사가 가장 큰 손해다(파일 전체 8.8% 대 실시간 12~13%). 그래서 통화가 끝나면 전체 녹음을 다시 전사하고
+  상태도 다시 추적해 결과 화면·신고 요약·수사 화면은 정확한 전사로 바꾼다(이미 적용되어 있음).
+- GPU에서는 실시간 조각도 beam 5로 바꿨다(오류 6% 감소, 지연 0.02초 증가). 앞 조각 문맥과 도메인 단어는 무음 조각에서
+  효과가 없어 쓰지 않는다. 겹치는 창으로 다시 전사하는 방식은 제대로 하려면 두 번 연속 같은 글자만 확정하는 방식
+  (whisper_streaming의 LocalAgreement)이 필요해 다음 과제로 둔다.
+
+상용 실시간 전사 후보 (2026-11-15 조사, 각 업체 문서 기준이며 한국어 통화 음성으로 직접 재 보지는 않았다):
+
+| 서비스 | 한국어 실시간 | 실시간 화자 구분 | 단어 강조 | 가격 (조사일) |
+| --- | --- | --- | --- | --- |
+| 리턴제로 RTZR | 지원 (gRPC·WebSocket, 통화 도메인 기본, 8~48kHz) | 문서에 없음 | 키워드 100개 | 시간당 1,000원(부가세 별도), 600분 무료 |
+| AWS Transcribe (서울) | 지원 | 지원 | 사용자 사전 | 분당 약 0.010달러, 12개월간 월 60분 무료 |
+| Azure Speech (Korea Central) | 지원 | 부분 결과에 화자 표시 | 구문 목록 | 시간당 1달러, 월 5시간 무료 |
+| 네이버 CLOVA Speech | 지원 (gRPC, 16kHz, 연결당 5분) | 녹음 파일만 | 키워드 가중치 | 공개 가격 확인 못 함 |
+
+- 리턴제로가 공개한 벤치마크(업체가 직접 잼, 날짜 없음)에서 저음질 전화 CER은 RTZR 4.40, CLOVA 6.49, AWS 7.59, Azure 9.87,
+  OpenAI Whisper API 17.27이었다. 방향만 참고한다. 출처: github.com/rtzr/Awesome-Korean-Speech-Recognition
+- 권장: 지금 구조(자체 Whisper + 종료 후 재전사)를 유지하고, 시간이 되면 리턴제로 실시간을 같은 25통으로 A/B 시험한다.
+  화자 구분이 필요하면 AWS Transcribe가 후보다. 출처 목록은 이 기록을 만든 세션의 조사 결과(업체 문서 링크)를 따른다:
+  developers.rtzr.ai/docs/stt-streaming, docs.aws.amazon.com/transcribe, learn.microsoft.com/azure/ai-services/speech-service,
+  api.ncloud-docs.com/docs/ai-application-service-clovaspeech-grpc.
+
+---
+
 ## 2026-11-15 · v3 (AI Hub 상담 데이터 추가 + 상태 추적기 기준 보정, 현재 서버에 적용)
 
 ### 한눈에 보기
@@ -114,6 +157,43 @@ v3c를 고른 이유: 정상 상담 오경보가 모든 평가에서 가장 낮�
 - dev·test의 정상 상담은 일부러 분류기가 1.00을 준 어려운 통화만 골랐다. 정상 상담 전체로 보면 전체 시스템 오경보는 이보다 훨씬 낮다.
 - 실제 음성 평가는 정상 통화 32통뿐이다(사기 실제 음성은 v2 때 금감원 녹취로만 확인).
 - AI Hub 데이터는 AI Hub 이용 조건에 따라 저장소에 올리지 않는다(`data/raw/aihub_*`, `data/aihub/`는 git 제외).
+
+### 학습 설정과 가중치 (나중에 다시 쓸 때 필요한 정보)
+
+| 항목 | 값 |
+| --- | --- |
+| 사전학습 모델 | `klue/roberta-base` (Hugging Face) |
+| 학습 데이터 | `data/PhishCatch-Data-roberta_v3c.json` 7,992통 (서버·이 PC 모두 `data/`, git 제외) |
+| 분할 | `SPLIT=hash`: 통화 묶음(group) md5 해시의 5분의 1을 평가로. 같은 공식 사례에서 나온 통화는 한쪽에만 들어간다 |
+| 학습/평가 | 학습 샘플 34,105개 (사기 4,229 / 정상 29,876) · 평가 통화 1,640통 (사기 307) |
+| 앞부분 증강 | `PREFIX_AUG=3`: 통화마다 앞부분 자르기와 중간 10턴 구간 자르기를 번갈아 최대 3개 추가 (사기 조각은 최소 2턴) |
+| 출처별 반복 | `OVERSAMPLE=normal_kisa118=2,normal_twin=2,normal_phone=2,normal_finance=2,normal_outbound=2` → 학습 통화 2,187통 추가 |
+| 전처리 | `NORMALIZE=1`: 문장부호를 지우고 공백 정리. 모델 폴더의 `preprocess.json`(`{"normalize": true}`)으로 추론도 같은 전처리를 따른다 |
+| 하이퍼파라미터 | 3 epoch, learning rate 2e-5, warmup 10%, weight decay 0.01, batch 16 (평가 32), max_len 256, seed 42, fp16, epoch마다 평가해 F1이 가장 좋은 체크포인트 사용 |
+| 클래스 가중 손실 | 정상 w0 = 0.5708, 사기 w1 = 4.0323 (`n / (2 × 클래스 수)`, 학습 샘플 기준) |
+| 학습량·시간 | 6,396 step, 약 5.4분 (H100, 325초), 마지막 학습 손실 0.098 |
+| 학습 직후 평가 (통화 전체, v3c 평가 분할 1,640통) | 정확도 99.63%, 정밀도 99.02%, 재현율 99.02%, F1 99.02% |
+| 런타임 채점 | 통화 누적 전체와 최근 10턴 중 높은 점수 (`services/koelectra_scorer.py`), 주의 0.70 / 강한 경고 0.85 |
+| 화면 위험도 | `0.3 × 분류기 + 0.7 × 추적기` (`services/call_analyzer.py` `FUSION_FAST_WEIGHT`), 추적기가 0.5 이상이면 통화 중 최고 분류기 점수 유지, 단계 하한(위기 조성 이상 + 추적기 0.70 → 0.70, 정보 요구 이상 + 추적기 0.85 → 0.85) |
+| 상태 추적기 | Claude Haiku 5.5 (`TRACKER_MODEL`), 프롬프트는 이 커밋의 `services/state_tracker.py` |
+| 라이브러리 | transformers 4.57.6, torch 2.13.0+cu130 (서버 `.venv`) |
+
+가중치 파일 (`model.safetensors`, 423MB, fp32):
+
+| 위치 | 내용 | SHA-256 |
+| --- | --- | --- |
+| 서버 `models/koelectra` | **현재 서비스 모델 (= v3c)** | `0b912ead8857fbfb729249abe3a32595d5bd4566fd403afb56bb12021b876c89` |
+| 서버 `models/roberta_v3c`, 이 PC `models/roberta_v3c` | v3c 원본과 백업 (이 PC로 내려받아 해시 일치 확인) | 위와 같음 |
+| 서버 `models/koelectra_v2_backup` (= `models/roberta_v2`) | 이전 v2 | `1a8cb9fff24cdef32ab382ae293bc717357e6d088bff79f7c1166ec6c54be04f` |
+| 서버 `models/roberta_v3`, `models/roberta_v3b` | 쓰지 않은 후보 (비교용) | `7df15fdf…`, `0407fc0d…` |
+| 서버 `models/koelectra_v1_backup` | v1 KoELECTRA (체크포인트 포함 4.3GB) | `fc4afc71…` |
+
+되돌리기 (서버): `rm -rf models/koelectra && cp -r models/koelectra_v2_backup models/koelectra && ~/voiceguard_tools/restart_backend.sh`.
+상태 추적기 프롬프트는 git으로 되돌린다(`git show dcaaf94:backend/app/services/state_tracker.py`).
+
+평가에 쓴 파일 (서버 `data/aihub/`, git 제외): `mining_scores.json`(어려운 정상 사례 채점), `roberta_v3c_selection.json`(추가한 통화 목록과 이유),
+`valid_scores_<모델>.json`(AI Hub Validation 채점), `audio_valid/`(실제 녹음 32통과 `transcripts.json`), `hard_normal_scenarios.json`(전체 시스템 dev 14건),
+`test_scenarios.json`(test 28건), `eval_loop_*.json`(전체 시스템 결과). 로그는 서버 `~/voiceguard_tools/train_roberta_v3c.log`, `eval_roberta_v3c_*.txt`.
 
 ### 다시 만드는 방법 (서버)
 

@@ -1,7 +1,24 @@
 # API 명세 v2 — 능동형 대응 루프 · 수사 지원
 
-> 상태: **P1 구현 완료** (3·4·5절, 5.6 피드백, 5.7 신고 패키지) · P2 이후는 설계 단계 · 작성일 2026-11-14
+> 상태: P1~P5 대부분 구현 (아래 '구현 현황' 참고) · 작성일 2026-11-14 · 갱신 2026-11-15
 > 기존 명세 [API_SPEC.md](API_SPEC.md)(v1)는 그대로 유효하다. v2는 **추가만** 하며 v1의 요청·응답 필드를 바꾸거나 지우지 않는다.
+
+## 구현 현황 (2026-11-15)
+
+설계(아래 절)와 실제 구현이 다른 곳은 여기를 따른다. 모든 API는 접속 코드(`ACCESS_CODE`)가 설정되어 있으면 쿠키·`X-Access-Code` 헤더·`?code=` 중 하나가 맞아야 통과한다(관리 키·연동 키는 따로 두지 않았다).
+
+| 영역 | 구현된 API | 비고 |
+| --- | --- | --- |
+| 기기 구분 | WS `start`·`GET /calls`·`POST /calls/analyze-audio`의 `device_id` | 앱이 기기(브라우저)마다 9~10자리 번호를 만들어 저장하고 보낸다. `/devices` 발급 API는 없음 |
+| 녹음 파일 분석 | `POST /calls/analyze-audio` | 실시간과 같은 전체 분석(빠른 경로 6발화마다 → 상태 추적 → 공식 번호·피해 차단·통화 후 확인). 지난 녹음이라 경고·보호자 알림은 만들지 않음 |
+| 통화 중 단서 대조 | `agent_action` `linked_case_alert` | 새 계좌(10자리 이상)·휴대전화(010·070·050)·주소·사건번호가 다른 통화에 있으면, 또는 주소 모양이 위험하면 바로 알림 |
+| 증거 무결성 | `GET /calls/{log_id}/evidence` | 음성 조각·업로드 파일을 받는 즉시 SHA-256 체인(`evidence_files`), 통화 종료 때 전사문 봉인. 신고용 요약(`/report`)에 포함 |
+| 수사 우선순위 | `GET /investigation/cases`의 `priority`, `priority_reasons`, `linked_count` | 위험도 40 + 피해 확인 25 + 겹치는 단서 15 + 도달 단계 10 + 최근성 10 |
+| 관계 그래프 | `GET /investigation/graph?min_risk=0.5&limit=80` | 사건(통화)–단서(계좌·번호·주소·사건번호·사칭 기관) 노드와 간선. 설계의 `log_id`·`depth`는 없음 |
+| 품질 루프 | `GET /quality/summary`, `GET /quality/retrain-candidates`, `POST /eval/run`, `GET /eval/runs` | 사용자 확인과 시스템 판정 비교, 학습 데이터 형식 내보내기, 회귀 평가(별도 프로세스·별도 DB)를 `eval_runs`에 기록 |
+| 신종 수법 | `POST /knowledge/collect?wait=`, `GET /knowledge/status`, `GET /knowledge/cards?status=`, `POST /knowledge/cards/{id}/review` | 공식 출처 수집(`services/official_sources.py`) → Claude가 카드로 정리 → 사람이 승인하면 상태 추적기 프롬프트에 반영하고 회귀 평가를 돌림. `/knowledge/candidates`·`/rules`는 없음 |
+| n8n | `n8n/voiceguard_knowledge_collect.json` | 매일 09:00 `POST /knowledge/collect?wait=true`, 새 카드가 있으면 Slack으로 검토 요청(Slack 노드는 꺼 둠) |
+| 대시보드 | `GET /dashboard` | 탭: 사건 목록(우선순위 정렬, 증거 무결성) · 관계 그래프 · 신종 수법 · 모델 품질 |
 
 ## 0. 개요
 
@@ -125,7 +142,7 @@ WS:   ws://127.0.0.1:8000          (공개 시 wss://<터널 도메인>)
 | --- | --- |
 | `role` (화자 역할) | `suspect`(상대방), `user`(사용자), `unknown` |
 | `compliance` (피해자 순응도) | `none`, `hesitant`, `complying`, `completed` |
-| `action_type` | `warn`, `verify_guide`, `official_number`, `guardian_alert`, `block_guide`, `evidence_preserve`, `report_guide`, `followup_check` |
+| `action_type` | `warn`, `verify_guide`, `official_number`, `guardian_alert`, `block_guide`, `evidence_preserve`, `report_guide`, `followup_check`, `linked_case_alert` |
 | `action.status` | `delivered`, `acknowledged`, `dismissed`, `answered`, `expired`, `failed` |
 | `followup.answer` | `hung_up`, `still_talking`, `verified_safe`, `shared_info`, `installed_app`, `transferred_money`, `false_alarm` |
 | `feedback.verdict` | `false_positive`, `confirmed_phishing`, `missed_phishing`, `unsure` |
@@ -251,6 +268,7 @@ v1 이벤트(`start`, `audio_chunk`, `message`, `call_started`, `audio_analysis_
 | `guardian_alert` | `{ "guardian_count": 1 }` |
 | `block_guide` | `{ "kind": "money" \| "info" \| "app", "steps": ["112 신고", "..."], "phones": ["112", "1332"] }` |
 | `evidence_preserve` | `{ "chunk_count": 12 }` |
+| `linked_case_alert` | `{ "kind": "linked", "matches": [{ "entity_type": "account", "value": "...", "calls": [{ "log_id": 12, "called_at": "...", "risk_level": "high", "risk_score": 0.98, "phishing_type": "..." }] }] }` 또는 `{ "kind": "url", "urls": [{ "value": "...", "reasons": ["단축 주소..."] }] }` |
 | `report_guide` | `{ "report_url": "/calls/10/report" }` |
 | `followup_check` | `{ "phase": "in_call" \| "post_call", "question": "...", "options": [{ "answer": "hung_up", "label": "끊었어요" }], "due_in_sec": 45 }` |
 
