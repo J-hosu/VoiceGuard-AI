@@ -83,6 +83,11 @@ WS:   ws://127.0.0.1:8000          (공개 시 wss://<터널 도메인>)
 | `REPORT_MODEL` | 보고서·수법 분석 모델. 기본 `claude-opus-5-5` |
 | `WHISPER_DEVICE` | STT 실행 장치 `auto`(기본)·`cuda`·`cpu`. `auto`는 CUDA가 있으면 GPU, 없으면 CPU |
 | `WHISPER_MODEL`, `WHISPER_COMPUTE`, `WHISPER_BEAM` | STT 모델·정밀도·파일 전사 beam. 기본 GPU `large-v3`/`float16`/5, CPU `small`/`int8`/1 |
+| `STT_LIVE_ENGINE` | 통화 중 실시간 조각 전사 `local`(기본, Whisper)·`rtzr`(리턴제로 스트리밍, 통화마다 연결 하나) |
+| `STT_FILE_ENGINE` | 녹음 파일 분석(`/calls/analyze-audio`)·통화 후 전체 재전사(`/calls/{log_id}/retranscribe-audio`) `local`(기본)·`rtzr`(파일 전사, 화자 분리 2명) |
+| `STT_REFINE` | 통화 중 정리본 `off`(기본)·`rtzr`. 켜면 4.2의 `transcript_refined`를 보낸다 |
+| `REFINE_STEP`, `REFINE_LIVE`, `REFINE_CONTEXT`, `REFINE_SPK_MIN_S` | 정리 간격 15초, 최근 실시간 구간 20초, 앞 문맥 40초, 화자 수 2명 지정 최소 구간 8초 |
+| `RTZR_CLIENT_ID`, `RTZR_CLIENT_SECRET` | 리턴제로 키. `rtzr`를 골랐는데 없거나 호출이 실패하면 경고를 남기고 그 요청은 로컬로 받아 적는다(정리는 끈다) |
 | `INTEGRATION_API_KEY`, `ADMIN_API_KEY` | 1.2의 API 키 |
 | `N8N_WEBHOOK_URL` | 백엔드가 이벤트를 보낼 n8n 웹훅 주소 |
 | `ACCESS_CODE` | 시연용 접속 코드. 설정하면 쿠키·`X-Access-Code` 헤더·`code` 쿼리 중 하나가 맞아야 웹 앱·API·WebSocket을 쓸 수 있다. 비우면 제한 없음(로컬 개발) |
@@ -279,6 +284,31 @@ v1 이벤트(`start`, `audio_chunk`, `message`, `call_started`, `audio_analysis_
 ```json
 { "type": "call_ended", "log_id": 10, "final": { "stage": "pressure", "scam_type": "agency", "risk_score": 0.83, "risk_level": "medium" } }
 ```
+
+**`audio_analysis_ack` · `audio_phishing_detected` 추가 필드** — `transcripts`의 항목마다 `t_start`, `t_end`(통화 시작 후 초)가 붙는다. 이 통화에서 받은 오디오의 누적 길이로 센다(클라이언트가 통째로 무음인 조각은 보내지 않으므로 벽시계와 다를 수 있다). 기존 `start_time`/`end_time`은 조각 안 기준 그대로다.
+
+**`transcript_refined`** — `STT_REFINE=rtzr`일 때 정리 요청 하나가 끝날 때마다 보낸다(약 15초마다, 통화 종료 `end` 때 한 번 더). 20초 넘게 지난 구간을 리턴제로 파일 전사(화자 분리·단어 시각)로 다시 받아 적은 정리본이다.
+
+```json
+{
+  "type": "transcript_refined",
+  "log_id": 10,
+  "engine": "rtzr",
+  "refined_until": 47.35,
+  "segments": [{ "id": "10-7", "t_start": 31.2, "t_end": 35.8, "speaker": 0, "text": "서울중앙지검 김철수 수사관입니다" }],
+  "relabels": [{ "id": "10-5", "speaker": 1 }],
+  "speaker_sides": { "0": "other", "1": "me" }
+}
+```
+
+| 필드 | 설명 |
+| --- | --- |
+| `refined_until` | 이 시각(초)보다 앞은 정리본이 전사다. 그 뒤(`t_start >= refined_until`)의 실시간 조각만 '받아 적는 중'으로 정리본 뒤에 보인다 |
+| `segments` | 이번에 새로 정리된 발화만. `speaker`는 통화 전체에서 같은 사람이면 같은 번호 |
+| `relabels` | 앞 문맥과 다시 맞춰 보니 화자 번호가 바뀐 이전 발화 |
+| `speaker_sides` | 지금까지 나온 모든 화자 번호의 쪽. `other`=상대방(왼쪽), `me`=나(오른쪽), `unknown`=아직 근거 없음. 추적기가 실시간 발화에 붙인 역할(`user`)과 화자 구간이 겹친 시간으로 정한다 |
+
+통화 후 전체 재전사를 `STT_FILE_ENGINE=rtzr`로 하면 응답 `segments`의 `speaker`(`화자A`/`화자B`)는 화자 분리 번호(`spk`)별로 추적기 역할을 다수결해 정한다(발화마다가 아니라 사람 단위).
 
 ## 5. 통화 · 상태 · 에이전트 REST
 

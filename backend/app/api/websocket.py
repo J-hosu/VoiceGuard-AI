@@ -8,13 +8,15 @@ import logging
 import time
 from typing import Optional
 
+import numpy as np
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 
+from backend.app import state_repository
 from backend.app.api.response_logger import log_api_request, log_api_response
 from backend.app.repository import create_call_log, get_call_log, insert_call_message, list_call_messages
 from backend.app.schemas import CallLogCreate, CallMessageCreate
 from backend.app.services import evidence
-from backend.app.services import agent_loop, audio_transcriber, call_analyzer, response_agent
+from backend.app.services import agent_loop, audio_transcriber, call_analyzer, live_refine, response_agent, rtzr_client
 
 
 logger = logging.getLogger(__name__)
@@ -22,6 +24,13 @@ router = APIRouter()
 
 # 연결이 끊긴 뒤에도 끝까지 돌아야 하는 마무리 작업(통화 종료 처리)의 참조를 잡아 둔다.
 _background_tasks: set[asyncio.Task] = set()
+
+# 통화 중 정리(refine, STT_REFINE=rtzr): 예약 확인 간격, 요청 하나의 상한(보통 2초), 연속 실패 허용 횟수,
+# 통화 종료 정리 상한(넘으면 건너뛴다. 통화 후 전체 재전사가 어차피 모두 바꾼다).
+REFINE_TICK_S = 1.0
+REFINE_REQUEST_TIMEOUT_S = 30.0
+REFINE_MAX_FAILURES = 3
+REFINE_FLUSH_TIMEOUT_S = 6.0
 
 
 class _AgentSession:
@@ -71,8 +80,12 @@ class _AgentSession:
                 {"type": "agent_action", "log_id": action["log_id"], "action": action},
             )
 
-    async def finish(self, send: bool) -> Optional[dict]:
-        """통화를 마무리한다. 진행 중인 사이클을 기다린 뒤 마지막 상태와 통화 후 행동을 만든다."""
+    async def finish(self, send: bool, before_end: Optional[asyncio.Task] = None) -> Optional[dict]:
+        """통화를 마무리한다. 진행 중인 사이클을 기다린 뒤 마지막 상태와 통화 후 행동을 만든다.
+
+        before_end(통화 종료 정리 태스크)가 있으면 call_ended를 보내기 전에 끝나기를 기다린다. 클라이언트는
+        call_ended를 받으면 곧 연결을 닫으므로, 마지막 transcript_refined가 그보다 먼저 도착해야 한다.
+        """
         if self.ended or self.log_id is None:
             return None
         self.ended = True
@@ -95,11 +108,153 @@ class _AgentSession:
 
         if send:
             await self.emit(result["state_update"], result["actions"])
+            if before_end is not None:
+                await asyncio.wait([before_end])
             await _send_json(
                 self.websocket,
                 {"type": "call_ended", "log_id": self.log_id, "final": result["final"]},
             )
         return result
+
+
+class _LiveSession:
+    """WebSocket 연결 하나의 실시간 전사 보조: 받은 오디오의 시각, 리턴제로 스트리밍 연결, 통화 중 정리(refine).
+
+    - 조각마다 16kHz로 풀어 '통화 시작 후 초'(t_start/t_end)를 센다. 클라이언트가 통째로 무음인 조각은 보내지 않으므로
+      벽시계가 아니라 받은 오디오 길이 기준이다. 정리본도 같은 시간축이라 화면에서 실시간 조각과 시각으로 맞춘다.
+    - STT_REFINE=rtzr면 REFINE_TICK_S마다 확인해, 마지막 정리 뒤 REFINE_STEP초가 지났고 REFINE_LIVE초 넘게 지난 조각이
+      있으면 그 끝까지를 리턴제로 파일 전사로 다시 받아 적어 transcript_refined를 보낸다(live_refine 참고).
+      정리는 통화마다 한 번에 하나만 돈다(작업 스레드). 연달아 실패하면 그 통화의 정리를 끄고 실시간 조각만 보여 준다.
+    """
+
+    def __init__(self, websocket: Optional[WebSocket]) -> None:
+        self.websocket = websocket
+        self.log_id: Optional[int] = None
+        self.audio = live_refine.CallAudio()
+        self.stream: Optional[rtzr_client.StreamSession] = None
+        self.refiner: Optional[live_refine.Refiner] = None
+        self._refine_lock = asyncio.Lock()
+        self._loop_task: Optional[asyncio.Task] = None
+        self._flush_task: Optional[asyncio.Task] = None
+        self._last_refine_at = 0.0
+        self._failures = 0
+        self._refine_off = False
+        self._ending = False
+
+    def start(self, log_id: int) -> None:
+        """새 통화를 시작한다. 같은 연결에서 start가 다시 오면 앞 통화의 연결과 예약을 먼저 정리한다."""
+        self.close()
+        refine = audio_transcriber.refine_enabled()
+        self.log_id = log_id
+        self.audio = live_refine.CallAudio(keep_samples=refine)
+        self.stream = audio_transcriber.open_live_stream()
+        self.refiner = live_refine.Refiner(log_id, live_refine.RefineSettings.from_env()) if refine else None
+        self._last_refine_at, self._failures = 0.0, 0
+        self._refine_off = self._ending = False
+        if self.refiner is not None:
+            self._loop_task = asyncio.create_task(self._refine_loop())
+            live_refine.register_call(log_id, self.stop_refine)
+
+    def stop_refine(self) -> None:
+        """더 정리하지 않는다. 통화 후 전체 재전사가 시작되거나 정리가 계속 실패하면 부른다.
+
+        다시 보낼 일이 없으므로 모아 둔 오디오도 버린다(긴 통화에서 메모리가 계속 늘지 않게).
+        """
+        self._refine_off = True
+        self.audio.keep_samples = False
+        self.audio.prune(self.audio.duration)
+
+    def start_flush(self) -> Optional[asyncio.Task]:
+        """통화 종료(end) 때 아직 정리하지 않은 끝부분을 한 번 더 정리하는 태스크를 띄운다. 정리를 안 쓰면 None.
+
+        돌고 있던 정리가 있으면 그것부터 기다린다. 합쳐서 REFINE_FLUSH_TIMEOUT_S 안에 끝나지 않으면 건너뛴다
+        (통화 후 전체 재전사가 어차피 모두 바꾼다).
+        """
+        self._ending = True
+        if self.refiner is None or self._refine_off:
+            return None
+        self._flush_task = asyncio.create_task(self._flush())
+        return self._flush_task
+
+    def close(self) -> None:
+        """정리 예약을 멈추고 스트리밍 연결을 닫는다(EOS). 통화 종료나 연결 끊김 때 부르며 여러 번 불러도 된다."""
+        self._refine_off = True
+        if self._loop_task is not None:
+            self._loop_task.cancel()
+            self._loop_task = None
+        if self.log_id is not None:
+            live_refine.unregister_call(self.log_id, self.stop_refine)
+        stream, self.stream = self.stream, None
+        if stream is not None:
+            # EOS·닫기 인사는 네트워크를 기다리므로 이벤트 루프를 막지 않게 작업 스레드에서 한다.
+            task = asyncio.create_task(asyncio.to_thread(stream.close))
+            _background_tasks.add(task)
+            task.add_done_callback(_background_tasks.discard)
+
+    async def _refine_loop(self) -> None:
+        while not (self._refine_off or self._ending):
+            await asyncio.sleep(REFINE_TICK_S)
+            now = time.monotonic()
+            if self.refiner is None or now - self._last_refine_at < self.refiner.settings.step:
+                continue
+            if self.refiner.plan(self.audio.chunks, now) is None:
+                continue
+            self._last_refine_at = now
+            try:
+                await self._refine()
+            except Exception:  # 예상 못 한 오류도 통화는 막지 않는다. 이 통화의 정리만 끈다.
+                logger.exception("통화 중 정리 처리 실패(log_id=%s). 이 통화는 실시간 조각만 보여 줍니다.", self.log_id)
+                self.stop_refine()
+
+    async def _flush(self) -> None:
+        try:
+            await asyncio.wait_for(self._refine(final=True), REFINE_FLUSH_TIMEOUT_S)
+        except asyncio.TimeoutError:
+            logger.info("통화 종료 정리가 %.0f초 안에 끝나지 않아 건너뜁니다(log_id=%s).", REFINE_FLUSH_TIMEOUT_S, self.log_id)
+        except Exception:
+            logger.exception("통화 종료 정리 실패(log_id=%s)", self.log_id)
+
+    async def _refine(self, final: bool = False) -> None:
+        """정리 요청 하나를 보내 결과를 붙이고 transcript_refined를 보낸다.
+
+        구간은 잠금 안에서 고른다(앞 요청이 정리 끝을 옮겼을 수 있으므로). 실패하면 정리 끝을 그대로 두어
+        다음 차례에 그 구간까지 다시 보낸다. final=True면 받은 오디오 끝까지 정리한다(통화 종료).
+        """
+        async with self._refine_lock:
+            refiner = self.refiner
+            if refiner is None or self._refine_off:
+                return
+            if final:
+                window = refiner.window_to(self.audio.duration)
+            else:
+                window = refiner.plan(self.audio.chunks, time.monotonic())
+            if window is None:
+                return
+            samples = self.audio.window(window.start, window.end)
+            try:
+                result = await asyncio.to_thread(
+                    rtzr_client.transcribe_file,
+                    samples,
+                    spk_count=window.spk_count,
+                    timeout=REFINE_REQUEST_TIMEOUT_S,
+                )
+            except Exception as exc:
+                self._failures += 1
+                logger.warning("통화 중 정리(리턴제로) 실패 %d회(log_id=%s): %s", self._failures, self.log_id, exc)
+                if self._failures >= REFINE_MAX_FAILURES:
+                    logger.warning("정리가 계속 실패해 이 통화(log_id=%s)는 실시간 조각만 보여 줍니다.", self.log_id)
+                    self.stop_refine()
+                return
+            if refiner is not self.refiner:  # 기다리는 동안 같은 연결에서 새 통화가 시작됐다
+                return
+            self._failures = 0
+            update = refiner.apply(window, result.words)
+            self.audio.prune(refiner.done - refiner.settings.context)
+            sides = await asyncio.to_thread(
+                _speaker_sides, refiner.log_id, list(refiner.segments), dict(self.audio.message_spans)
+            )
+            if self.websocket is not None:
+                await _send_json(self.websocket, refiner.event(update, sides))
 
 
 @router.websocket("/ws/calls/analyze")
@@ -114,6 +269,7 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
     # 오디오 응답과 비동기 상태 갱신이 같은 소켓에 동시에 쓰지 않도록 전송을 직렬화한다.
     websocket.state.send_lock = asyncio.Lock()
     agent = _AgentSession(websocket)
+    live = _LiveSession(websocket)
     log_id: Optional[int] = None
     audio_format = "m4a"
     chunk_index = 0
@@ -156,6 +312,7 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                     audio_format=audio_format,
                     chunk_index=chunk_index,
                     agent_mode=agent.enabled,
+                    live=live,
                 )
                 if not await _send_json(websocket, response):
                     return
@@ -213,6 +370,7 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                 chunk_index = 0
                 agent.log_id = log_id
                 agent.enabled = bool(payload.get("agent", True))
+                live.start(log_id)
                 if not await _send_json(
                     websocket,
                     {
@@ -245,6 +403,7 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                     audio_format=chunk_format,
                     chunk_index=chunk_index,
                     agent_mode=agent.enabled,
+                    live=live,
                 )
                 if not await _send_json(websocket, response):
                     return
@@ -262,7 +421,8 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
                     if not await _send_json(websocket, {"type": "error", "message": "종료할 통화가 없습니다."}):
                         return
                     continue
-                await agent.finish(send=True)
+                await agent.finish(send=True, before_end=live.start_flush())
+                live.close()
                 continue
 
             if event_type != "message":
@@ -311,6 +471,7 @@ async def analyze_call_messages(websocket: WebSocket) -> None:
         await _send_json(websocket, {"type": "error", "message": str(exc)})
         await _close_websocket(websocket)
     finally:
+        live.close()
         # 클라이언트가 end 없이 끊어도 마지막 상태와 통화 후 행동은 남긴다(REST로 조회 가능).
         if not agent.ended and agent.log_id is not None:
             task = asyncio.create_task(agent.finish(send=False))
@@ -377,9 +538,14 @@ async def _handle_audio_chunk(
     audio_format: str,
     chunk_index: int,
     agent_mode: bool = False,
+    live: Optional[_LiveSession] = None,
 ) -> dict:
-    """실시간 오디오 chunk를 전사하고 누적 통화 분석 응답을 만든다."""
+    """실시간 오디오 chunk를 전사하고 누적 통화 분석 응답을 만든다.
+
+    live는 연결의 실시간 전사 보조다(통화 시각, 리턴제로 스트리밍 연결, 정리용 오디오). 없으면 이 조각만으로 센다.
+    """
     started_at = time.monotonic()
+    live = live or _LiveSession(None)
     if not audio_bytes:
         return {
             "type": "audio_chunk_error",
@@ -395,8 +561,14 @@ async def _handle_audio_chunk(
     except Exception as exc:  # 증거 기록 실패가 분석을 막지 않게 한다
         logger.warning("음성 조각 해시 기록 실패(log_id=%s, chunk=%s): %s", log_id, chunk_index, exc)
 
+    # 전사보다 먼저 통화 시각을 센다. 전사가 실패한 조각도 통화 시간에 들어가고 정리(refine)가 다시 받아 적는다.
+    samples = await asyncio.to_thread(_decode_chunk, audio_bytes, audio_format)
+    chunk = live.audio.add(samples, started_at)
+
     try:
-        raw_segments = await asyncio.to_thread(audio_transcriber.transcribe_audio_bytes, audio_bytes, audio_format)
+        raw_segments = await asyncio.to_thread(
+            audio_transcriber.transcribe_live_chunk, audio_bytes, audio_format, samples, live.stream
+        )
         transcribed_at = time.monotonic()
     except HTTPException as exc:
         return {
@@ -419,6 +591,10 @@ async def _handle_audio_chunk(
         }
 
     segments = audio_transcriber.normalize_transcribed_segments(raw_segments)
+    for segment in segments:
+        segment["t_start"], segment["t_end"] = live_refine.segment_times(
+            chunk, segment["start_time"], segment["end_time"]
+        )
     segments, skipped_duplicate_count = _filter_duplicate_segments(log_id, segments)
     saved_messages = []
     for segment in segments:
@@ -431,6 +607,9 @@ async def _handle_audio_chunk(
                 ),
             )
         )
+    # 정리본 화자의 상대방/나는 추적기가 이 발화들에 붙인 역할과 시각을 맞춰 정한다(_speaker_sides).
+    for message, segment in zip(saved_messages, segments):
+        live.audio.message_spans[message.id] = (segment["t_start"], segment["t_end"])
 
     if not saved_messages:
         return {
@@ -466,6 +645,25 @@ async def _handle_audio_chunk(
         "total": round((analyzed_at - started_at) * 1000),
     }
     return response
+
+
+def _decode_chunk(audio_bytes: bytes, audio_format: str) -> Optional[np.ndarray]:
+    """조각을 16kHz mono로 푼다. 풀지 못하면 None(그 조각은 통화 시각에 길이 0으로 들어간다)."""
+    try:
+        return audio_transcriber.decode_audio_16k(audio_bytes, audio_format)
+    except Exception as exc:
+        logger.warning("음성 조각을 16kHz로 풀지 못해 통화 시각에 넣지 않습니다: %s", exc)
+        return None
+
+
+def _speaker_sides(log_id: int, segments: list, message_spans: dict) -> dict[str, str]:
+    """추적기가 실시간 발화에 붙인 역할로 정리본 화자의 상대방/나를 정한다. DB를 읽으므로 작업 스레드에서 부른다."""
+    try:
+        roles = {message["message_id"]: message["role"] for message in state_repository.list_tagged_messages(log_id)}
+    except Exception as exc:
+        logger.warning("발화 역할을 읽지 못해 정리본 화자를 미정으로 둡니다(log_id=%s): %s", log_id, exc)
+        roles = {}
+    return live_refine.speaker_sides(segments, message_spans, roles)
 
 
 def _parse_ws_json(raw_text: str) -> dict:

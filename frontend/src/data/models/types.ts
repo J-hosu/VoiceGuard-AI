@@ -34,6 +34,41 @@ export interface TranscriptTurn {
   keywords?: string[];
 }
 
+/**
+ * 화자 번호가 어느 쪽 말풍선인지. other=상대방(왼쪽), me=나(오른쪽), unknown=아직 모름(가운데).
+ * 서버가 Claude 추적기의 발화별 역할과 겹친 시간으로 정한다(transcript_refined.speaker_sides).
+ */
+export type SpeakerSide = 'other' | 'me' | 'unknown';
+
+/**
+ * 실시간 조각 하나(말풍선으로 합치기 전 원본).
+ * 정리본이 붙기 시작하면 정리본이 끝난 시각 이후의 조각만 '받아 적는 중'으로 정리본 뒤에 보인다.
+ * 그래서 합친 말풍선(TranscriptTurn)이 아니라 조각 단위 시각이 필요하다.
+ */
+export interface LiveChunk {
+  text: string;
+  tStart: number; // 통화 시작부터 초(서버가 받은 오디오 누적 길이 기준)
+  tEnd: number;
+  keywords: string[];
+}
+
+/** 다시 받아 적어 화자를 나눈 발화 하나(transcript_refined.segments를 화면용으로 바꾼 것) */
+export interface RefinedTurn {
+  id: string; // "<log_id>-<n>". relabels가 이 id로 화자를 고친다.
+  tStart: number;
+  tEnd: number;
+  speaker: number; // 통화 전체에서 같은 사람은 같은 번호
+  text: string;
+  keywords: string[];
+}
+
+/** 통화 중 정리본(뒤따라 다시 받아 적은 전사) 누적 상태 */
+export interface RefinedTranscript {
+  turns: RefinedTurn[]; // tStart 순
+  sides: Record<string, SpeakerSide>; // 화자 번호(문자열) → 쪽
+  until: number; // 이 시각(초)보다 앞은 정리본이 전사다
+}
+
 /** 통화 종료 후 요약(로컬 구성) */
 export interface CallResult {
   id: number;
@@ -67,6 +102,18 @@ export interface TranscriptPayload {
   content?: string;
   start_time?: number;
   end_time?: number;
+  // 통화 시작부터 초(서버가 이 통화에서 받은 오디오 누적 길이로 계산). start_time/end_time은 청크 안 기준이라 따로 둔다.
+  t_start?: number;
+  t_end?: number;
+}
+
+/** 다시 받아 적은 발화 1건 (transcript_refined.segments) */
+export interface RefinedSegmentPayload {
+  id: string; // "<log_id>-<n>"
+  t_start: number; // 통화 시작부터 초
+  t_end: number;
+  speaker: number; // 0, 1, 2 … (통화 전체 기준 번호)
+  text: string;
 }
 
 // ───────────────────────── v2: 능동형 대응 루프 ─────────────────────────
@@ -205,4 +252,14 @@ export type AnalysisEvent =
   | { type: 'error'; message: string }
   | ({ type: 'state_update' } & ConversationState)
   | { type: 'agent_action'; log_id: number; action: AgentAction }
-  | { type: 'call_ended'; log_id: number; final: Partial<ConversationState> };
+  | { type: 'call_ended'; log_id: number; final: Partial<ConversationState> }
+  // 정리본: 서버가 (기본) 15초마다 지난 구간을 화자 구분과 함께 다시 받아 적을 때마다 보낸다(STT_REFINE=off면 오지 않는다).
+  | {
+      type: 'transcript_refined';
+      log_id: number;
+      engine: string; // 지금은 'rtzr'
+      refined_until: number; // 이 시각(초)까지 정리됐다
+      segments: RefinedSegmentPayload[]; // 이번에 새로 정리된 발화만
+      relabels: { id: string; speaker: number }[]; // 화자 번호가 바뀐 이전 발화
+      speaker_sides: Record<string, SpeakerSide>; // 지금까지 나온 모든 화자 번호의 현재 쪽
+    };

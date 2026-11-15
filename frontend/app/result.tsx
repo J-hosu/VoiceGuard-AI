@@ -487,10 +487,19 @@ function ChatTab({ turns, tagged }: { turns: TranscriptTurn[]; tagged: CallTimel
 
   // 서버가 발화별 역할과 수법 태그를 갖고 있으면 그것으로 그린다(어느 말이 왜 위험한지 표시).
   if (tagged.length > 0) {
+    // 통화 후 전체 재전사·녹음 파일 분석이 화자를 나눴으면(STT_FILE_ENGINE=rtzr) 저장된 전사의 화자A/화자B는
+    // 서버가 화자 번호별로 추적기 역할을 다수결해 사람 단위로 정한 쪽이다. 발화마다 붙은 역할을 그대로 쓰면 한 사람의 말이
+    // 양쪽으로 갈리므로, 저장된 전사가 서버 발화와 하나하나 같고 두 쪽이 모두 있을 때만 그 쪽을 따른다.
+    // (실시간 조각을 그대로 저장한 통화는 모두 화자A라 여기에 해당하지 않고 추적기 역할로 그린다)
+    const bySpeaker =
+      turns.length === tagged.length &&
+      turns.some((t) => t.role === '화자A') &&
+      turns.some((t) => t.role === '화자B') &&
+      turns.every((t, i) => t.content.trim() === tagged[i].content.trim());
     return (
       <View style={{ gap: 12 }}>
-        {tagged.map((m) => {
-          const isRight = m.role === 'user';
+        {tagged.map((m, i) => {
+          const isRight = bySpeaker ? turns[i].role === '화자B' : m.role === 'user';
           const tactics = m.tactics.filter((t) => TACTIC_LABELS[t]);
           return (
             <View key={m.message_id} style={{ alignItems: isRight ? 'flex-end' : 'flex-start' }}>

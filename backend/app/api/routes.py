@@ -33,7 +33,7 @@ from backend.app.schemas import (
     TrainingCase,
 )
 from backend.app import state_repository
-from backend.app.services import agent_loop, audio_transcriber, call_analyzer, evidence
+from backend.app.services import agent_loop, audio_transcriber, call_analyzer, evidence, live_refine
 
 logger = logging.getLogger(__name__)
 
@@ -191,7 +191,7 @@ async def analyze_call_audio(
         tmp.write(raw_bytes)
         tmp.close()
         try:
-            raw_segments = await asyncio.to_thread(audio_transcriber.transcribe_audio_file, tmp.name)
+            raw_segments = await asyncio.to_thread(audio_transcriber.transcribe_recording, tmp.name)
         except HTTPException as exc:
             log_api_response(
                 "POST /calls/analyze-audio",
@@ -243,6 +243,12 @@ async def analyze_call_audio(
     )
     evidence.record_audio(call.id, 0, raw_bytes, f"녹음 파일 {file.filename or ''}".strip())
     detection, saved_messages = await asyncio.to_thread(_analyze_recording_segments, call.id, segments, top_k)
+    if any(segment.get("spk") is not None for segment in segments):
+        # 리턴제로가 화자를 나눴으면, 추적기가 발화마다 붙인 역할을 화자 단위로 다수결해 말풍선 쪽을 정한다.
+        roles = {m["turn_index"]: m["role"] for m in state_repository.list_tagged_messages(call.id)}
+        audio_transcriber.label_diarized_speakers(
+            segments, [roles.get(message.turn_index, "unknown") for message in saved_messages]
+        )
     converted_text = audio_transcriber.join_transcript_texts(
         [message.content for message in saved_messages]
     )
@@ -308,6 +314,9 @@ async def retranscribe_call_audio(
     if suffix not in (".mp3", ".wav", ".m4a"):
         raise HTTPException(status_code=400, detail="mp3, wav, m4a 파일만 업로드할 수 있습니다.")
 
+    # 전체 재전사가 대화 내역을 모두 바꾸므로, 아직 연결이 열린 실시간 정리(refine)는 더 요청하지 않게 멈춘다.
+    live_refine.stop_call(log_id)
+
     form = await request.form()
     form_top_k = _optional_int(form.get("top_k"), "top_k")
     if form_top_k is not None:
@@ -330,7 +339,7 @@ async def retranscribe_call_audio(
         tmp.write(raw_bytes)
         tmp.close()
         try:
-            raw_segments = await asyncio.to_thread(audio_transcriber.transcribe_audio_file, tmp.name)
+            raw_segments = await asyncio.to_thread(audio_transcriber.transcribe_recording, tmp.name)
         except HTTPException as exc:
             log_api_response(
                 "POST /calls/{log_id}/retranscribe-audio",
@@ -373,14 +382,18 @@ async def retranscribe_call_audio(
         use_llm_evidence=not agent_tracked,
         agent_mode=agent_tracked,
     )
+    roles: dict[int, str] = {}
     if agent_tracked:
         retracked = await asyncio.to_thread(agent_loop.retrack, log_id)
         if retracked is not None:
             detection = retracked
-        # Whisper는 화자를 나누지 않으므로, 추적기가 내용으로 추정한 역할을 화자 라벨로 쓴다.
         roles = {m["turn_index"]: m["role"] for m in state_repository.list_tagged_messages(log_id)}
-        for message, segment in zip(saved_messages, segments):
-            segment["speaker"] = "화자B" if roles.get(message.turn_index) == "user" else "화자A"
+    message_roles = [roles.get(message.turn_index, "unknown") for message in saved_messages]
+    # 리턴제로가 화자를 나눴으면 화자 단위 다수결로 말풍선 쪽을 정한다(발화 하나하나가 아니라 사람 단위).
+    # Whisper는 화자를 나누지 않으므로, 추적기가 내용으로 추정한 발화별 역할을 화자 라벨로 쓴다.
+    if not audio_transcriber.label_diarized_speakers(segments, message_roles) and agent_tracked:
+        for segment, role in zip(segments, message_roles):
+            segment["speaker"] = "화자B" if role == "user" else "화자A"
     converted_text = audio_transcriber.join_transcript_texts([message.content for message in saved_messages])
 
     response = {

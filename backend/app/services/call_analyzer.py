@@ -346,6 +346,9 @@ def build_client_audio_analysis_response(
                 "content": message["content"],
                 "start_time": segment["start_time"],
                 "end_time": segment["end_time"],
+                # 통화 시작 후 초(이 통화에서 받은 오디오 누적 길이 기준). 정리본(transcript_refined)과 시각을 맞출 때 쓴다.
+                "t_start": segment.get("t_start"),
+                "t_end": segment.get("t_end"),
             }
             for message, segment in zip(saved_messages, segments)
         ],

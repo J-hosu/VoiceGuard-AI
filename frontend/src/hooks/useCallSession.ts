@@ -2,7 +2,17 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Platform } from 'react-native';
 import { categorizeType, extractKeywords } from '@/core/utils/keywords';
 import { riskLevelFromScore, type RiskLevel } from '@/core/utils/riskLevel';
-import type { AgentAction, AnalysisEvent, CallResult, ScamStage, TranscriptTurn } from '@/data/models/types';
+import type {
+  AgentAction,
+  AnalysisEvent,
+  CallResult,
+  LiveChunk,
+  RefinedTranscript,
+  RefinedTurn,
+  ScamStage,
+  SpeakerSide,
+  TranscriptTurn,
+} from '@/data/models/types';
 import type { Scenario } from '@/data/mock/mockScenarios';
 import { createSttService, type SttService } from '@/data/services/sttService';
 import { createAudioCapture, type AudioCaptureService } from '@/data/services/audioCapture';
@@ -29,6 +39,9 @@ export interface CallSessionState {
   predictedNext: ScamStage | null; // 다음 예상 단계
   summary: string; // AI가 요약한 현재 상황
   actions: AgentAction[]; // 에이전트가 결정한 행동(받은 순서)
+  // ── 정리본 (transcript_refined) ──
+  refined: RefinedTranscript | null; // 한 번도 안 왔으면 null(STT_REFINE=off): 화면은 기존 '방금 들린 말' 그대로
+  liveChunks: LiveChunk[]; // 실시간 조각 원본. 정리본이 덮은 구간의 조각은 정리본이 올 때 지운다.
 }
 
 /** 말풍선 하나의 최대 길이(글자). 이보다 길어지면 문장이 이어져도 새 말풍선을 만든다. */
@@ -37,6 +50,34 @@ const MAX_BUBBLE_CHARS = 90;
 /** 앞 조각이 문장 중간에서 끊겼는지: 문장 끝 기호로 끝나지 않고, 이어 붙여도 너무 길지 않을 때만 true. */
 function continuesSentence(previous: string, next: string): boolean {
   return !/[.?!。…]["'”’)]?\s*$/.test(previous) && previous.length + next.length + 1 <= MAX_BUBBLE_CHARS;
+}
+
+/** 유한한 숫자면 그대로, 아니면(없음·NaN) fallback */
+function finiteOr(value: unknown, fallback: number): number {
+  return typeof value === 'number' && Number.isFinite(value) ? value : fallback;
+}
+
+// 정리본 경계(refined_until)는 실시간 조각의 끝이고, 조각 시각과 발화의 t_start는 서버가 받은 오디오 누적 길이를 같은
+// 자리수(소수 셋째 자리)로 반올림한 값이다. 경계에서 바로 시작한 발화는 경계와 똑같은 값으로 오므로 약속대로
+// t_start >= refined_until을 그대로 쓰고 부동소수 잡음만 흡수한다. 여유를 넓히면 안 된다: 서버는 조각 안 발화의 시작을
+// 조각 끝보다 최소 0.01초 앞에 두어(live_refine.segment_times) 그 조각까지 덮은 정리본 앞으로 판정되게 하므로,
+// 여유가 0.01초를 넘으면 같은 말이 정리본 말풍선과 '받아 적는 중'에 두 번 보인다.
+const REFINED_EDGE_S = 1e-6;
+
+/** 정리본이 아직 닿지 않은 실시간 조각인지(정리본 뒤에 '받아 적는 중'으로 보일 조각) */
+export function isProvisional(chunk: LiveChunk, refinedUntil: number): boolean {
+  return chunk.tStart >= refinedUntil - REFINED_EDGE_S;
+}
+
+/** speaker_sides 정리: 약속한 값(other/me) 말고는 모두 '아직 모름'으로 본다. */
+function normalizeSides(raw: unknown): Record<string, SpeakerSide> {
+  const sides: Record<string, SpeakerSide> = {};
+  if (raw && typeof raw === 'object') {
+    for (const [speaker, side] of Object.entries(raw as Record<string, unknown>)) {
+      sides[speaker] = side === 'other' || side === 'me' ? side : 'unknown';
+    }
+  }
+  return sides;
 }
 
 /**
@@ -72,6 +113,8 @@ export function useCallSession(
     predictedNext: null,
     summary: '',
     actions: [],
+    refined: null,
+    liveChunks: [],
   });
 
   // 최신 state를 참조로 보관 — 종료 시 grace 대기 후 "그 시점의 최종" turns/logId/score를 읽기 위함.
@@ -104,6 +147,7 @@ export function useCallSession(
   onAction.current = opts.onAction;
   const seenActions = useRef(new Set<number>()); // 이미 알린 행동 id (upsert 시 중복 알림 방지)
   const endedResolve = useRef<(() => void) | null>(null); // call_ended 대기 해제
+  const lastLiveEnd = useRef(0); // 마지막 실시간 조각이 끝난 시각(초). t_start가 없는 조각의 대신 값
 
   const handleEvent = useCallback(
     (e: AnalysisEvent) => {
@@ -166,6 +210,53 @@ export function useCallSession(
         endedResolve.current = null;
         return;
       }
+      // 정리본: 서버가 (기본) 15초마다 지난 구간을 화자 구분과 함께 다시 받아 적어 보낸다. 새 발화만 오고, 화자 번호가 바뀐
+      // 이전 발화는 relabels로, 화자별 쪽(상대방/나/아직 모름)은 매번 전부 온다. 이 이벤트가 한 번도 오지 않으면
+      // (STT_REFINE=off) refined가 null로 남아 실시간 화면은 기존 '방금 들린 말' 그대로다.
+      if (e.type === 'transcript_refined') {
+        const added: RefinedTurn[] = [];
+        for (const seg of e.segments ?? []) {
+          const text = (seg.text ?? '').trim();
+          // 시각이나 화자 번호가 없는 발화는 순서·말풍선 쪽을 정할 수 없어 뺀다.
+          if (!text || !Number.isInteger(seg.speaker) || !Number.isFinite(seg.t_start)) continue;
+          added.push({
+            id: String(seg.id),
+            tStart: seg.t_start,
+            tEnd: Math.max(finiteOr(seg.t_end, seg.t_start), seg.t_start),
+            speaker: seg.speaker,
+            text,
+            keywords: extractKeywords(text, 4),
+          });
+        }
+        const relabels = new Map<string, number>();
+        for (const r of e.relabels ?? []) {
+          if (Number.isInteger(r.speaker)) relabels.set(String(r.id), r.speaker);
+        }
+        const sides = normalizeSides(e.speaker_sides);
+        setState((prev) => {
+          // 다른 통화의 정리본은 섞지 않는다.
+          if (prev.logId > 0 && typeof e.log_id === 'number' && e.log_id !== prev.logId) return prev;
+          const base = prev.refined ?? { turns: [], sides: {}, until: 0 };
+          const addedIds = new Set(added.map((t) => t.id));
+          const turns = base.turns
+            .filter((t) => !addedIds.has(t.id))
+            .map((t) => {
+              const speaker = relabels.get(t.id);
+              return speaker === undefined || speaker === t.speaker ? t : { ...t, speaker };
+            })
+            .concat(added)
+            .sort((a, b) => a.tStart - b.tStart);
+          // 경계는 앞으로만 간다(이미 말풍선이 된 구간을 다시 '받아 적는 중'으로 되돌리지 않는다).
+          const until = Math.max(base.until, finiteOr(e.refined_until, base.until));
+          return {
+            ...prev,
+            refined: { turns, sides: { ...base.sides, ...sides }, until },
+            // 정리본이 덮은 구간의 실시간 조각은 다시 보일 일이 없으니 버린다.
+            liveChunks: prev.liveChunks.filter((c) => isProvisional(c, until)),
+          };
+        });
+        return;
+      }
       // 오디오 청크 응답: 백엔드가 무음 경계 청크마다 "그 청크만" 독립 전사해 조각으로 내려준다.
       // 백엔드가 발화별 화자(화자A/화자B)를 라벨링하므로, 같은 화자의 연속 조각은 한 말풍선으로
       // 이어붙이고 화자가 바뀌면 새 말풍선을 만든다. (한 사람 말이 무음마다 여러 청크로 끊겨 와도
@@ -176,12 +267,27 @@ export function useCallSession(
         const matched = e.type === 'audio_phishing_detected' ? e.matched_patterns : [];
         const evidence = e.type === 'audio_phishing_detected' ? e.core_evidence : '';
         const incoming = (e.transcripts ?? [])
-          .map((tr) => ({
-            role: (tr.role ?? 'unknown').trim() || 'unknown',
-            content: (tr.content ?? '').trim(),
-            atSec: Math.round(tr.start_time ?? 0),
-          }))
+          .map((tr) => {
+            // 통화 시작부터의 시각(t_start/t_end). 없으면 앞 조각이 끝난 시각으로 둬서, 정리본이 그 뒤로 넘어가면 함께 지워지게 한다.
+            const tStart = finiteOr(tr.t_start, lastLiveEnd.current);
+            const tEnd = Math.max(finiteOr(tr.t_end, tStart), tStart);
+            lastLiveEnd.current = Math.max(lastLiveEnd.current, tEnd);
+            return {
+              role: (tr.role ?? 'unknown').trim() || 'unknown',
+              content: (tr.content ?? '').trim(),
+              atSec: Math.round(tr.start_time ?? 0),
+              tStart,
+              tEnd,
+            };
+          })
           .filter((t) => t.content.length > 0);
+        // 말풍선으로 합치기 전 조각을 시각과 함께 따로 남긴다. 정리본이 오면 정리본 뒤에 '받아 적는 중'으로 보인다.
+        const chunks: LiveChunk[] = incoming.map((inc) => ({
+          text: inc.content,
+          tStart: inc.tStart,
+          tEnd: inc.tEnd,
+          keywords: extractKeywords(inc.content, 4),
+        }));
 
         setState((prev) => {
           const level = riskLevelFromScore(score, dangerThreshold);
@@ -215,6 +321,7 @@ export function useCallSession(
           const next: CallSessionState = {
             ...prev,
             turns,
+            liveChunks: chunks.length > 0 ? [...prev.liveChunks, ...chunks] : prev.liveChunks,
             score,
             level,
             matchedPatterns: matched.length ? matched : prev.matchedPatterns,
@@ -290,6 +397,7 @@ export function useCallSession(
     pausedAccumMs.current = 0;
     sentChunks.current = 0;
     recvChunks.current = 0;
+    lastLiveEnd.current = 0;
 
     // ── 웹 실시간: 오디오 스트리밍 경로 ──
     if (audioMode) {

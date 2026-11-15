@@ -27,8 +27,8 @@ import { type RiskLevel } from '@/core/utils/riskLevel';
 import { USE_MOCK_STT } from '@/core/config/env';
 import { evidenceBullets } from '@/data/mock/infoContent';
 import { getScenario, type Scenario } from '@/data/mock/mockScenarios';
-import type { AgentAction } from '@/data/models/types';
-import { useCallSession } from '@/hooks/useCallSession';
+import type { AgentAction, LiveChunk, RefinedTranscript, SpeakerSide } from '@/data/models/types';
+import { isProvisional, useCallSession } from '@/hooks/useCallSession';
 import { useCallStore } from '@/state/callStore';
 import { useDemoStore } from '@/state/demoStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -443,13 +443,13 @@ export default function Realtime() {
             </View>
           ) : null}
 
-          {/* 방금 들린 말 + 주요 단어 */}
+          {/* 방금 들린 말 + 주요 단어. 정리본(transcript_refined)이 오기 시작하면 화자별 대화 내용으로 바뀐다 */}
           <Card>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                 <ChatGlyph size={18} color={TEXT_DIM} />
                 <AppText weight="700" color={TEXT_TITLE} style={{ fontSize: 15 }}>
-                  방금 들린 말
+                  {state.refined ? '대화 내용' : '방금 들린 말'}
                 </AppText>
               </View>
               {!fatal ? (
@@ -461,7 +461,9 @@ export default function Realtime() {
                 </View>
               ) : null}
             </View>
-            {liveText ? (
+            {state.refined ? (
+              <Conversation refined={state.refined} live={state.liveChunks} fatal={fatal} />
+            ) : liveText ? (
               <HighlightedText
                 text={liveText}
                 keywords={lastTurn?.keywords ?? []}
@@ -708,5 +710,135 @@ function ActionButton({
     >
       {children}
     </Pressable>
+  );
+}
+
+// ── 정리본 대화 ──
+// 정리본이 오기 시작하면 '방금 들린 말' 자리에 화자별 말풍선(상대방=왼쪽, 나=오른쪽, 아직 모름=가운데)을 보이고,
+// 정리본이 끝난 시각 뒤의 실시간 조각은 그 아래에 흐리게 '받아 적는 중'으로 붙인다. 정리본 경계가 넘어가면
+// 그 조각은 사라지고 같은 말이 말풍선으로 올라온다. 통화가 길어져도 아래 탐지 근거 카드가 멀리 밀려나지 않게
+// 최근 말풍선만 펼쳐 두고, 앞의 대화는 버튼으로 펼친다.
+const RECENT_REFINED = 6;
+const BUBBLE_UI: Record<SpeakerSide, { align: 'flex-start' | 'flex-end' | 'center'; bg: string; border: string; text: string }> = {
+  other: { align: 'flex-start', bg: 'rgba(255,255,255,0.07)', border: 'transparent', text: '#dfe4ee' },
+  me: { align: 'flex-end', bg: 'rgba(91,155,255,0.18)', border: 'transparent', text: '#eef2f9' },
+  // 아직 누군지 모르는 화자는 어느 쪽에도 붙이지 않고 가운데에 테두리만 둔다.
+  unknown: { align: 'center', bg: 'transparent', border: 'rgba(255,255,255,0.16)', text: TEXT_BODY },
+};
+
+function Conversation({ refined, live, fatal }: { refined: RefinedTranscript; live: LiveChunk[]; fatal: boolean }) {
+  const [showAll, setShowAll] = useState(false);
+  const hiddenCount = showAll ? 0 : Math.max(0, refined.turns.length - RECENT_REFINED);
+  const shown = refined.turns.slice(hiddenCount);
+  const provisional = live.filter((c) => isProvisional(c, refined.until));
+  const provisionalText = provisional.map((c) => c.text).join(' ');
+  const provisionalKeywords = Array.from(new Set(provisional.flatMap((c) => c.keywords)));
+  // 분석이 멈추면 더 받아 적지 않으므로 '받아 적는 중'이라고 하지 않는다.
+  const provisionalLabel = fatal ? '정리되지 않은 말' : '받아 적는 중';
+
+  if (shown.length === 0 && !provisionalText) {
+    return (
+      <AppText color={TEXT_DIM} style={{ fontSize: 14, lineHeight: 22 }}>
+        {fatal ? '분석이 멈춰 말소리를 받지 못하고 있어요.' : '말소리를 듣고 있어요…'}
+      </AppText>
+    );
+  }
+
+  return (
+    <View>
+      {refined.turns.length > RECENT_REFINED ? (
+        <Pressable
+          onPress={() => setShowAll((v) => !v)}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            alignSelf: 'center',
+            minHeight: 44,
+            justifyContent: 'center',
+            paddingHorizontal: 16,
+            marginBottom: 12,
+            borderRadius: 22,
+            borderWidth: 1,
+            borderColor: CARD_BORDER,
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <AppText weight="600" color={TEXT_BODY} style={{ fontSize: 13 }}>
+            {showAll ? '접기' : `이전 대화 ${hiddenCount}개 더 보기`}
+          </AppText>
+        </Pressable>
+      ) : null}
+      {shown.map((t, i) => {
+        const side = refined.sides[String(t.speaker)] ?? 'unknown';
+        const ui = BUBBLE_UI[side];
+        // 같은 사람이 이어 말하면 이름은 첫 말풍선에만 단다.
+        const first = i === 0 || shown[i - 1].speaker !== t.speaker;
+        const label = side === 'me' ? '나' : side === 'other' ? '상대방' : `화자 ${t.speaker + 1} · 확인 중`;
+        const spoken = side === 'unknown' ? `화자 ${t.speaker + 1}, 누구인지 확인 중` : label;
+        return (
+          <View key={t.id} style={{ alignItems: ui.align, marginTop: i === 0 ? 0 : first ? 12 : 4 }}>
+            {first ? (
+              <AppText weight="600" color={TEXT_DIM} style={{ fontSize: 12, lineHeight: 16, marginBottom: 4 }}>
+                {label}
+              </AppText>
+            ) : null}
+            <View
+              accessible
+              accessibilityLabel={`${spoken}: ${t.text}`}
+              style={{
+                maxWidth: side === 'unknown' ? '92%' : '84%',
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+                borderRadius: 14,
+                borderTopLeftRadius: first && side === 'other' ? 4 : 14,
+                borderTopRightRadius: first && side === 'me' ? 4 : 14,
+                borderWidth: 1,
+                borderColor: ui.border,
+                backgroundColor: ui.bg,
+              }}
+            >
+              <HighlightedText
+                text={t.text}
+                keywords={t.keywords}
+                baseColor={ui.text}
+                highlightColor="#f6a623"
+                weightHighlight="700"
+                style={{ fontSize: 15, lineHeight: 23, ...keepAll }}
+              />
+            </View>
+          </View>
+        );
+      })}
+      {/* 아직 정리본이 닿지 않은 실시간 조각: 누가 한 말인지 모르므로 말풍선 대신 흐린 점선 칸에 이어 붙인다 */}
+      {provisionalText ? (
+        <View
+          accessible
+          accessibilityLabel={`${provisionalLabel}: ${provisionalText}`}
+          style={{
+            marginTop: shown.length > 0 ? 12 : 0,
+            paddingHorizontal: 12,
+            paddingVertical: 10,
+            borderRadius: 14,
+            borderWidth: 1,
+            borderStyle: 'dashed',
+            borderColor: 'rgba(255,255,255,0.16)',
+          }}
+        >
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+            {fatal ? null : <BlinkDot size={6} color="#8ab4ff" period={1300} />}
+            <AppText weight="700" color={TEXT_DIM} style={{ fontSize: 12, lineHeight: 16 }}>
+              {provisionalLabel}
+            </AppText>
+          </View>
+          <HighlightedText
+            text={provisionalText}
+            keywords={provisionalKeywords}
+            baseColor="#a3adbd"
+            highlightColor="#f6a623"
+            weightHighlight="700"
+            style={{ fontSize: 15, lineHeight: 23, ...keepAll }}
+          />
+        </View>
+      ) : null}
+    </View>
   );
 }
