@@ -6,6 +6,9 @@
 CER은 공백·문장부호를 빼고 잰다(stt_bench.py와 같음). 정답은 녹음과 맞춘 AI Hub 대본이라 실제 발화와 조금 다를 수 있다.
 
 사용: ~/voiceguard/.venv/bin/python -X utf8 scripts/eval_asr.py <large-v3 | CT2 폴더> <out.json> [도메인별 녹음 수=50] [modes=full,live]
+환경 변수: PROFILE=cpu 이면 노트북 서비스 설정(backend/app/mp3_json.py의 CPU 경로)과 같게 돈다:
+  int8, 파일 전체 beam 1(WHISPER_BEAM 기본값), 실시간 조각 beam 1·temperature (0.0, 0.4)·출력 128토큰.
+  DEVICE, COMPUTE, BEAM_FULL, BEAM_LIVE, CPU_THREADS로 따로 바꿀 수 있다. 결과에 전사 시간(실시간 배수, 조각당 p50/p90)도 남긴다.
 """
 import hashlib
 import json
@@ -71,12 +74,26 @@ def _is_hallucination(seg):
     return bool(_HALLUCINATION.search(seg.text))
 
 
-def transcribe(model, audio):
-    segments, _ = model.transcribe(audio, language="ko", beam_size=5, vad_filter=True, condition_on_previous_text=False)
+import os
+PROFILE = os.environ.get("PROFILE", "")
+DEVICE = os.environ.get("DEVICE", "cpu" if PROFILE == "cpu" else "cuda")
+COMPUTE = os.environ.get("COMPUTE", "int8" if DEVICE == "cpu" else "float16")
+BEAM_FULL = int(os.environ.get("BEAM_FULL", "1" if PROFILE == "cpu" else "5"))
+BEAM_LIVE = int(os.environ.get("BEAM_LIVE", "1" if PROFILE == "cpu" else "5"))
+FULL_TEMPS = (0.0, 0.2, 0.4, 0.6, 0.8, 1.0)          # faster-whisper 기본값
+LIVE_TEMPS = (0.0, 0.4) if PROFILE == "cpu" else FULL_TEMPS
+LIVE_MAX_NEW = 128 if PROFILE == "cpu" else None
+CPU_THREADS = int(os.environ.get("CPU_THREADS", "0"))
+
+
+def transcribe(model, audio, live=False):
+    segments, _ = model.transcribe(
+        audio, language="ko", beam_size=BEAM_LIVE if live else BEAM_FULL,
+        temperature=LIVE_TEMPS if live else FULL_TEMPS, max_new_tokens=LIVE_MAX_NEW if live else None,
+        vad_filter=True, condition_on_previous_text=False)
     return " ".join(s.text.strip() for s in segments if not _is_hallucination(s)).strip()
 
 
-import os
 TEST_FILE = Path(os.environ.get("TEST_FILE", str(ROOT / "meta" / "test_files_frozen.json")))  # 모델 간 비교는 같은 목록으로
 tests = json.loads(TEST_FILE.read_text(encoding="utf-8"))
 by_dom = defaultdict(list)
@@ -85,15 +102,16 @@ for t in sorted(tests, key=lambda t: hashlib.md5(t["id"].encode()).hexdigest()):
 chosen = [t for d in sorted(by_dom) for t in by_dom[d][:per_domain]]
 print(f"{len(chosen)} recordings, {sum(t['seconds'] for t in chosen) / 3600:.1f} h, modes={modes}, model={model_path}", flush=True)
 
-import os as _os
-model = WhisperModel(model_path, device=_os.environ.get("DEVICE", "cuda"), compute_type=_os.environ.get("COMPUTE", "float16"))
-rows = []
+model = WhisperModel(model_path, device=DEVICE, compute_type=COMPUTE, cpu_threads=CPU_THREADS)
+rows, all_chunk_times = [], []
 t0 = time.time()
 for n, t in enumerate(chosen, 1):
     audio, _ = sf.read(t["path"], dtype="float32")
     row = {"id": t["id"], "domain": t["domain"], "seconds": t["seconds"]}
     if "full" in modes:
+        s0 = time.perf_counter()
         hyp = transcribe(model, audio)
+        row["full_sec"] = round(time.perf_counter() - s0, 2)
         row["full_edits"], row["ref_len"] = edits(t["ref"], hyp)
         row["full_hyp"] = hyp
     if "live" in modes:
@@ -103,8 +121,9 @@ for n, t in enumerate(chosen, 1):
             if b - a < SR // 2:
                 continue
             s0 = time.perf_counter()
-            text = transcribe(model, audio[a:b])
+            text = transcribe(model, audio[a:b], live=True)
             times.append(time.perf_counter() - s0)
+            all_chunk_times.append(times[-1])
             if text:
                 texts.append(text)
         hyp = " ".join(texts)
@@ -123,7 +142,14 @@ def agg(rs, mode):
     return round(e / max(n, 1), 4)
 
 
-summary = {"model": model_path, "recordings": len(rows), "hours": round(sum(r["seconds"] for r in rows) / 3600, 2)}
+summary = {"model": model_path, "recordings": len(rows), "hours": round(sum(r["seconds"] for r in rows) / 3600, 2),
+           "device": DEVICE, "compute": COMPUTE, "beam_full": BEAM_FULL, "beam_live": BEAM_LIVE, "profile": PROFILE or "gpu",
+           "cpu_threads": CPU_THREADS}
+if "full" in modes:
+    summary["full_rtf"] = round(sum(r["full_sec"] for r in rows) / max(sum(r["seconds"] for r in rows), 1e-6), 3)
+if all_chunk_times:
+    summary["live_chunk_p50_s"] = round(float(np.percentile(all_chunk_times, 50)), 3)
+    summary["live_chunk_p90_s"] = round(float(np.percentile(all_chunk_times, 90)), 3)
 for mode in modes:
     summary[f"{mode}_cer"] = agg(rows, mode)
     summary[f"{mode}_cer_by_domain"] = {d: agg([r for r in rows if r["domain"] == d], mode) for d in sorted(by_dom)}

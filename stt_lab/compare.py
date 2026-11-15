@@ -3,6 +3,7 @@
 입력 (있는 것만 쓴다)
   파일 전체: runs/eval_base_full.json, runs/eval_ft_full.json, runs/eval_rtzr_batch.json, runs/eval_rtzr_whisper_batch.json
   실시간 조각: runs/eval_base_live.json, runs/eval_ft_live.json, runs/eval_rtzr_stream.json
+  노트북 설정(CPU int8·beam 1): runs/cpu/eval_*_{full,live}.json (run_cpu_eval.sh)
 비교는 모든 시스템에 결과가 있는 녹음(id 교집합)만 쓴다. CER = 전체 편집 수 / 전체 정답 글자 수(공백·문장부호 제외).
 시스템 간 차이는 녹음 단위 쌍대 부트스트랩(2,000회)으로 95% 구간을 낸다(구간이 0을 지나지 않으면 차이가 있다고 본다).
 출력: 화면 표 + runs/compare.json
@@ -18,15 +19,23 @@ SYSTEMS = {
     "full": [("large-v3 원래", "eval_base_full.json"), ("large-v3 추가 학습", "eval_ft_full.json"),
              ("turbo 원래", "eval_turbo_base_full.json"), ("turbo 추가 학습", "eval_turbo_ft_full.json"),
              ("small 원래", "eval_small_base_full.json"), ("small 추가 학습", "eval_small_ft_full.json"),
+             ("small 원래 · CPU", "cpu/eval_small_base_full.json"), ("small 추가 학습 · CPU", "cpu/eval_small_ft_full.json"),
+             ("turbo 원래 · CPU", "cpu/eval_turbo_base_full.json"), ("turbo 추가 학습 · CPU", "cpu/eval_turbo_ft_full.json"),
              ("리턴제로", "eval_rtzr_batch.json")],
     "live": [("large-v3 원래", "eval_base_live.json"), ("large-v3 추가 학습", "eval_ft_live.json"),
              ("turbo 원래", "eval_turbo_base_live.json"), ("turbo 추가 학습", "eval_turbo_ft_live.json"),
              ("small 원래", "eval_small_base_live.json"), ("small 추가 학습", "eval_small_ft_live.json"),
+             ("small 원래 · CPU", "cpu/eval_small_base_live.json"), ("small 추가 학습 · CPU", "cpu/eval_small_ft_live.json"),
+             ("turbo 원래 · CPU", "cpu/eval_turbo_base_live.json"), ("turbo 추가 학습 · CPU", "cpu/eval_turbo_ft_live.json"),
              ("리턴제로", "eval_rtzr_stream.json")],
 }
 PAIRS = [("large-v3 원래", "large-v3 추가 학습"), ("turbo 원래", "turbo 추가 학습"), ("small 원래", "small 추가 학습"),
          ("리턴제로", "large-v3 추가 학습"), ("리턴제로", "turbo 추가 학습"), ("리턴제로", "small 추가 학습"),
-         ("리턴제로", "large-v3 원래")]
+         ("리턴제로", "large-v3 원래"),
+         # 노트북 서비스 설정(CPU int8·beam 1, runs/cpu/): 설정 때문에 잃는 정확도, CPU에서 고를 모델
+         ("small 추가 학습", "small 추가 학습 · CPU"), ("turbo 추가 학습", "turbo 추가 학습 · CPU"),
+         ("small 원래 · CPU", "small 추가 학습 · CPU"), ("turbo 원래 · CPU", "turbo 추가 학습 · CPU"),
+         ("small 추가 학습 · CPU", "turbo 추가 학습 · CPU"), ("리턴제로", "small 추가 학습 · CPU"), ("리턴제로", "turbo 추가 학습 · CPU")]
 rng = np.random.default_rng(0)
 report = {}
 

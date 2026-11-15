@@ -24,7 +24,7 @@ limit = int(sys.argv[3]) if len(sys.argv) > 3 else 0
 # 여러 프로세스로 나눠 돌릴 때: SHARD=k/n (zip 단위로 나눠 같은 출력 파일에 두 프로세스가 쓰지 않게 한다)
 shard_k, shard_n = (int(x) for x in os.environ.get("SHARD", "0/1").split("/"))
 
-files = [json.loads(line) for line in open(ROOT / "meta" / "files.jsonl", encoding="utf-8")]
+files = [json.loads(line) for line in open(os.environ.get("FILES", ROOT / "meta" / "files.jsonl"), encoding="utf-8")]
 files = [f for f in files if want == "all" or f["split"] == want]
 only = os.environ.get("ONLY_ZIPS")  # 예: "train_shop_.*|train_kdca_0[169]|train_kdca_10" (나중에 올라온 zip만)
 if only:
