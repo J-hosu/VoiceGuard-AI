@@ -1,0 +1,53 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="450" viewBox="0 0 1280 450">
+  <!-- How it works: the 5-step loop, light card. Step details live in the numbered list under the image in README.md.
+       Output: ../images/readme/loop.png -->
+  <rect x="1" y="1" width="1278" height="448" rx="24" fill="#F7F9FC" stroke="#D3DCE7" stroke-width="2"/>
+
+  <!-- connectors -->
+  <g fill="none" stroke="#AEBACB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M238 108 H346 M336 99 L346 108 L336 117"/>
+    <path d="M470 108 H578 M568 99 L578 108 L568 117"/>
+    <path d="M702 108 H810 M800 99 L810 108 L800 117"/>
+    <path d="M934 108 H1042 M1032 99 L1042 108 L1032 117"/>
+  </g>
+
+  <!-- nodes -->
+  <g fill="#0B1424">
+    <circle cx="176" cy="108" r="46"/>
+    <circle cx="408" cy="108" r="46"/>
+    <circle cx="640" cy="108" r="46"/>
+    <circle cx="872" cy="108" r="46"/>
+    <circle cx="1104" cy="108" r="46"/>
+  </g>
+  <g font-family="Inter, sans-serif" font-size="34" font-weight="700" fill="#5EEAD4" text-anchor="middle">
+    <text x="176" y="120">01</text>
+    <text x="408" y="120">02</text>
+    <text x="640" y="120">03</text>
+    <text x="872" y="120">04</text>
+    <text x="1104" y="120">05</text>
+  </g>
+
+  <!-- step names -->
+  <g font-family="'Noto Sans KR', sans-serif" font-size="46" font-weight="800" fill="#0B1424" text-anchor="middle" letter-spacing="-0.5">
+    <text x="176" y="226">감지</text>
+    <text x="408" y="226">판단</text>
+    <text x="640" y="226">개입</text>
+    <text x="872" y="226">후속 확인</text>
+    <text x="1104" y="226">개선</text>
+  </g>
+  <g font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E" text-anchor="middle">
+    <text x="176" y="280">전사 · 사기 확률</text>
+    <text x="408" y="280">단계 추적</text>
+    <text x="640" y="280">할 일 안내</text>
+    <text x="872" y="280">다시 묻기</text>
+    <text x="1104" y="280">배우고 다시 측정</text>
+  </g>
+
+  <!-- feedback loop -->
+  <g fill="none" stroke="#0D9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1104 308 V350 Q1104 378 1076 378 H204 Q176 378 176 350 V312" stroke-dasharray="10 9"/>
+    <path d="M165 322 L176 309 L187 322"/>
+  </g>
+  <rect x="400" y="352" width="480" height="52" fill="#F7F9FC"/>
+  <text x="640" y="390" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="600" fill="#0F766E" text-anchor="middle">다음 통화의 감지·판단에 반영</text>
+</svg>

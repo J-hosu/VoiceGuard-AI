@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300">
+  <!-- Key numbers strip, light card. Numbers come from the README performance tables (classifier v3, previous = v2).
+       When they change, edit the three tiles here, the caption and alt text under the image in README.md, then re-bake.
+       Columns are fitted to the text so each tile keeps a 64px gap to its divider (dividers at 474 and 856).
+       Output: ../images/readme/numbers.png -->
+  <rect x="1" y="1" width="1278" height="298" rx="24" fill="#F7F9FC" stroke="#D3DCE7" stroke-width="2"/>
+  <g stroke="#DCE3EC" stroke-width="2">
+    <path d="M474.5 64 V236"/>
+    <path d="M856.5 64 V236"/>
+  </g>
+
+  <!-- 1 -->
+  <text x="64" y="138" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="112" font-weight="800" letter-spacing="-3">99.3</tspan><tspan font-family="Inter, sans-serif" font-size="52" font-weight="700" dx="8" fill="#0D9488">%</tspan></text>
+  <text x="66" y="194" font-family="'Noto Sans KR', sans-serif" font-size="36" font-weight="700" fill="#0B1424">사기 통화 탐지</text>
+  <text x="66" y="240" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E">통화 전체 · 이전 99.7%</text>
+
+  <!-- 2 -->
+  <text x="538" y="138" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="112" font-weight="800" letter-spacing="-3">0.7</tspan><tspan font-family="Inter, sans-serif" font-size="52" font-weight="700" dx="8" fill="#0D9488">%</tspan></text>
+  <text x="540" y="194" font-family="'Noto Sans KR', sans-serif" font-size="36" font-weight="700" fill="#0B1424">정상 상담 오경보</text>
+  <text x="540" y="240" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E">이전 30.2%</text>
+
+  <!-- 3 -->
+  <text x="920" y="138" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="112" font-weight="800" letter-spacing="-3">0</tspan><tspan font-family="Inter, 'Noto Sans KR', sans-serif" font-size="52" font-weight="700" dx="10" fill="#0D9488">/ 32통</tspan></text>
+  <text x="922" y="194" font-family="'Noto Sans KR', sans-serif" font-size="36" font-weight="700" fill="#0B1424">실제 녹음 오경보</text>
+  <text x="922" y="240" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E">정상 상담 · 이전 4통</text>
+</svg>
