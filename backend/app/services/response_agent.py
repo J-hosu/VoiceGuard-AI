@@ -159,6 +159,14 @@ def handle_response(
 ENTITY_LABELS = {"account": "계좌", "phone": "전화번호", "url": "주소", "case_number": "사건번호"}
 
 
+def _josa(word: str, with_batchim: str, without_batchim: str) -> str:
+    """앞말 받침에 맞는 조사. 한글로 끝나지 않으면(숫자·주소) '이(가)'처럼 둘 다 적는다."""
+    last = word.strip()[-1:]
+    if last and "가" <= last <= "힣":
+        return with_batchim if (ord(last) - 0xAC00) % 28 else without_batchim
+    return f"{with_batchim}({without_batchim})"
+
+
 def on_new_entities(log_id: int, state: dict, entities: list[dict]) -> list[dict]:
     """새로 뽑힌 단서를 다른 통화·위험 주소 규칙과 바로 대조해, 걸리면 통화 중인 사용자에게 알린다(값마다 한 번)."""
     if not entities:
@@ -181,13 +189,13 @@ def on_new_entities(log_id: int, state: dict, entities: list[dict]) -> list[dict
         latest = calls[0]
         risky = sum(1 for call in calls if call["risk_level"] in ("medium", "high"))
         spec = {
-            "title": f"이 {label}은(는) 다른 의심 통화에도 나왔어요",
+            "title": f"이 {label}{_josa(label, '은', '는')} 다른 의심 통화에도 나왔어요",
             "message": (
-                f"방금 나온 {label} {match['value']}이(가) 다른 통화 {len(calls)}건에서도 나왔습니다"
+                f"방금 나온 {label} {match['value']}{_josa(match['value'], '이', '가')} 다른 통화 {len(calls)}건에서도 나왔습니다"
                 f"(가장 최근 {str(latest['called_at'])[:10]}{', ' + latest['phishing_type'] if latest['phishing_type'] else ''}). "
                 "돈을 보내거나 정보를 알려 주기 전에 전화를 끊고 공식 번호로 확인하세요."
             ),
-            "reason": f"같은 {label}이(가) 위험 통화 {risky}건을 포함한 다른 통화 {len(calls)}건에 있음",
+            "reason": f"같은 {label}{_josa(label, '이', '가')} 위험 통화 {risky}건을 포함한 다른 통화 {len(calls)}건에 있음",
             "payload": {"kind": "linked", "matches": [{"entity_type": match["entity_type"], "value": match["value"], "calls": calls}]},
         }
         created.append(state_repository.insert_action(log_id=log_id, state_version=state["state_version"], action_type="linked_case_alert", **spec))
