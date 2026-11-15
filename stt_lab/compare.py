@@ -9,6 +9,7 @@
 출력: 화면 표 + runs/compare.json
 사용: ~/voiceguard/.venv/bin/python -X utf8 scripts/compare.py
 """
+import hashlib
 import json
 from pathlib import Path
 
@@ -36,7 +37,6 @@ PAIRS = [("large-v3 원래", "large-v3 추가 학습"), ("turbo 원래", "turbo 
          ("small 추가 학습", "small 추가 학습 · CPU"), ("turbo 추가 학습", "turbo 추가 학습 · CPU"),
          ("small 원래 · CPU", "small 추가 학습 · CPU"), ("turbo 원래 · CPU", "turbo 추가 학습 · CPU"),
          ("small 추가 학습 · CPU", "turbo 추가 학습 · CPU"), ("리턴제로", "small 추가 학습 · CPU"), ("리턴제로", "turbo 추가 학습 · CPU")]
-rng = np.random.default_rng(0)
 report = {}
 
 # 녹음마다 묶음 정보: 숫자 표기 규칙(대본이 숫자를 아라비아 숫자로 적었나 한글로 적었나)과
@@ -103,6 +103,8 @@ for mode, systems in SYSTEMS.items():
     pairs = []
     for na, nb in [(x, y) for x, y in PAIRS if x in loaded and y in loaded]:
         if True:
+            # 비교마다 고정된 난수열: 다른 시스템·비교가 늘어도 같은 비교의 구간은 그대로다
+            rng = np.random.default_rng(int(hashlib.md5(f"{mode}:{na}:{nb}".encode("utf-8")).hexdigest()[:8], 16))
             idx = rng.integers(0, len(ids), size=(2000, len(ids)))
             diffs = E[nb][idx].sum(1) / N[idx].sum(1) - E[na][idx].sum(1) / N[idx].sum(1)
             lo, hi = np.percentile(diffs, [2.5, 97.5])
