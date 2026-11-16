@@ -10,12 +10,13 @@ import {
   TACTIC_LABELS,
   paletteFromTheme,
 } from '@/components/agentCards';
-import { AppText } from '@/components/AppText';
+import { AppText, balanced } from '@/components/AppText';
 import { Card } from '@/components/Card';
 import { HighlightedText } from '@/components/HighlightedText';
 import { Icon } from '@/components/Icon';
 import { IconCircle } from '@/components/IconCircle';
 import { KeywordChip } from '@/components/KeywordChip';
+import { PRIVACY_NOTICE } from '@/core/config/privacy';
 import { useTheme } from '@/core/theme/theme';
 import { extractKeywords } from '@/core/utils/keywords';
 import { formatRelativeDate } from '@/core/utils/format';
@@ -38,9 +39,15 @@ import {
 import type { AgentAction, CallTimeline, TranscriptTurn } from '@/data/models/types';
 import { useCallStore } from '@/state/callStore';
 import { useSettingsStore } from '@/state/settingsStore';
-import { useTranscriptStore } from '@/state/transcriptStore';
+import { isUnheardResult, useTranscriptStore } from '@/state/transcriptStore';
 
 type Tab = 'summary' | 'chat' | 'evidence';
+type TimelineStatus = 'loading' | 'done' | 'failed';
+
+// 받아 적은 말이 없어 위험도를 판단하지 않은 통화의 머리 색(정상 초록·주의·위험 색과 구분되는 회색, 흰 글씨 대비 확보)
+const UNHEARD_COLOR = '#5B6472';
+// 타임라인(서버 발화)을 기다리는 상한. 넘기면 이 기기 기록으로 먼저 그리고, 늦게 오면 그때 고친다.
+const TIMELINE_WAIT_MS = 4000;
 
 /** 백엔드 목록 항목 + 상세를 합친 결과 화면 뷰모델 */
 interface ResultView {
@@ -64,9 +71,11 @@ export default function Result() {
   const loaded = useCallStore((s) => s.loaded);
   const fetchCalls = useCallStore((s) => s.fetchCalls);
   const dangerThreshold = useSettingsStore((s) => s.dangerThreshold);
-  // 통화별 전사(로컬 저장). 통화 종료 시 realtime에서 logId별로 저장한 대화 전문.
+  // 통화별 전사(로컬 저장). 통화 종료 시 realtime에서 logId별로 저장한 대화 전문. 빈 배열이면 받아 적은 말이 없던 통화.
   const hydrateTranscripts = useTranscriptStore((s) => s.hydrate);
-  const transcriptTurns = useTranscriptStore((s) => (Number.isFinite(id) ? s.byLog[id] : undefined)) ?? [];
+  const clearEmptyTranscript = useTranscriptStore((s) => s.clearEmpty);
+  const localTurns = useTranscriptStore((s) => (Number.isFinite(id) ? s.byLog[id] : undefined));
+  const transcriptTurns = localTurns ?? [];
 
   const [tab, setTab] = useState<Tab>(initialTab);
   const [detail, setDetail] = useState<CallDetail | null>(null);
@@ -74,17 +83,33 @@ export default function Result() {
   const [error, setError] = useState('');
   // v2: 단계 전환·태그된 발화·에이전트 행동. 예전 통화나 구버전 백엔드면 비어 있다.
   const [timeline, setTimeline] = useState<CallTimeline | null>(null);
+  // 타임라인을 받는 중인지. 서버 발화 수로 빈 통화를 가리므로, 받기 전에는 '정상 통화 0%'를 잠깐이라도 그리지 않는다.
+  const [timelineStatus, setTimelineStatus] = useState<TimelineStatus>('loading');
+  const [timelineWaitOver, setTimelineWaitOver] = useState(false);
   const [feedback, setFeedback] = useState<FeedbackVerdict | null>(null);
 
   useEffect(() => {
+    setTimelineWaitOver(false);
+    const timer = setTimeout(() => setTimelineWaitOver(true), TIMELINE_WAIT_MS);
+    return () => clearTimeout(timer);
+  }, [id]);
+
+  useEffect(() => {
     let alive = true;
-    if (!Number.isFinite(id)) return;
+    if (!Number.isFinite(id)) {
+      setTimelineStatus('failed');
+      return;
+    }
+    setTimelineStatus('loading');
     fetchTimeline(id)
       .then((t) => {
-        if (alive) setTimeline(t);
+        if (!alive) return;
+        setTimeline(t);
+        setTimelineStatus('done');
       })
       .catch(() => {
         // 타임라인이 없어도 결과 화면의 나머지는 그대로 보여준다.
+        if (alive) setTimelineStatus('failed');
       });
     return () => {
       alive = false;
@@ -159,8 +184,18 @@ export default function Result() {
   };
 
   const level = riskLevelFromScore(view.score, dangerThreshold);
-  const headerColor = riskColor(level, colors);
-  const isRisk = level !== 'safe';
+  // 받아 적은 말이 없어 위험도를 매기지 않은 통화: 서버 발화가 0개면(타임라인을 못 받았으면 이 기기에 남긴 빈 통화 표시로) 가린다.
+  // 이때는 '정상 통화 0%'·'위험 신호가 발견되지 않았습니다' 대신 판단하지 못했다고 보인다.
+  // 점수가 0보다 크면 서버가 무언가를 분석한 것이므로(재전사로 발화를 바꾸는 중 등) 빈 통화로 보지 않는다.
+  const heardNothing = isUnheardResult(localTurns, view.score, timeline ? timeline.messages.length : null);
+  const headerColor = heardNothing ? UNHEARD_COLOR : riskColor(level, colors);
+  const isRisk = !heardNothing && level !== 'safe';
+
+  // 빈 통화로 기억했는데 서버에 발화가 있으면(응답을 받기 전에 끊긴 통화 등) 그 표시를 지워 히스토리와 이 화면을 맞춘다.
+  const serverHasMessages = (timeline?.messages.length ?? 0) > 0;
+  useEffect(() => {
+    if (serverHasMessages && Number.isFinite(id)) clearEmptyTranscript(id);
+  }, [serverHasMessages, id, clearEmptyTranscript]);
 
   const onShare = () => {
     void Share.share({
@@ -173,7 +208,9 @@ export default function Result() {
     });
   };
 
-  if (loading && !detail) {
+  // 상세와 타임라인을 다 받은 뒤에 그린다(빈 통화가 '정상 통화 0%'로 잠깐 보이지 않게). 타임라인은 최대 4초만 기다린다.
+  // 상세를 못 받으면 아래 오류 화면.
+  if (!error && (loading || (timelineStatus === 'loading' && !timelineWaitOver))) {
     return (
       <View style={{ flex: 1, backgroundColor: colors.bg, alignItems: 'center', justifyContent: 'center' }}>
         <SafeAreaView edges={['top']} />
@@ -213,24 +250,36 @@ export default function Result() {
                 분석 결과
               </AppText>
             </View>
-            <Pressable hitSlop={10} onPress={onShare} accessibilityLabel="공유">
-              <Icon name="share" size={22} color="#FFFFFF" />
-            </Pressable>
+            {/* 판단하지 않은 통화는 공유할 결과가 없다 */}
+            {heardNothing ? null : (
+              <Pressable hitSlop={10} onPress={onShare} accessibilityLabel="공유">
+                <Icon name="share" size={22} color="#FFFFFF" />
+              </Pressable>
+            )}
           </View>
-          <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 34 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-              <Icon name={isRisk ? 'shield-alert' : 'shield-check'} size={16} color="#FFFFFF" />
-              <AppText weight="600" color="#FFFFFF" style={{ fontSize: 13.5 }}>
-                {isRisk ? '보이스피싱 의심' : '정상 통화'}
+          {heardNothing ? (
+            <View style={{ alignItems: 'center', paddingTop: 16, paddingBottom: 38, paddingHorizontal: 24, gap: 10 }}>
+              <Icon name="volume-x" size={30} color="#FFFFFF" />
+              <AppText weight="800" color="#FFFFFF" style={[{ fontSize: 22, lineHeight: 30, textAlign: 'center' }, balanced]}>
+                들은 말이 없어 판단하지 못했어요
               </AppText>
             </View>
-            <AppText weight="800" color="#FFFFFF" style={{ fontSize: 54, letterSpacing: -1, marginTop: 2 }}>
-              {toPercent(view.score)}%
-            </AppText>
-            <AppText weight="700" color="#FFFFFF" style={{ fontSize: 15, marginTop: 2 }}>
-              {view.category}
-            </AppText>
-          </View>
+          ) : (
+            <View style={{ alignItems: 'center', paddingTop: 12, paddingBottom: 34 }}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <Icon name={isRisk ? 'shield-alert' : 'shield-check'} size={16} color="#FFFFFF" />
+                <AppText weight="600" color="#FFFFFF" style={{ fontSize: 13.5 }}>
+                  {isRisk ? '보이스피싱 의심' : '정상 통화'}
+                </AppText>
+              </View>
+              <AppText weight="800" color="#FFFFFF" style={{ fontSize: 54, letterSpacing: -1, marginTop: 2 }}>
+                {toPercent(view.score)}%
+              </AppText>
+              <AppText weight="700" color="#FFFFFF" style={{ fontSize: 15, marginTop: 2 }}>
+                {view.category}
+              </AppText>
+            </View>
+          )}
         </SafeAreaView>
       </View>
 
@@ -270,12 +319,21 @@ export default function Result() {
               {timeline ? (
                 <AgentSection timeline={timeline} color={headerColor} onAnswer={answerFollowup} />
               ) : null}
-              <SummaryTab view={view} isRisk={isRisk} />
-              <FeedbackBox isRisk={isRisk} sent={feedback} onSend={submitFeedback} />
+              {/* 판단하지 않은 통화에는 '판정이 맞았나요?'를 묻지 않는다(맞고 틀릴 판정이 없다) */}
+              {heardNothing ? (
+                <UnheardNotice />
+              ) : (
+                <>
+                  <SummaryTab view={view} isRisk={isRisk} />
+                  <FeedbackBox isRisk={isRisk} sent={feedback} onSend={submitFeedback} />
+                </>
+              )}
             </View>
           ) : null}
-          {tab === 'chat' ? <ChatTab turns={transcriptTurns} tagged={timeline?.messages ?? []} /> : null}
-          {tab === 'evidence' ? <EvidenceTab view={view} level={level} /> : null}
+          {tab === 'chat' ? (
+            <ChatTab turns={transcriptTurns} tagged={timeline?.messages ?? []} serverStatus={timelineStatus} />
+          ) : null}
+          {tab === 'evidence' ? heardNothing ? <UnheardNotice /> : <EvidenceTab view={view} level={level} /> : null}
         </Card>
       </ScrollView>
     </View>
@@ -476,13 +534,38 @@ function SummaryTab({ view, isRisk }: { view: ResultView; isRisk: boolean }) {
   );
 }
 
+/** 받아 적은 말이 없던 통화: 위험도를 매기지 않았다는 안내(요약·탐지 근거 탭 공용) */
+function UnheardNotice() {
+  const { colors } = useTheme();
+  return (
+    <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 16, padding: 16, gap: 10 }}>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+        <IconCircle name="volume-x" color={colors.textMuted} bg={colors.cardAlt} size={38} radius={10} iconSize={19} />
+        <AppText weight="700" style={{ fontSize: 15, lineHeight: 22, flex: 1 }}>
+          받아 적은 말이 없어요
+        </AppText>
+      </View>
+      <AppText color={colors.textSecondary} style={{ fontSize: 13, lineHeight: 20 }}>
+        보이스피싱 위험도는 매기지 않았어요. 마이크가 켜져 있는지, 통화 소리가 잘 들리는지 확인한 뒤 다시 분석해 주세요.
+      </AppText>
+    </View>
+  );
+}
+
 /**
  * 대화 내용(전사) 탭.
- * 백엔드 상세(GET /calls/{id})는 전사를 반환하지 않으므로(발화 조회 API 부재),
- * 통화 종료 시 로컬에 저장해둔 전사(turns)를 화자별로 표시한다.
- * 저장분이 없으면(예: 이전 버전에서 만든 통화, 다른 기기) 안내문을 보여준다.
+ * 서버가 저장한 발화(GET /calls/{id}/timeline의 messages)가 있으면 역할·수법 태그와 함께 그리고,
+ * 없으면 통화 종료 때 이 기기에 저장해 둔 전사(turns)를 화자별로 그린다. 둘 다 없으면 안내문을 보여준다.
  */
-function ChatTab({ turns, tagged }: { turns: TranscriptTurn[]; tagged: CallTimeline['messages'] }) {
+function ChatTab({
+  turns,
+  tagged,
+  serverStatus,
+}: {
+  turns: TranscriptTurn[];
+  tagged: CallTimeline['messages'];
+  serverStatus: TimelineStatus; // 서버 발화를 아직 받는 중이거나 못 받았으면 '저장된 대화가 없다'고 하지 않는다
+}) {
   const { colors } = useTheme();
 
   // 서버가 발화별 역할과 수법 태그를 갖고 있으면 그것으로 그린다(어느 말이 왜 위험한지 표시).
@@ -557,11 +640,17 @@ function ChatTab({ turns, tagged }: { turns: TranscriptTurn[]; tagged: CallTimel
       <View style={{ alignItems: 'center', paddingVertical: 26, gap: 8 }}>
         <IconCircle name="file" color={colors.textMuted} bg={colors.cardAlt} size={44} radius={12} iconSize={22} />
         <AppText weight="700" color={colors.textSecondary} style={{ fontSize: 14 }}>
-          저장된 대화 내용이 없습니다
+          {serverStatus === 'loading'
+            ? '대화 내용을 불러오는 중이에요'
+            : serverStatus === 'failed'
+              ? '대화 내용을 불러오지 못했어요'
+              : '이 통화에 저장된 대화가 없어요'}
         </AppText>
-        <AppText color={colors.textMuted} style={{ fontSize: 12.5, textAlign: 'center', lineHeight: 19 }}>
-          대화 전문은 이 기기에서 진행한 통화에만 저장됩니다.{'\n'}(백엔드에는 위험도·탐지 근거만 보관)
-        </AppText>
+        {serverStatus === 'loading' ? null : (
+          <AppText color={colors.textMuted} style={{ fontSize: 12.5, textAlign: 'center', lineHeight: 19 }}>
+            {serverStatus === 'failed' ? '인터넷 연결을 확인하고 다시 열어 주세요.' : PRIVACY_NOTICE}
+          </AppText>
+        )}
       </View>
     );
   }

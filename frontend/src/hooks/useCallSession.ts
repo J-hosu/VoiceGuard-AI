@@ -20,6 +20,12 @@ import { analyzeSessionAudio, retranscribeSessionAudio } from '@/data/services/u
 import { createAnalyzeConnection, type AnalyzeConnection } from '@/data/services/wsService';
 import { useSettingsStore } from '@/state/settingsStore';
 
+/**
+ * 분석이 멈춘 이유. 다시 시작하기 전까지 그대로 둔다.
+ * connect_failed: 서버에 한 번도 연결하지 못함 · disconnected: 연결됐다가 끊김 · mic: 마이크·오디오 캡처 실패
+ */
+export type HaltReason = 'connect_failed' | 'disconnected' | 'mic';
+
 export interface CallSessionState {
   logId: number; // 백엔드가 발급한 통화 로그 id (call_started) — 0이면 아직 없음
   turns: TranscriptTurn[];
@@ -31,7 +37,11 @@ export interface CallSessionState {
   running: boolean;
   paused: boolean; // 분석 일시정지 상태 (오디오 캡처만 멈추고 WS 세션은 유지)
   finished: boolean;
-  error: string | null; // 백엔드 연결/분석 오류 (실사용 시 표시)
+  // 화면에 보일 한 줄 안내. 사용자용 문장만 담는다(서버 오류 원문·파이썬 예외는 콘솔에만 남긴다).
+  // 분석이 멈추지 않은 안내(조각 전사 실패 등)는 정상 응답이 오면 지운다.
+  error: string | null;
+  halt: HaltReason | null; // 분석이 멈췄으면 그 이유
+  stalled: boolean; // 조각 전사가 연달아 실패해 말을 받아 적지 못하는 중(정상 응답이 오면 풀린다)
   // ── v2 능동형 대응 루프 (state_update / agent_action) ──
   stage: ScamStage; // 지금까지 도달한 사기 단계
   stageIndex: number; // 0(없음)~6(금전 요구)
@@ -43,6 +53,51 @@ export interface CallSessionState {
   refined: RefinedTranscript | null; // 한 번도 안 왔으면 null(STT_REFINE=off): 화면은 기존 '방금 들린 말' 그대로
   liveChunks: LiveChunk[]; // 실시간 조각 원본. 정리본이 덮은 구간의 조각은 정리본이 올 때 지운다.
 }
+
+const INITIAL_STATE: CallSessionState = {
+  logId: 0,
+  turns: [],
+  score: 0,
+  level: 'safe',
+  matchedPatterns: [],
+  coreEvidence: '',
+  elapsedSec: 0,
+  running: false,
+  paused: false,
+  finished: false,
+  error: null,
+  halt: null,
+  stalled: false,
+  stage: 'none',
+  stageIndex: 0,
+  phishingType: '',
+  predictedNext: null,
+  summary: '',
+  actions: [],
+  refined: null,
+  liveChunks: [],
+};
+
+/** 통화 화면 한 줄 안내 문구 */
+export const SESSION_NOTICE = {
+  chunkFailed: '방금 말 일부를 알아듣지 못했어요.',
+  stalled: '말을 받아 적지 못하고 있어요.',
+  serverError: '서버가 요청 하나를 처리하지 못했어요.',
+  connectFailed: '서버에 연결하지 못했어요.',
+  disconnected: '연결이 끊겼어요.',
+} as const;
+
+/** 조각 전사 실패(audio_chunk_error)가 이만큼 연달아 오면 '받아 적지 못하는 중'(stalled)으로 본다. */
+const STALL_AFTER = 2;
+
+/** 조각·발화 하나를 정상으로 처리했다는 응답. 오면 전사 실패 표시를 푼다. */
+const NORMAL_REPLIES: ReadonlySet<AnalysisEvent['type']> = new Set<AnalysisEvent['type']>([
+  'audio_analysis_ack',
+  'audio_phishing_detected',
+  'audio_chunk_ack',
+  'analysis_ack',
+  'phishing_detected',
+]);
 
 /** 말풍선 하나의 최대 길이(글자). 이보다 길어지면 문장이 이어져도 새 말풍선을 만든다. */
 const MAX_BUBBLE_CHARS = 90;
@@ -95,27 +150,7 @@ export function useCallSession(
   } = {},
 ) {
   const dangerThreshold = useSettingsStore((s) => s.dangerThreshold);
-  const [state, setState] = useState<CallSessionState>({
-    logId: 0,
-    turns: [],
-    score: 0,
-    level: 'safe',
-    matchedPatterns: [],
-    coreEvidence: '',
-    elapsedSec: 0,
-    running: false,
-    paused: false,
-    finished: false,
-    error: null,
-    stage: 'none',
-    stageIndex: 0,
-    phishingType: '',
-    predictedNext: null,
-    summary: '',
-    actions: [],
-    refined: null,
-    liveChunks: [],
-  });
+  const [state, setState] = useState<CallSessionState>(INITIAL_STATE);
 
   // 최신 state를 참조로 보관 — 종료 시 grace 대기 후 "그 시점의 최종" turns/logId/score를 읽기 위함.
   const latestRef = useRef(state);
@@ -148,6 +183,28 @@ export function useCallSession(
   const seenActions = useRef(new Set<number>()); // 이미 알린 행동 id (upsert 시 중복 알림 방지)
   const endedResolve = useRef<(() => void) | null>(null); // call_ended 대기 해제
   const lastLiveEnd = useRef(0); // 마지막 실시간 조각이 끝난 시각(초). t_start가 없는 조각의 대신 값
+  const connDead = useRef(false); // 연결이 끝났다(끊김·연결 실패): 종료 때 더 올 응답을 기다리지 않는다
+  const ending = useRef(false); // 사용자가 분석을 끝내는 중(이때 연결이 닫혀도 끊김으로 알리지 않는다)
+  const chunkErrors = useRef(0); // 연달아 온 조각 전사 실패 수
+  const heldSessionWav = useRef<Blob | null>(null); // 연결이 끊겨 마이크를 멈출 때 남긴 그때까지의 통화 녹음(종료 때 재전사용)
+
+  // 분석을 멈춘다: 마이크(또는 데모 STT)와 경과 시간을 멈추고 이유를 남긴다. 먼저 멈춘 이유를 그대로 둔다.
+  // ref와 setState만 쓰므로 한 번 만든 함수를 계속 쓴다(이벤트 처리기가 옛 렌더의 함수를 붙잡아도 같다).
+  const halt = useCallback((reason: HaltReason, message: string) => {
+    const capture = captureRef.current;
+    if (capture) {
+      // 끊긴 통화는 끊기기 전까지의 녹음을 남겨, 분석 종료 때 서버가 다시 받아 적게 한다.
+      if (reason === 'disconnected') heldSessionWav.current = capture.getSessionWav();
+      capture.stop();
+      captureRef.current = null;
+    }
+    sttRef.current?.stop();
+    if (timer.current) {
+      clearInterval(timer.current);
+      timer.current = null;
+    }
+    setState((prev) => (prev.halt ? prev : { ...prev, running: false, stalled: false, halt: reason, error: message }));
+  }, []);
 
   const handleEvent = useCallback(
     (e: AnalysisEvent) => {
@@ -155,8 +212,42 @@ export function useCallSession(
       if ('chunk_index' in e && (e as { chunk_index?: number }).chunk_index != null) {
         recvChunks.current += 1;
       }
-      if (e.type === 'error' || e.type === 'audio_chunk_error') {
-        setState((prev) => ({ ...prev, error: e.message }));
+      // 앱이 닫지 않았는데 연결이 끝났다. 기다리던 call_ended는 오지 않으니 풀고, 끝내는 중이 아니면 분석을 멈춘다.
+      if (e.type === 'connection_closed') {
+        connDead.current = true;
+        endedResolve.current?.();
+        endedResolve.current = null;
+        if (!ending.current) {
+          halt(
+            e.opened ? 'disconnected' : 'connect_failed',
+            e.opened ? SESSION_NOTICE.disconnected : SESSION_NOTICE.connectFailed,
+          );
+        }
+        return;
+      }
+      // 조각·발화를 정상으로 처리했다는 응답이 오면 전사 실패 표시와 한 줄 안내를 푼다(분석이 멈춘 경우는 그대로).
+      if (NORMAL_REPLIES.has(e.type)) {
+        chunkErrors.current = 0;
+        setState((prev) => (prev.halt || (!prev.stalled && prev.error === null) ? prev : { ...prev, stalled: false, error: null }));
+      }
+      // 조각 하나의 전사 실패. 서버는 다음 조각을 계속 받으므로 분석을 멈추지 않고, 연달아 실패할 때만 stalled로 알린다.
+      // 서버 문구에는 파이썬 예외 원문이 붙어 오므로 화면에는 정해 둔 문장만 보인다.
+      if (e.type === 'audio_chunk_error') {
+        chunkErrors.current += 1;
+        const stalled = chunkErrors.current >= STALL_AFTER;
+        // eslint-disable-next-line no-console
+        console.warn('[VoiceGuard] 조각 전사 실패', e.chunk_index, e.message);
+        setState((prev) =>
+          prev.halt ? prev : { ...prev, stalled, error: stalled ? SESSION_NOTICE.stalled : SESSION_NOTICE.chunkFailed },
+        );
+        return;
+      }
+      // 서버가 요청 하나를 거절했다(후속 답 처리 실패 등). 원문은 개발용 문장이라 콘솔에만 남긴다.
+      // 서버가 이어서 연결을 닫으면 connection_closed가 따로 온다.
+      if (e.type === 'error') {
+        // eslint-disable-next-line no-console
+        console.warn('[VoiceGuard] 서버 오류', e.message);
+        setState((prev) => (prev.halt || prev.stalled ? prev : { ...prev, error: SESSION_NOTICE.serverError }));
         return;
       }
       if (e.type === 'call_started') {
@@ -363,7 +454,7 @@ export function useCallSession(
         });
       }
     },
-    [dangerThreshold],
+    [dangerThreshold, halt],
   );
 
   // 경과초 타이머(일시정지 누적 시간 pausedAccumMs를 빼서 정지 중엔 멈춘 것처럼 보이게 함)
@@ -381,8 +472,13 @@ export function useCallSession(
   const beginAudioCapture = (conn: AnalyzeConnection) => {
     const capture = createAudioCapture();
     captureRef.current = capture;
-    capture.onError((m) => setState((prev) => ({ ...prev, error: m })));
+    // 마이크를 켜지 못하면 말을 들을 수 없으므로 분석을 멈춘다(문구는 원인별로 audioCapture가 정한다).
+    // 멈춘 뒤의 캡처(다시 시작 전의 것 등)가 늦게 보내는 오류·조각은 지금 통화에 섞지 않는다.
+    capture.onError((m) => {
+      if (captureRef.current === capture) halt('mic', m);
+    });
     capture.onChunk((c) => {
+      if (captureRef.current !== capture) return;
       sentChunks.current += 1;
       conn.sendAudioChunk(c.base64, c.chunkIndex);
     });
@@ -398,6 +494,10 @@ export function useCallSession(
     sentChunks.current = 0;
     recvChunks.current = 0;
     lastLiveEnd.current = 0;
+    connDead.current = false;
+    ending.current = false;
+    chunkErrors.current = 0;
+    heldSessionWav.current = null;
 
     // ── 웹 실시간: 오디오 스트리밍 경로 ──
     if (audioMode) {
@@ -477,10 +577,14 @@ export function useCallSession(
   const MAX_WAIT_MS = 20000; // 백엔드가 멈춰도 무한 대기하지 않도록 안전 상한
   const END_WAIT_MS = 15000; // call_ended 대기 상한
   const finish = useCallback(async (): Promise<CallSessionState> => {
+    ending.current = true;
     const capture = captureRef.current;
     capture?.flushFinal(); // 남은 partial 오디오를 마지막 청크로 전송(sentChunks 증가)
-    // 전체 재전사용: stop() 전에 통화 전체 녹음을 확보한다.
-    const sessionWav = capture?.getSessionWav() ?? null;
+    // 전체 재전사용: stop() 전에 통화 전체 녹음을 확보한다. 연결이 끊겨 마이크를 멈췄으면 끊기기 전까지 남긴 녹음을 쓴다.
+    // 서버에 한 번도 연결하지 못한 통화는 서버에 기록이 없으므로 재전사 없이 바로 끝낸다.
+    const sessionWav =
+      latestRef.current.halt === 'connect_failed' ? null : (capture?.getSessionWav() ?? heldSessionWav.current);
+    heldSessionWav.current = null;
     capture?.stop();
     captureRef.current = null;
     sttRef.current?.stop();
@@ -538,13 +642,14 @@ export function useCallSession(
 
     // ── 폴백: 재전사가 없거나(오디오 없음) 실패 → 기존처럼 청크 응답을 마저 기다린다 ──
     // 보낸 청크 수만큼 응답(전사)이 다 올 때까지 대기. 상한 초과 시 중단.
+    // 연결이 끝났으면(끊김·연결 실패) 더 올 응답이 없으므로 기다리지 않는다.
     const deadline = Date.now() + MAX_WAIT_MS;
-    while (recvChunks.current < sentChunks.current && Date.now() < deadline) {
+    while (!connDead.current && recvChunks.current < sentChunks.current && Date.now() < deadline) {
       await new Promise((resolve) => setTimeout(resolve, 200));
     }
     // 서버에 종료를 알리고, 마지막 상태 확정과 통화 후 행동(call_ended)을 기다린다.
     const conn = connRef.current;
-    if (conn && latestRef.current.logId > 0) {
+    if (conn && !connDead.current && latestRef.current.logId > 0) {
       await new Promise<void>((resolve) => {
         const timeout = setTimeout(resolve, END_WAIT_MS);
         endedResolve.current = () => {
@@ -591,6 +696,26 @@ export function useCallSession(
     connRef.current?.sendFollowupAnswer(actionId, answer);
   }, []);
 
+  // 처음부터 다시 듣기(분석이 멈춘 뒤 '다시 시작'): 지난 연결·마이크를 닫고 화면 상태를 비운 뒤 새 통화로 시작한다.
+  // 지난 통화는 서버에 따로 남는다(연결이 닫히면 서버가 그 통화를 마무리한다). 자동 재연결·이어 붙이기는 아니다.
+  const restart = useCallback(() => {
+    sttRef.current?.stop();
+    sttRef.current = null;
+    captureRef.current?.stop();
+    captureRef.current = null;
+    connRef.current?.close();
+    connRef.current = null;
+    if (timer.current) clearInterval(timer.current);
+    timer.current = null;
+    turnCounter.current = 0;
+    maxScore.current = 0;
+    warned.current = false;
+    seenActions.current = new Set();
+    endedResolve.current = null;
+    setState(INITIAL_STATE);
+    start();
+  }, [start]);
+
   useEffect(() => {
     return () => {
       sttRef.current?.stop();
@@ -600,5 +725,5 @@ export function useCallSession(
     };
   }, []);
 
-  return { state, start, stop, pause, resume, finish, buildResult, respondAction, answerFollowup };
+  return { state, start, restart, stop, pause, resume, finish, buildResult, respondAction, answerFollowup };
 }

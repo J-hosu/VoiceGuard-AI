@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, View } from 'react-native';
+import { ActivityIndicator, Alert, Platform, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as DocumentPicker from 'expo-document-picker';
@@ -10,7 +10,13 @@ import { Icon } from '@/components/Icon';
 import { IconCircle } from '@/components/IconCircle';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { useTheme } from '@/core/theme/theme';
+import { friendlyNetworkError } from '@/core/utils/format';
 import { analyzeAudioFile } from '@/data/services/uploadAudio';
+import {
+  AUDIO_PICKER_TYPES_NATIVE,
+  AUDIO_PICKER_TYPES_WEB,
+  isAcceptedAudioName,
+} from '@/data/services/uploadAudio.shared';
 import { useCallStore } from '@/state/callStore';
 import { useTranscriptStore } from '@/state/transcriptStore';
 import type { TranscriptTurn } from '@/data/models/types';
@@ -45,12 +51,23 @@ export default function Upload() {
   );
 
   const pick = async () => {
-    const res = await DocumentPicker.getDocumentAsync({ type: 'audio/*', copyToCacheDirectory: true });
+    // 서버가 받는 형식(mp3·wav·m4a)만 고를 수 있게 한다. 웹은 확장자까지 넘겨야 브라우저가 같은 목록을 보인다.
+    const res = await DocumentPicker.getDocumentAsync({
+      type: Platform.OS === 'web' ? AUDIO_PICKER_TYPES_WEB : AUDIO_PICKER_TYPES_NATIVE,
+      copyToCacheDirectory: true,
+    });
     if (!res.canceled && res.assets?.[0]) {
       const a = res.assets[0];
-      setFile({ name: a.name, size: a.size ?? undefined, uri: a.uri, mime: a.mimeType ?? undefined });
       setProgress(0);
       setPhase('');
+      // 고르기 창이 다른 파일을 허용해도(브라우저·기기마다 다르다) 서버는 이름의 확장자로 거절하므로 여기서 먼저 알린다.
+      if (!isAcceptedAudioName(a.name)) {
+        setFile(null);
+        setErrorMsg('MP3, WAV, M4A 파일만 분석할 수 있어요. 다른 파일을 골라 주세요.');
+        return;
+      }
+      setErrorMsg('');
+      setFile({ name: a.name, size: a.size ?? undefined, uri: a.uri, mime: a.mimeType ?? undefined });
     }
   };
 
@@ -66,7 +83,9 @@ export default function Upload() {
 
   const analyze = async () => {
     if (!file?.uri) {
-      Alert.alert('파일 선택 필요', '분석할 음성 파일(mp3/wav)을 먼저 선택하세요.');
+      // 웹에서는 Alert가 뜨지 않으므로 화면 안내도 함께 바꾼다.
+      setErrorMsg('분석할 음성 파일(MP3·WAV·M4A)을 먼저 골라 주세요.');
+      Alert.alert('파일 선택 필요', '분석할 음성 파일(MP3·WAV·M4A)을 먼저 골라 주세요.');
       return;
     }
     setAnalyzing(true);
@@ -109,8 +128,9 @@ export default function Upload() {
       setAnalyzingMsg(false);
       setProgress(0);
       setPhase('');
-      const msg = e instanceof Error ? e.message : String(e);
-      setErrorMsg(msg);
+      // 서버·프록시 오류 원문(HTML 등)은 uploadAudio가 이미 사용자용 문장으로 바꿔 둔다. 남은 영문 네트워크 오류도 바꾼다.
+      const msg = friendlyNetworkError(e instanceof Error ? e.message : String(e));
+      setErrorMsg(`분석 실패: ${msg}`);
       Alert.alert('분석 실패', msg);
     }
   };
@@ -138,7 +158,7 @@ export default function Upload() {
               여기로 파일을 올려주세요
             </AppText>
             <AppText weight="600" color="rgba(255,255,255,0.85)" style={{ fontSize: 12.5, marginTop: 7 }}>
-              MP3 · WAV · 3~5분 · 50MB 이하
+              MP3 · WAV · M4A · 2분 이하 권장
             </AppText>
             <Button
               title="파일 선택"
@@ -195,7 +215,7 @@ export default function Upload() {
           {errorMsg ? (
             <View style={{ backgroundColor: colors.dangerFaint, borderRadius: 12, padding: 14 }}>
               <AppText weight="700" color={colors.danger} style={{ fontSize: 13.5, lineHeight: 20 }}>
-                분석 실패: {errorMsg}
+                {errorMsg}
               </AppText>
             </View>
           ) : null}

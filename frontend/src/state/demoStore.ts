@@ -7,11 +7,16 @@ import { create } from 'zustand';
 interface DemoState {
   logId: number; // 0이면 아직 통화 없음
   running: boolean;
-  setCall: (logId: number, running: boolean) => void;
+  halted: boolean; // 연결 끊김·연결 실패·마이크 오류로 분석이 멈췄다(사용자가 끝낸 것이 아님)
+  setCall: (logId: number, running: boolean, halted?: boolean) => void;
 }
 
 export const useDemoStore = create<DemoState>((set) => ({
   logId: 0,
   running: false,
-  setCall: (logId, running) => set((prev) => (prev.logId === logId && prev.running === running ? prev : { logId, running })),
+  halted: false,
+  setCall: (logId, running, halted = false) =>
+    set((prev) =>
+      prev.logId === logId && prev.running === running && prev.halted === halted ? prev : { logId, running, halted },
+    ),
 }));

@@ -8,7 +8,7 @@ import { getDeviceId } from '@/core/config/deviceId';
 import {
   ANALYZE_AUDIO_URL,
   guessMime,
-  parseAnalyzeResponse,
+  postForAnalysis,
   type AudioAnalysisResult,
   type PickedAudio,
 } from './uploadAudio.shared';
@@ -24,11 +24,7 @@ export async function analyzeAudioFile(file: PickedAudio): Promise<AudioAnalysis
   } as unknown as Blob);
   form.append('device_id', String(getDeviceId()));
 
-  const res = await fetch(ANALYZE_AUDIO_URL, {
-    method: 'POST',
-    body: form,
-  });
-  return parseAnalyzeResponse(res);
+  return postForAnalysis(ANALYZE_AUDIO_URL, form);
 }
 
 /** 세션 전체 오디오 재전사는 웹 오디오 캡처 경로에서만 사용된다(네이티브는 온디바이스 STT). */

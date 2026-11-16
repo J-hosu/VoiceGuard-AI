@@ -253,6 +253,9 @@ export type AnalysisEvent =
   | ({ type: 'state_update' } & ConversationState)
   | { type: 'agent_action'; log_id: number; action: AgentAction }
   | { type: 'call_ended'; log_id: number; final: Partial<ConversationState> }
+  // 서버가 보내지 않고 앱(wsService)이 만드는 이벤트: 앱이 닫지 않았는데 연결이 끝났거나 제때 열리지 않았다.
+  // opened=false면 한 번도 연결하지 못한 것, true면 연결됐다가 끊긴 것이다.
+  | { type: 'connection_closed'; opened: boolean }
   // 정리본: 서버가 (기본) 15초마다 지난 구간을 화자 구분과 함께 다시 받아 적을 때마다 보낸다(STT_REFINE=off면 오지 않는다).
   | {
       type: 'transcript_refined';

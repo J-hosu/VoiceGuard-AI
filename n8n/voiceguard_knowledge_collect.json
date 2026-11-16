@@ -30,8 +30,8 @@
             },
             {
               "id": "0b6b3f0e-7d2a-4bb9-8a40-71b9d1a0c102",
-              "name": "access_code",
-              "value": "<접속 코드>",
+              "name": "admin_code",
+              "value": "<관리 코드(ADMIN_CODE). 서버에 ADMIN_CODE가 없으면 접속 코드>",
               "type": "string"
             },
             {
@@ -58,8 +58,8 @@
         "headerParameters": {
           "parameters": [
             {
-              "name": "X-Access-Code",
-              "value": "={{ $json.access_code }}"
+              "name": "X-Admin-Code",
+              "value": "={{ $json.admin_code }}"
             }
           ]
         },

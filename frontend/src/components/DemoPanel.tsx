@@ -78,6 +78,7 @@ function Chip({ label, color }: { label: string; color: string }) {
 export function DemoPanel() {
   const logId = useDemoStore((s) => s.logId);
   const running = useDemoStore((s) => s.running);
+  const halted = useDemoStore((s) => s.halted);
   const [state, setState] = useState<ConversationState | null>(null);
   const [timeline, setTimeline] = useState<CallTimeline | null>(null);
   const [history, setHistory] = useState<number[]>([]);
@@ -134,9 +135,11 @@ export function DemoPanel() {
           </AppText>
         </View>
         <View style={{ flexDirection: 'row', alignItems: 'center', gap: 7 }}>
-          <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: running ? P.safe : P.muted }} />
-          <AppText weight="700" color={running ? P.safe : P.muted} style={{ fontSize: 12.5 }}>
-            {running ? '분석 중' : logId > 0 ? '통화 종료' : '대기 중'}
+          <View
+            style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: halted ? P.warning : running ? P.safe : P.muted }}
+          />
+          <AppText weight="700" color={halted ? P.warning : running ? P.safe : P.muted} style={{ fontSize: 12.5 }}>
+            {halted ? '분석 멈춤' : running ? '분석 중' : logId > 0 ? '통화 종료' : '대기 중'}
           </AppText>
         </View>
       </View>

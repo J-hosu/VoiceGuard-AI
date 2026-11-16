@@ -17,6 +17,7 @@ try:
 except ModuleNotFoundError:
     load_dotenv = None
 
+from backend.app import access_gate
 from backend.app.access_gate import AccessGateMiddleware
 from backend.app.api.agent_routes import router as agent_router
 from backend.app.api.analyze_routes import router as analyze_router
@@ -75,6 +76,9 @@ async def preload_whisper_model() -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """API 서버 시작 시 DB와 모델 리소스를 준비한다."""
+    gate_warning = access_gate.startup_warning()
+    if gate_warning:
+        logger.warning(gate_warning)
     init_db()
     scam_knowledge.ensure_tables()
     await preload_koelectra_model()
@@ -90,6 +94,8 @@ app = FastAPI(
     description="실시간 통화 음성을 분석해 보이스피싱 위험도와 핵심근거를 생성",
     version="0.1.0",
     lifespan=lifespan,
+    # 접속 코드가 걸린 공개 서버에서는 API 문서를 끄거나(관리 코드 없음) 관리 코드 뒤에 둔다.
+    **access_gate.api_docs_settings(),
 )
 cors_origins = _get_cors_origins()
 app.add_middleware(
@@ -106,6 +112,7 @@ app.include_router(quality_router)
 app.include_router(analyze_router)
 app.include_router(websocket_router)
 # 접속 코드 확인(ACCESS_CODE가 설정됐을 때만 동작). 가장 바깥에서 HTTP와 WebSocket을 모두 거른다.
+# ADMIN_CODE도 있으면 대시보드·수사·품질·평가·수법 카드·학습 사례 API와 API 문서는 관리 코드가 따로 있어야 한다.
 app.add_middleware(AccessGateMiddleware)
 
 

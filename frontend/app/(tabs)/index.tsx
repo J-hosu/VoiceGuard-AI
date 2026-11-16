@@ -1,4 +1,4 @@
-import { useCallback, type ReactNode } from 'react';
+import { useCallback, useEffect, type ReactNode } from 'react';
 import { Linking, Platform, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -21,6 +21,7 @@ import {
 } from '@/core/utils/riskLevel';
 import { useCallStore } from '@/state/callStore';
 import { useSettingsStore } from '@/state/settingsStore';
+import { isUnheardCall, useTranscriptStore } from '@/state/transcriptStore';
 
 /** 카드 안 구분선(좌우 16 들여쓰기) */
 function RowDivider() {
@@ -89,17 +90,19 @@ function RecentRow({
   createdAt,
   divider,
   onPress,
+  unheard = false,
 }: {
   category: string;
   score: number; // 0..1
   createdAt: string; // ISO
   divider: boolean;
   onPress: () => void;
+  unheard?: boolean; // 받아 적은 말이 없어 위험도를 매기지 않은 통화: '정상'·'0%' 대신 판단 없음으로 보인다
 }) {
   const { colors } = useTheme();
   const dangerThreshold = useSettingsStore((s) => s.dangerThreshold);
   const level = riskLevelFromScore(score, dangerThreshold);
-  const mainText = riskColorText(level, colors);
+  const mainText = unheard ? colors.textMuted : riskColorText(level, colors);
 
   return (
     <Pressable
@@ -111,16 +114,16 @@ function RecentRow({
       {divider ? <RowDivider /> : null}
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12, minHeight: 68, paddingHorizontal: 16, paddingVertical: 12 }}>
         <IconCircle
-          name={level === 'safe' ? 'shield-check' : 'shield-alert'}
-          color={riskColor(level, colors)}
-          bg={riskColorFaint(level, colors)}
+          name={unheard ? 'volume-x' : level === 'safe' ? 'shield-check' : 'shield-alert'}
+          color={unheard ? colors.textMuted : riskColor(level, colors)}
+          bg={unheard ? colors.cardAlt : riskColorFaint(level, colors)}
           size={40}
           radius={20}
           iconSize={20}
         />
         <View style={{ flex: 1 }}>
           <AppText weight="700" style={{ fontSize: 15, lineHeight: 22 }} numberOfLines={1}>
-            {category}
+            {unheard ? '들은 말 없음' : category}
           </AppText>
           <AppText color={colors.textSecondary} style={{ fontSize: 13, lineHeight: 18 }}>
             {formatRelativeDate(createdAt)}
@@ -128,10 +131,10 @@ function RecentRow({
         </View>
         <View style={{ alignItems: 'flex-end' }}>
           <AppText weight="800" color={mainText} style={{ fontSize: 17, lineHeight: 22 }}>
-            {toPercent(score)}%
+            {unheard ? '–' : `${toPercent(score)}%`}
           </AppText>
           <AppText weight="600" color={mainText} style={{ fontSize: 12, lineHeight: 18 }}>
-            {riskLabel(level)}
+            {unheard ? '판단 없음' : riskLabel(level)}
           </AppText>
         </View>
       </View>
@@ -167,6 +170,12 @@ export default function Home() {
   const dangerThreshold = useSettingsStore((s) => s.dangerThreshold);
   // 다크 모드의 밝은 파랑 위 흰 글씨는 대비가 낮아, 파랑으로 채운 면은 한 단계 진한 파랑을 쓴다.
   const brandFill = isDark ? colors.primaryDark : colors.primary;
+  // 이 기기에서 끝낸 통화 중 받아 적은 말이 없던 통화를 가리려고 로컬 전사 기록을 불러온다.
+  const transcripts = useTranscriptStore((s) => s.byLog);
+  const hydrateTranscripts = useTranscriptStore((s) => s.hydrate);
+  useEffect(() => {
+    void hydrateTranscripts();
+  }, [hydrateTranscripts]);
 
   // 홈에 돌아올 때마다 최신 히스토리 반영
   useFocusEffect(
@@ -176,9 +185,14 @@ export default function Home() {
   );
 
   const now = new Date();
+  // 받아 적은 말이 없던 통화는 분석한 통화로 세지 않는다.
   const monthCalls = calls.filter((c) => {
     const d = new Date(c.called_at);
-    return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth();
+    return (
+      d.getFullYear() === now.getFullYear() &&
+      d.getMonth() === now.getMonth() &&
+      !isUnheardCall(transcripts, c.id, c.risk_score)
+    );
   });
   const monthDanger = monthCalls.filter((c) => riskLevelFromScore(c.risk_score, dangerThreshold) !== 'safe').length;
   // 아직 받은 목록이 없는데 불러오는 중이면(실패 후 다시 불러올 때 포함) 숫자 대신 '불러오는 중'을 보인다.
@@ -374,6 +388,7 @@ export default function Home() {
                 score={c.risk_score}
                 createdAt={c.called_at}
                 divider={i > 0}
+                unheard={isUnheardCall(transcripts, c.id, c.risk_score)}
                 onPress={() => router.push(`/result?id=${c.id}`)}
               />
             ))
@@ -389,7 +404,7 @@ export default function Home() {
           >
             <Icon name="grid" size={14} color={colors.textSecondary} />
             <AppText weight="600" color={colors.textSecondary} style={{ fontSize: 13 }}>
-              수사 지원 대시보드
+              수사 지원 대시보드(관리 코드 필요)
             </AppText>
             <Icon name="chevron-right" size={14} color={colors.textSecondary} />
           </Pressable>

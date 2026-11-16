@@ -12,6 +12,7 @@ import { analyze } from './analyzer';
  * - 흐름: connect → start → call_started → (발화마다) sendMessage → ack/detected
  * - USE_MOCK_WS=true(기본): 앱 내부 목 분석기 사용(백엔드 불필요)
  * - USE_MOCK_WS=false: 실제 WebSocket(ws/wss)로 백엔드 연결
+ * - 앱이 닫지 않았는데 연결이 끝나거나 10초 안에 열리지 않으면 connection_closed를 한 번 보낸다.
  */
 export interface AnalyzeConnection {
   onEvent(cb: (e: AnalysisEvent) => void): void;
@@ -118,16 +119,26 @@ class MockAnalyzeConnection implements AnalyzeConnection {
   }
 }
 
+/** 연결이 열리기를 기다리는 상한. 넘기면 서버에 연결하지 못한 것으로 알린다(멈춘 서버에 매달려 '듣는 중'으로 남지 않게). */
+const CONNECT_TIMEOUT_MS = 10000;
+
 /** 실제 WebSocket 연결 */
 class RealAnalyzeConnection implements AnalyzeConnection {
   private ws: WebSocket;
   private cb: ((e: AnalysisEvent) => void) | null = null;
   private queue: object[] = [];
   private ready = false;
+  private opened = false; // 한 번이라도 열렸는지: 못 열었으면 '연결하지 못함', 열렸다 닫히면 '끊김'
+  private done = false; // 앱이 닫았거나 끊김을 이미 알렸다(그 뒤로는 보내지도 알리지도 않는다)
+  private connectTimer: ReturnType<typeof setTimeout> | null = null;
 
   constructor() {
     this.ws = new WebSocket(`${BASE_URL_WS}${WS_ANALYZE_PATH}`);
+    this.connectTimer = setTimeout(() => this.lost(), CONNECT_TIMEOUT_MS);
     this.ws.onopen = () => {
+      if (this.done) return;
+      this.clearConnectTimer();
+      this.opened = true;
       this.ready = true;
       this.queue.forEach((m) => this.ws.send(JSON.stringify(m)));
       this.queue = [];
@@ -140,12 +151,33 @@ class RealAnalyzeConnection implements AnalyzeConnection {
         this.cb?.({ type: 'error', message: '응답을 해석할 수 없습니다.' });
       }
     };
-    this.ws.onerror = () => {
-      this.cb?.({ type: 'error', message: '서버에 연결할 수 없습니다.' });
-    };
+    // 브라우저는 오류 뒤에 늘 close를 보내지만, 어느 쪽이 먼저 와도 끊김은 한 번만 알린다.
+    this.ws.onerror = () => this.lost();
+    this.ws.onclose = () => this.lost();
+  }
+
+  private clearConnectTimer() {
+    if (this.connectTimer) clearTimeout(this.connectTimer);
+    this.connectTimer = null;
+  }
+
+  /** 앱이 닫지 않았는데 연결이 끝났다(또는 제때 열리지 않았다). 한 번만 알리고 그 뒤로는 아무것도 보내지 않는다. */
+  private lost() {
+    if (this.done) return;
+    this.done = true;
+    this.ready = false;
+    this.queue = [];
+    this.clearConnectTimer();
+    try {
+      this.ws.close();
+    } catch {
+      // ignore
+    }
+    this.cb?.({ type: 'connection_closed', opened: this.opened });
   }
 
   private send(msg: object) {
+    if (this.done) return;
     if (this.ready) this.ws.send(JSON.stringify(msg));
     else this.queue.push(msg);
   }
@@ -186,6 +218,10 @@ class RealAnalyzeConnection implements AnalyzeConnection {
   }
 
   close() {
+    // 앱이 닫는 것이므로 뒤따라 오는 onclose는 끊김으로 알리지 않는다.
+    this.done = true;
+    this.ready = false;
+    this.clearConnectTimer();
     try {
       this.ws.close();
     } catch {

@@ -76,6 +76,21 @@ function floatToWav(float32: Float32Array, sampleRate: number): ArrayBuffer {
   return buffer;
 }
 
+/**
+ * getUserMedia 실패를 원인별 안내로 바꾼다(권한 거부만 있는 것이 아니다).
+ * https가 아닌 주소에서는 브라우저가 마이크 API 자체를 숨기므로 그 경우를 먼저 본다.
+ */
+function micErrorMessage(err: unknown): string {
+  if (typeof window !== 'undefined' && window.isSecureContext === false) {
+    return 'https 주소로 열어야 마이크를 쓸 수 있어요.';
+  }
+  const name = (err as { name?: string } | null)?.name ?? '';
+  if (name === 'NotAllowedError' || name === 'SecurityError') return '브라우저에서 마이크 권한을 허용해 주세요.';
+  if (name === 'NotFoundError' || name === 'OverconstrainedError') return '마이크를 찾지 못했어요. 마이크가 연결돼 있는지 확인해 주세요.';
+  if (name === 'NotReadableError' || name === 'AbortError') return '다른 앱이 마이크를 쓰고 있다면 그 앱을 닫고 다시 시작해 주세요.';
+  return '브라우저 마이크 권한을 확인하고 다시 시작해 주세요.';
+}
+
 /* eslint-disable @typescript-eslint/no-explicit-any */
 class WebAudioCapture implements AudioCaptureService {
   private ctx: AudioContext | null = null;
@@ -113,8 +128,8 @@ class WebAudioCapture implements AudioCaptureService {
           channelCount: 1,
         } as MediaTrackConstraints,
       });
-    } catch {
-      this.errCb?.('마이크 접근에 실패했습니다. 브라우저 마이크 권한을 허용해 주세요.');
+    } catch (err) {
+      this.errCb?.(micErrorMessage(err));
       return;
     }
     if (this.stopped) {
@@ -124,7 +139,7 @@ class WebAudioCapture implements AudioCaptureService {
 
     const Ctx = (window as any).AudioContext || (window as any).webkitAudioContext;
     if (!Ctx) {
-      this.errCb?.('이 브라우저는 오디오 캡처를 지원하지 않습니다. (크롬/엣지 권장)');
+      this.errCb?.('이 브라우저에서는 소리를 받을 수 없어요. 크롬이나 엣지로 열어 주세요.');
       return;
     }
 
@@ -133,7 +148,7 @@ class WebAudioCapture implements AudioCaptureService {
     //    WAV 헤더가 실제 레이트를 기록하므로 폴백해도 백엔드는 정상 해석한다.
     const ok = (await this.setupGraph(Ctx, TARGET_RATE)) || (await this.setupGraph(Ctx, 0));
     if (!ok) {
-      if (!this.stopped) this.errCb?.('오디오 캡처 초기화에 실패했습니다. (크롬/엣지 권장)');
+      if (!this.stopped) this.errCb?.('마이크 소리를 받을 준비를 하지 못했어요. 크롬이나 엣지로 다시 열어 주세요.');
       return;
     }
   }

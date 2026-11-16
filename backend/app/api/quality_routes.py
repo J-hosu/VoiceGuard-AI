@@ -1,7 +1,8 @@
 """탐지 품질·신종 수법·관계 그래프·증거 API (수사·운영 대시보드용).
 
-docs/API_SPEC_V2.md 7·8·10절의 일부를 구현한다. 접속 코드(ACCESS_CODE)가 걸려 있으면 같은 코드로 보호된다.
-n8n은 X-Access-Code 헤더로 POST /knowledge/collect?wait=true 를 부른다.
+docs/API_SPEC_V2.md 7·8·10절의 일부를 구현한다. /quality·/eval·/knowledge·/investigation은 관리 경로라
+ACCESS_CODE와 ADMIN_CODE가 모두 설정돼 있으면 관리 코드가 있어야 열린다(access_gate.py). /calls/{id}/evidence는 참가자 경로다.
+n8n은 X-Admin-Code 헤더로 POST /knowledge/collect?wait=true 를 부른다.
 """
 
 from __future__ import annotations

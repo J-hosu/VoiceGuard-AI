@@ -25,10 +25,11 @@ import { formatDuration } from '@/core/utils/format';
 import { categorizeType } from '@/core/utils/keywords';
 import { type RiskLevel } from '@/core/utils/riskLevel';
 import { USE_MOCK_STT } from '@/core/config/env';
+import { PRIVACY_NOTICE_SHORT } from '@/core/config/privacy';
 import { evidenceBullets } from '@/data/mock/infoContent';
 import { getScenario, type Scenario } from '@/data/mock/mockScenarios';
 import type { AgentAction, LiveChunk, RefinedTranscript, SpeakerSide } from '@/data/models/types';
-import { isProvisional, useCallSession } from '@/hooks/useCallSession';
+import { isProvisional, useCallSession, type HaltReason } from '@/hooks/useCallSession';
 import { useCallStore } from '@/state/callStore';
 import { useDemoStore } from '@/state/demoStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -64,18 +65,30 @@ const ANALYZING_UI: LevelUi = {
   icon: 'activity',
   desc: '대화를 더 듣고 판단하고 있어요.',
 };
-// 서버 연결·마이크 오류로 분석이 멈췄는데 아직 위험 신호가 없던 경우: "정상"으로 보이면 안 된다.
+// 분석이 멈췄는데(연결 끊김·연결 실패·마이크 오류) 아직 위험 신호가 없던 경우: "정상"으로 보이면 안 된다.
 const HALTED_UI: LevelUi = {
   color: '#f6a623',
   text: '분석 중단',
   icon: 'alert-triangle',
   desc: '지금은 위험도를 알 수 없어요.',
 };
-// 분석 자체가 멈추는 오류만 "분석 중단"으로 보여준다: 서버 연결 실패(wsService)와 마이크·오디오 캡처 실패(audioCapture.web).
-// 청크 하나의 전사 실패, 응답 하나의 해석 실패, 후속 답 거부는 서버가 이어서 분석하므로 실시간 표시는 그대로 두고 한 줄 안내만 붙인다.
-// useCallSession은 오류를 지우지 않고 마지막 문구만 남기므로 문구 앞부분으로 구분한다(위 파일들의 문구가 바뀌면 함께 바꾼다).
-const FATAL_ERROR_PREFIXES = ['서버에 연결할 수 없', '마이크 접근에 실패', '이 브라우저는 오디오 캡처', '오디오 캡처 초기화'];
-const isFatalError = (message: string | null) => !!message && FATAL_ERROR_PREFIXES.some((p) => message.startsWith(p));
+// 연결은 살아 있는데 조각 전사가 연달아 실패하는 중(stalled). 다음 조각이 받아 적히면 풀리므로 '중단'이라고 하지 않는다.
+const STALLED_UI: LevelUi = {
+  color: '#f6a623',
+  text: '잠시 멈춤',
+  icon: 'alert-triangle',
+  desc: '말을 받아 적지 못해 지금은 위험도를 알 수 없어요.',
+};
+// 분석이 멈춘 이유별 안내(화면 위쪽 카드). 마이크 오류는 원인별 문구(state.error)를 설명으로 쓴다.
+// 조각 하나의 전사 실패, 후속 답 거부처럼 서버가 이어서 분석하는 오류는 이 카드 없이 위험도 카드 아래 한 줄로만 알린다.
+const HALT_UI: Record<HaltReason, { title: string; desc: string }> = {
+  connect_failed: {
+    title: '서버에 연결하지 못했어요',
+    desc: '인터넷 연결을 확인하고, 그래도 안 되면 페이지를 새로 고친 뒤 다시 시작해 주세요.',
+  },
+  disconnected: { title: '연결이 끊겼어요', desc: '분석을 멈췄어요. 다시 시작하거나 분석을 끝내 주세요.' },
+  mic: { title: '마이크를 쓸 수 없어요', desc: '' },
+};
 
 // 화면 공통 표면 값 (간격 4/8/12/16/24, 카드 모서리 16)
 const SCREEN_BG = '#05070d';
@@ -138,7 +151,7 @@ export default function Realtime() {
     }, 150);
   };
 
-  const { state, start, finish, answerFollowup } = useCallSession(scenario, {
+  const { state, start, restart, finish, answerFollowup } = useCallSession(scenario, {
     onAction: (action: AgentAction) => {
       if (finishingRef.current) return;
       // 후속 확인은 화면에 뜨는 시점(due_in_sec 뒤)에 따로 알린다.
@@ -165,20 +178,31 @@ export default function Realtime() {
   // 발표용 넓은 화면의 분석 패널에 지금 통화를 알려준다.
   const setDemoCall = useDemoStore((s) => s.setCall);
   useEffect(() => {
-    if (state.logId > 0) setDemoCall(state.logId, state.running);
-  }, [state.logId, state.running, setDemoCall]);
+    if (state.logId > 0) setDemoCall(state.logId, state.running, state.halt !== null);
+  }, [state.logId, state.running, state.halt, setDemoCall]);
 
   const beginAnalysis = () => {
     setStarted(true);
     start();
   };
 
-  // 분석이 멈추는 오류(fatal)가 나도 이미 주의·위험이었다면 그 판단은 그대로 보여주고, 정상이던 경우만 "분석 중단"으로 바꾼다.
-  // 그 밖의 오류는 분석이 이어지므로 등급·실시간 표시를 그대로 두고 위험도 카드 아래에 한 줄로만 알린다.
-  const fatal = isFatalError(state.error);
-  const halted = fatal && state.level === 'safe';
-  const analyzing = !halted && state.level === 'safe' && state.score >= ANALYZING_FROM;
-  const ui = halted ? HALTED_UI : analyzing ? ANALYZING_UI : LEVEL_UI[state.level];
+  // 분석이 멈췄거나(halt) 전사가 연달아 실패하는 중이면(stalled) 말을 받아 적지 못하므로 '듣는 중'·'실시간'을 보이지 않는다.
+  // 이미 주의·위험이었다면 그 판단은 그대로 보여주고, 정상이던 경우만 "분석 중단"(halt) 또는 "잠시 멈춤"(stalled)으로 바꾼다.
+  // 그 밖의 오류(조각 하나의 전사 실패 등)는 분석이 이어지므로 등급·실시간 표시를 그대로 두고 위험도 카드 아래에 한 줄로만 알린다.
+  const halted = state.halt !== null;
+  const stalled = !halted && state.stalled;
+  const blocked = halted || stalled;
+  const unknownRisk = blocked && state.level === 'safe';
+  const analyzing = !unknownRisk && state.level === 'safe' && state.score >= ANALYZING_FROM;
+  const ui = unknownRisk ? (halted ? HALTED_UI : STALLED_UI) : analyzing ? ANALYZING_UI : LEVEL_UI[state.level];
+  const haltUi = state.halt ? HALT_UI[state.halt] : null;
+  const haltDesc = state.halt === 'mic' ? (state.error ?? '') : (haltUi?.desc ?? '');
+  // 아직 아무 말도 받지 못했을 때의 안내
+  const waitingText = halted
+    ? '분석이 멈춰 말소리를 받지 못하고 있어요.'
+    : stalled
+      ? '말을 받아 적지 못하고 있어요.'
+      : '말소리를 듣고 있어요…';
   const score100 = Math.round(state.score * 100);
   const keywords = Array.from(new Set(state.turns.flatMap((t) => t.keywords ?? [])));
   const recentSet = new Set(state.turns.slice(-2).flatMap((t) => t.keywords ?? []));
@@ -247,12 +271,21 @@ export default function Realtime() {
     else router.replace('/');
   };
 
+  // 분석이 멈춘 뒤 '다시 시작': 지난 통화에서 받은 대화는 이 기기에 남기고(히스토리·결과용) 처음부터 다시 듣는다.
+  const retry = () => {
+    if (finishingRef.current) return;
+    if (state.logId) saveTranscript(state.logId, state.turns);
+    restart();
+  };
+
   const hasActions = Boolean(activeFollowup) || actionCards.length > 0;
-  const calm = state.level === 'safe' && !fatal;
-  // 마이크 오브는 아직 아무 일도 없을 때만 보인다. 위험 신호가 나오면 그 자리를 위험도·대응 카드에 내준다.
-  const showOrb = state.level === 'safe' && !hasActions;
+  const calm = state.level === 'safe' && !blocked;
+  // 마이크 오브는 듣고 있는데 아직 아무 일도 없을 때만 보인다. 위험 신호가 나오면 위험도·대응 카드에,
+  // 분석이 멈추면 멈춘 이유 카드에 자리를 내준다(받아 적지 못하는데 '듣는 중'으로 보이지 않게).
+  const showOrb = state.level === 'safe' && !hasActions && !blocked;
   // 오류 안내는 등급 설명을 대신하지 않고 따로 붙인다(주의·위험일 때 "개인정보는 알려 주지 마세요" 같은 안내가 사라지지 않게).
-  const errorNotice = state.error ? `연결 오류: ${state.error}` : '';
+  // 분석이 멈춘 경우는 위쪽 카드가 알린다. 문구는 useCallSession이 사용자용 문장으로 정한다(서버 오류 원문은 보이지 않는다).
+  const errorNotice = halted ? '' : (state.error ?? '');
 
   return (
     <View style={{ flex: 1, backgroundColor: SCREEN_BG }}>
@@ -291,7 +324,7 @@ export default function Realtime() {
                 backgroundColor: 'rgba(255,255,255,0.06)',
               }}
             >
-              <BlinkDot size={6} color={fatal ? '#f6a623' : '#34d399'} />
+              <BlinkDot size={6} color={blocked ? '#f6a623' : '#34d399'} />
               <AppText weight="600" color="#cdd4e0" style={{ fontSize: 13, fontVariant: ['tabular-nums'] }}>
                 {formatDuration(state.elapsedSec)}
               </AppText>
@@ -307,20 +340,60 @@ export default function Realtime() {
           {/* 마이크 오브: 듣고 있음을 알린다. 위험해지면 사라져 위험도·대응 카드가 첫 화면에 들어온다 */}
           {showOrb ? (
             <View style={{ marginBottom: 8 }}>
-              <MicOrb color={fatal ? TEXT_DIM : ui.color} label={fatal ? '연결 끊김' : '듣는 중'} compact />
+              <MicOrb color={ui.color} label="듣는 중" compact />
+            </View>
+          ) : null}
+
+          {/* 분석이 멈춘 이유와 할 일: 처음부터 다시 듣거나 분석을 끝낸다(자동으로 다시 연결하지는 않는다) */}
+          {haltUi ? (
+            <View
+              style={{
+                borderWidth: 1,
+                borderColor: rgba('#f6a623', 0.4),
+                borderRadius: 16,
+                backgroundColor: rgba('#f6a623', 0.08),
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                <Icon name="alert-triangle" size={20} color="#f6a623" />
+                <AppText weight="800" color={TEXT_TITLE} style={[{ flex: 1, fontSize: 17, lineHeight: 24 }, keepAll]}>
+                  {haltUi.title}
+                </AppText>
+              </View>
+              {haltDesc ? (
+                <AppText color={TEXT_BODY} style={[{ fontSize: 14, lineHeight: 21, marginTop: 6 }, keepAll]}>
+                  {haltDesc}
+                </AppText>
+              ) : null}
+              <View style={{ flexDirection: 'row', gap: 8, marginTop: 12 }}>
+                <ActionButton onPress={retry}>
+                  <AppText weight="700" color="#dfe4ee" style={{ fontSize: 15, textAlign: 'center', flexShrink: 1 }}>
+                    다시 시작
+                  </AppText>
+                </ActionButton>
+                <ActionButton primary onPress={() => endSession()}>
+                  <StopGlyph size={18} color="#FFFFFF" />
+                  <AppText weight="800" color="#FFFFFF" style={{ fontSize: 15, textAlign: 'center', flexShrink: 1 }}>
+                    분석 종료
+                  </AppText>
+                </ActionButton>
+              </View>
             </View>
           ) : null}
 
           {/* 위험도 카드: 정상일 땐 차분한 중립 카드, 주의·위험이면 등급 색 테두리.
               가장 진한 칸은 아래의 "지금 할 일" 카드에 양보한다. 등급이 바뀌면 화면낭독기가 읽어 준다. */}
-          <PulseOnChange trigger={halted ? 'halted' : analyzing ? 'analyzing' : state.level}>
-            {/* 등급이 바뀔 때만 화면낭독기가 읽도록 등급 문구만 담은 숨은 live 영역(점수는 넣지 않는다) */}
+          <PulseOnChange trigger={unknownRisk ? 'halted' : analyzing ? 'analyzing' : state.level}>
+            {/* 등급이 바뀔 때만 화면낭독기가 읽도록 등급 문구만 담은 숨은 live 영역(점수는 넣지 않는다).
+                분석이 멈추거나 전사가 멈추면 그 사실도 함께 읽는다. */}
             <AppText aria-live="polite" style={SR_ONLY}>
-              {`${ui.text}. ${ui.desc}`}
+              {`${ui.text}. ${ui.desc}${haltUi ? ` ${haltUi.title}.` : stalled && state.error ? ` ${state.error}` : ''}`}
             </AppText>
             <View
               accessible
-              accessibilityLabel={`보이스피싱 위험도 ${halted ? '알 수 없음' : `${score100}%`}, ${ui.text}. ${ui.desc}${errorNotice ? `\n${errorNotice}` : ''}`}
+              accessibilityLabel={`보이스피싱 위험도 ${unknownRisk ? '알 수 없음' : `${score100}%`}, ${ui.text}. ${ui.desc}${errorNotice ? `\n${errorNotice}` : ''}`}
               style={{
                 borderWidth: 1,
                 borderColor: calm ? CARD_BORDER : rgba(ui.color, 0.4),
@@ -331,7 +404,7 @@ export default function Realtime() {
               }}
             >
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                <ScoreGauge score={halted ? null : score100} color={halted ? TEXT_DIM : ui.color} />
+                <ScoreGauge score={unknownRisk ? null : score100} color={unknownRisk ? TEXT_DIM : ui.color} />
                 <View style={{ flex: 1, minWidth: 0 }}>
                   <AppText weight="600" color={TEXT_DIM} style={{ fontSize: 13, lineHeight: 18 }}>
                     보이스피싱 위험도
@@ -347,7 +420,7 @@ export default function Realtime() {
                   </AppText>
                 </View>
               </View>
-              {/* 오류 한 줄 안내: 분석이 멈춘 오류면 주황 경고 아이콘, 이어서 분석되는 오류면 흐린 안내 아이콘 */}
+              {/* 오류 한 줄 안내: 전사가 멈췄으면 주황 경고 아이콘, 이어서 분석되는 오류면 흐린 안내 아이콘 */}
               {errorNotice ? (
                 <View
                   style={{
@@ -361,7 +434,7 @@ export default function Realtime() {
                   }}
                 >
                   <View style={{ marginTop: 1 }}>
-                    <Icon name={fatal ? 'alert-triangle' : 'info'} size={16} color={fatal ? '#f6a623' : TEXT_DIM} />
+                    <Icon name={stalled ? 'alert-triangle' : 'info'} size={16} color={stalled ? '#f6a623' : TEXT_DIM} />
                   </View>
                   <AppText color={TEXT_DIM} numberOfLines={2} style={[{ flex: 1, fontSize: 13, lineHeight: 18 }, keepAll]}>
                     {errorNotice}
@@ -452,7 +525,7 @@ export default function Realtime() {
                   {state.refined ? '대화 내용' : '방금 들린 말'}
                 </AppText>
               </View>
-              {!fatal ? (
+              {!blocked ? (
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <BlinkDot size={6} color="#ef4444" period={1300} />
                   <AppText weight="700" color="#f87171" style={{ fontSize: 12, lineHeight: 16 }}>
@@ -462,7 +535,7 @@ export default function Realtime() {
               ) : null}
             </View>
             {state.refined ? (
-              <Conversation refined={state.refined} live={state.liveChunks} fatal={fatal} />
+              <Conversation refined={state.refined} live={state.liveChunks} blocked={blocked} waitingText={waitingText} />
             ) : liveText ? (
               <HighlightedText
                 text={liveText}
@@ -474,7 +547,7 @@ export default function Realtime() {
               />
             ) : (
               <AppText color={TEXT_DIM} style={{ fontSize: 14, lineHeight: 22 }}>
-                {fatal ? '분석이 멈춰 말소리를 받지 못하고 있어요.' : '말소리를 듣고 있어요…'}
+                {waitingText}
               </AppText>
             )}
             {keywords.length > 0 ? (
@@ -533,12 +606,14 @@ export default function Realtime() {
                       width: 6,
                       height: 6,
                       borderRadius: 3,
-                      backgroundColor: fatal ? '#f6a623' : state.level !== 'safe' || analyzing ? ui.color : '#34d399',
+                      backgroundColor: blocked ? '#f6a623' : state.level !== 'safe' || analyzing ? ui.color : '#34d399',
                     }}
                   />
                   <AppText color={TEXT_BODY} style={[{ fontSize: 14, lineHeight: 20, flex: 1 }, keepAll]}>
-                    {fatal
+                    {halted
                       ? '분석이 멈춰 위험 신호를 확인할 수 없어요.'
+                      : stalled
+                        ? '말을 받아 적지 못해 위험 신호를 확인하지 못하고 있어요.'
                       : state.level !== 'safe'
                         ? '근거를 정리하고 있어요.'
                         : analyzing
@@ -644,6 +719,13 @@ export default function Realtime() {
                   분석 시작
                 </AppText>
               </Pressable>
+              {/* 음성·대화가 어디로 가는지 한 줄 요약(전체 문장은 설정 화면 '개인정보 처리') */}
+              <AppText
+                color={TEXT_DIM}
+                style={[{ fontSize: 12.5, lineHeight: 19, textAlign: 'center', marginTop: 16, maxWidth: 320 }, balanced]}
+              >
+                {PRIVACY_NOTICE_SHORT}
+              </AppText>
             </View>
           </SafeAreaView>
         </View>
@@ -726,20 +808,30 @@ const BUBBLE_UI: Record<SpeakerSide, { align: 'flex-start' | 'flex-end' | 'cente
   unknown: { align: 'center', bg: 'transparent', border: 'rgba(255,255,255,0.16)', text: TEXT_BODY },
 };
 
-function Conversation({ refined, live, fatal }: { refined: RefinedTranscript; live: LiveChunk[]; fatal: boolean }) {
+function Conversation({
+  refined,
+  live,
+  blocked,
+  waitingText,
+}: {
+  refined: RefinedTranscript;
+  live: LiveChunk[];
+  blocked: boolean; // 분석이나 전사가 멈춰 지금은 받아 적지 못한다
+  waitingText: string; // 아직 아무 말도 없을 때의 안내
+}) {
   const [showAll, setShowAll] = useState(false);
   const hiddenCount = showAll ? 0 : Math.max(0, refined.turns.length - RECENT_REFINED);
   const shown = refined.turns.slice(hiddenCount);
   const provisional = live.filter((c) => isProvisional(c, refined.until));
   const provisionalText = provisional.map((c) => c.text).join(' ');
   const provisionalKeywords = Array.from(new Set(provisional.flatMap((c) => c.keywords)));
-  // 분석이 멈추면 더 받아 적지 않으므로 '받아 적는 중'이라고 하지 않는다.
-  const provisionalLabel = fatal ? '정리되지 않은 말' : '받아 적는 중';
+  // 분석이나 전사가 멈추면 더 받아 적지 않으므로 '받아 적는 중'이라고 하지 않는다.
+  const provisionalLabel = blocked ? '정리되지 않은 말' : '받아 적는 중';
 
   if (shown.length === 0 && !provisionalText) {
     return (
       <AppText color={TEXT_DIM} style={{ fontSize: 14, lineHeight: 22 }}>
-        {fatal ? '분석이 멈춰 말소리를 받지 못하고 있어요.' : '말소리를 듣고 있어요…'}
+        {waitingText}
       </AppText>
     );
   }
@@ -824,7 +916,7 @@ function Conversation({ refined, live, fatal }: { refined: RefinedTranscript; li
           }}
         >
           <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
-            {fatal ? null : <BlinkDot size={6} color="#8ab4ff" period={1300} />}
+            {blocked ? null : <BlinkDot size={6} color="#8ab4ff" period={1300} />}
             <AppText weight="700" color={TEXT_DIM} style={{ fontSize: 12, lineHeight: 16 }}>
               {provisionalLabel}
             </AppText>

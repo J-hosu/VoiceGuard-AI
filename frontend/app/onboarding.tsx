@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Platform, Switch, View } from 'react-native';
+import { Platform, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
@@ -8,6 +8,7 @@ import { Button } from '@/components/Button';
 import { Icon, type IconName } from '@/components/Icon';
 import { IconCircle } from '@/components/IconCircle';
 import { InfoBanner } from '@/components/InfoBanner';
+import { PRIVACY_NOTICE } from '@/core/config/privacy';
 import { useTheme } from '@/core/theme/theme';
 import { useAppStore } from '@/state/appStore';
 
@@ -106,54 +107,55 @@ export default function Onboarding() {
         </View>
       </SafeAreaView>
 
+      {/* 웹은 페이지 스크롤을 막아 두므로(body overflow hidden), 작은 화면에서도 시작 버튼이 잘리지 않게
+          안내는 스크롤 영역에 넣고 버튼은 아래에 고정한다. */}
       <View
         style={{
           flex: 1,
           backgroundColor: colors.bg,
           borderTopLeftRadius: 26,
           borderTopRightRadius: 26,
-          padding: 22,
+          overflow: 'hidden',
         }}
       >
-        <AppText weight="700" color={colors.textSecondary} style={{ fontSize: 14, marginBottom: 12 }}>
-          시작하려면 아래 권한이 필요해요
-        </AppText>
-        <View style={{ gap: 12 }}>
-          <PermRow
-            icon="mic"
-            iconColor={colors.primary}
-            iconBg={colors.primaryFaint}
-            title="마이크 권한"
-            desc="통화 음성을 분석합니다"
-            value={mic}
-            onChange={setMic}
-            cardBg={colors.card}
-            textColor={colors.text}
-            subColor={colors.textMuted}
-          />
-          <PermRow
-            icon="bell"
-            iconColor={colors.warningText}
-            iconBg={colors.warningFaint}
-            title="알림 권한"
-            desc="위험 감지 시 즉시 경고합니다"
-            value={noti}
-            onChange={setNoti}
-            cardBg={colors.card}
-            textColor={colors.text}
-            subColor={colors.textMuted}
-          />
-        </View>
-        <View style={{ marginTop: 16 }}>
-          <InfoBanner
-            icon="lock"
-            text="음성은 분석 목적으로만 사용되며 기기와 서버에 안전하게 처리됩니다."
-          />
-        </View>
+        <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 22, paddingBottom: 12 }} showsVerticalScrollIndicator={false}>
+          <AppText weight="700" color={colors.textSecondary} style={{ fontSize: 14, marginBottom: 12 }}>
+            시작하려면 아래 권한이 필요해요
+          </AppText>
+          <View style={{ gap: 12 }}>
+            <PermRow
+              icon="mic"
+              iconColor={colors.primary}
+              iconBg={colors.primaryFaint}
+              title="마이크 권한"
+              desc="통화 음성을 분석합니다"
+              value={mic}
+              onChange={setMic}
+              cardBg={colors.card}
+              textColor={colors.text}
+              subColor={colors.textMuted}
+            />
+            <PermRow
+              icon="bell"
+              iconColor={colors.warningText}
+              iconBg={colors.warningFaint}
+              title="알림 권한"
+              desc="위험 감지 시 즉시 경고합니다"
+              value={noti}
+              onChange={setNoti}
+              cardBg={colors.card}
+              textColor={colors.text}
+              subColor={colors.textMuted}
+            />
+          </View>
+          <View style={{ marginTop: 16 }}>
+            <InfoBanner icon="lock" text={PRIVACY_NOTICE} />
+          </View>
+        </ScrollView>
 
-        <View style={{ flex: 1 }} />
-        <Button title="권한 허용하고 시작하기" onPress={onStart} style={{ minHeight: 56 }} />
-        <View style={{ height: 16 }} />
+        <SafeAreaView edges={['bottom']} style={{ paddingHorizontal: 22, paddingTop: 8, paddingBottom: 16 }}>
+          <Button title="권한 허용하고 시작하기" onPress={onStart} style={{ minHeight: 56 }} />
+        </SafeAreaView>
       </View>
     </View>
   );

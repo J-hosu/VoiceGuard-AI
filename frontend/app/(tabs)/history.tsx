@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
@@ -10,6 +10,7 @@ import { riskColorText, riskColorFaint, riskLevelFromScore, type RiskLevel } fro
 import { callSource } from '@/data/services/callsApi';
 import { useCallStore } from '@/state/callStore';
 import { useSettingsStore } from '@/state/settingsStore';
+import { isUnheardCall, useTranscriptStore } from '@/state/transcriptStore';
 
 type Filter = 'all' | RiskLevel;
 
@@ -22,6 +23,12 @@ export default function History() {
   const fetchCalls = useCallStore((s) => s.fetchCalls);
   const dangerThreshold = useSettingsStore((s) => s.dangerThreshold);
   const [filter, setFilter] = useState<Filter>('all');
+  // 이 기기에서 끝낸 통화 중 받아 적은 말이 없던 통화를 가리려고 로컬 전사 기록을 불러온다.
+  const transcripts = useTranscriptStore((s) => s.byLog);
+  const hydrateTranscripts = useTranscriptStore((s) => s.hydrate);
+  useEffect(() => {
+    void hydrateTranscripts();
+  }, [hydrateTranscripts]);
 
   // 탭에 진입할 때마다 백엔드에서 최신 히스토리를 다시 받아온다.
   useFocusEffect(
@@ -33,13 +40,15 @@ export default function History() {
   const withLevel = calls.map((c) => ({
     c,
     level: riskLevelFromScore(c.risk_score, dangerThreshold),
+    unheard: isUnheardCall(transcripts, c.id, c.risk_score),
   }));
+  // 받아 적은 말이 없던 통화는 판단하지 않았으므로 '정상'으로 세지 않는다(전체 보기에만 보인다).
   const counts = {
     danger: withLevel.filter((x) => x.level === 'danger').length,
     warning: withLevel.filter((x) => x.level === 'warning').length,
-    safe: withLevel.filter((x) => x.level === 'safe').length,
+    safe: withLevel.filter((x) => x.level === 'safe' && !x.unheard).length,
   };
-  const shown = withLevel.filter((x) => filter === 'all' || x.level === filter);
+  const shown = withLevel.filter((x) => filter === 'all' || (x.level === filter && !x.unheard));
 
   const boxes: { key: RiskLevel; label: string; count: number }[] = [
     { key: 'danger', label: '위험', count: counts.danger },
@@ -123,13 +132,14 @@ export default function History() {
               </AppText>
             </Card>
           ) : (
-            shown.map(({ c }) => (
+            shown.map(({ c, unheard }) => (
               <CallCard
                 key={c.id}
                 category={c.phishing_type || '분석 결과'}
                 score={c.risk_score}
                 source={callSource(c.file_type)}
                 createdAt={c.called_at}
+                unheard={unheard}
                 onPress={() => router.push(`/result?id=${c.id}`)}
               />
             ))

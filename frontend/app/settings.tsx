@@ -3,6 +3,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/AppText';
 import { Card } from '@/components/Card';
 import { ScreenHeader } from '@/components/ScreenHeader';
+import { PRIVACY_NOTICE, PRIVACY_NOTICE_CHECKS } from '@/core/config/privacy';
 import { useTheme } from '@/core/theme/theme';
 import { toPercent } from '@/core/utils/riskLevel';
 import { useCallStore } from '@/state/callStore';
@@ -147,10 +148,13 @@ export default function Settings() {
                 </AppText>
               </View>
               <View style={{ height: 1, backgroundColor: colors.border }} />
-              <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
-                <AppText style={{ fontSize: 14 }}>개인정보 처리방침</AppText>
-                <AppText color={colors.textMuted} style={{ fontSize: 14 }}>
-                  기기 내 처리
+              <View style={{ gap: 6 }}>
+                <AppText style={{ fontSize: 14 }}>개인정보 처리</AppText>
+                <AppText color={colors.textMuted} style={{ fontSize: 12.5, lineHeight: 19 }}>
+                  {PRIVACY_NOTICE}
+                </AppText>
+                <AppText color={colors.textMuted} style={{ fontSize: 12.5, lineHeight: 19 }}>
+                  {PRIVACY_NOTICE_CHECKS}
                 </AppText>
               </View>
             </Card>

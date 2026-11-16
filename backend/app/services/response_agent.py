@@ -308,9 +308,8 @@ def _eligible_actions(log_id: int, state: dict, detection: dict) -> list[str]:
             candidates.append("verify_guide")
 
     if risk_level == "high" and (compliance in ("complying", "completed") or stage >= 6):
-        device_id = get_call_log(log_id).device_id
-        has_channel = state_repository.count_active_guardians(device_id) > 0 or webhook_emitter.is_configured()
-        if has_channel and not _has_action(existing, "guardian_alert"):
+        # 알림은 n8n 웹훅으로만 나간다(webhook_emitter.emit). 웹훅이 없으면 아무것도 보내지 않으므로 카드도 만들지 않는다.
+        if webhook_emitter.is_configured() and not _has_action(existing, "guardian_alert"):
             candidates.append("guardian_alert")
 
     if compliance == "completed" and risk_level in ("medium", "high") and not _has_action(existing, "block_guide"):
@@ -366,11 +365,17 @@ def _build_action(
         return {**_text_fields(text), "payload": {"questions": questions}}
 
     if action_type == "guardian_alert":
+        # 이 카드를 저장한 직후 decide()가 n8n으로 보낸다(별도 스레드, 결과는 webhook_events에만 남음).
+        # 카드를 만드는 순간에는 전송 결과를 모르고, n8n이 보호자에게 전달했는지는 백엔드가 알 수 없어 조건을 붙인다.
         device_id = get_call_log(log_id).device_id
+        if state["compliance"] in ("complying", "completed"):
+            reason = "위험도가 높고 상대의 요구를 따르는 정황이 있습니다."
+        else:
+            reason = f"위험도가 높고 {STAGE_LABELS[state['stage']]} 단계에 이르렀습니다."
         return {
-            "title": "보호자에게 알렸습니다",
-            "message": "등록된 보호자에게 지금 통화가 위험할 수 있다고 알렸습니다.",
-            "reason": "위험도가 높고 상대의 요구를 따르는 정황이 있습니다.",
+            "title": "보호자 알림을 요청했습니다",
+            "message": "보호자 알림 채널이 연결돼 있으면 보호자에게 지금 통화가 위험할 수 있다는 알림이 갑니다. 보호자가 받았는지는 앱에서 확인할 수 없습니다.",
+            "reason": reason,
             "payload": {"guardian_count": state_repository.count_active_guardians(device_id)},
         }
 

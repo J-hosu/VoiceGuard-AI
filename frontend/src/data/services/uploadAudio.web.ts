@@ -11,20 +11,29 @@ import { BASE_URL_HTTP } from '@/core/config/env';
 import {
   ANALYZE_AUDIO_URL,
   guessMime,
-  parseAnalyzeResponse,
+  postForAnalysis,
   type AudioAnalysisResult,
   type PickedAudio,
 } from './uploadAudio.shared';
 
 export type { AudioAnalysisResult, AudioSegment, PickedAudio } from './uploadAudio.shared';
 
+/**
+ * 통화 후 전체 녹음을 올려 다시 받아 적을 때 기다리는 상한. 넘기면 실시간으로 받은 전사로 결과를 낸다.
+ * 인터넷이 끊긴 채로 요청이 매달려 '분석 마무리 중'에서 멈추지 않게 한다(Cloudflare도 100초에 요청을 끊는다).
+ */
+const SESSION_UPLOAD_TIMEOUT_MS = 100000;
+
 export async function analyzeAudioFile(file: PickedAudio): Promise<AudioAnalysisResult> {
   // 선택한 파일의 uri를 실제 바이너리(Blob)로 로드한다.
-  const srcRes = await fetch(file.uri);
-  if (!srcRes.ok) {
+  let blob: Blob;
+  try {
+    const srcRes = await fetch(file.uri);
+    if (!srcRes.ok) throw new Error(String(srcRes.status));
+    blob = await srcRes.blob();
+  } catch {
     throw new Error('선택한 파일을 읽을 수 없습니다. 다시 선택해 주세요.');
   }
-  const blob = await srcRes.blob();
   const type = file.mime || blob.type || guessMime(file.name);
   const uploadFile = new File([blob], file.name, { type });
 
@@ -32,11 +41,7 @@ export async function analyzeAudioFile(file: PickedAudio): Promise<AudioAnalysis
   form.append('file', uploadFile);
   form.append('device_id', String(getDeviceId()));
 
-  const res = await fetch(ANALYZE_AUDIO_URL, {
-    method: 'POST',
-    body: form,
-  });
-  return parseAnalyzeResponse(res);
+  return postForAnalysis(ANALYZE_AUDIO_URL, form);
 }
 
 /**
@@ -49,11 +54,7 @@ export async function analyzeSessionAudio(audio: Blob): Promise<AudioAnalysisRes
   form.append('file', uploadFile);
   form.append('device_id', String(getDeviceId()));
 
-  const res = await fetch(ANALYZE_AUDIO_URL, {
-    method: 'POST',
-    body: form,
-  });
-  return parseAnalyzeResponse(res);
+  return postForAnalysis(ANALYZE_AUDIO_URL, form, SESSION_UPLOAD_TIMEOUT_MS);
 }
 
 /**
@@ -65,9 +66,5 @@ export async function retranscribeSessionAudio(logId: number, audio: Blob): Prom
   const form = new FormData();
   form.append('file', uploadFile);
 
-  const res = await fetch(`${BASE_URL_HTTP}/calls/${logId}/retranscribe-audio`, {
-    method: 'POST',
-    body: form,
-  });
-  return parseAnalyzeResponse(res);
+  return postForAnalysis(`${BASE_URL_HTTP}/calls/${logId}/retranscribe-audio`, form, SESSION_UPLOAD_TIMEOUT_MS);
 }
