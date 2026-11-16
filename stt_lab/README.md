@@ -18,7 +18,7 @@ GPU 서버의 `~/voiceguard_ft/` 아래에서 돌렸습니다(`scripts/`에 이 
 | 8 | `compare.py` | 비교표, 쌍대 부트스트랩 95% 구간, 숫자 표기·녹음 세션 묶음별 결과 |
 | — | `diar_simple.py`, `diar_eval.py`, `spk_check.py`, `diar_lda.py` | 로컬 화자 분리 평가(통화 후 / 실시간), 목소리 특징 점검, LDA 학습 시험 |
 | 9 | `robust_nonspeech.py`, `run_robust.sh` | 서비스에 넣어도 되는지 점검: 말 없는 구간에서 글을 지어내는지, 받아 적은 정상·사기 통화로 분류기 결과가 유지되는지 |
-| 10 | `run_cpu_eval.sh` (`eval_asr.py` `PROFILE=cpu`) | 노트북 서비스 설정(CPU int8, beam 1)으로 같은 시험 녹음의 CER |
+| 10 | `run_cpu_eval.sh` (`eval_asr.py` `PROFILE=cpu`) | GPU 없을 때의 서비스 설정(CPU int8, beam 1)으로 같은 시험 녹음의 CER |
 | 11 | `cpu_latency_local.py` | 이 PC에서 서비스 전사 경로(`mp3_json.transcribe_audio`)의 조각당·파일당 시간 |
 | — | `refine_sim.py` | 통화 중 다시 받아 적기(최근 20초는 실시간, 지난 구간은 화자 분리와 함께 재전사) 시뮬레이션: 리턴제로 / 로컬 |
 | — | `fss_prepare.py` | 금감원 공개 사기 녹취를 16 kHz FLAC으로 바꿔 받아 적기 목록 작성(분류기 v4 데이터용) |

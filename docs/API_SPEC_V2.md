@@ -1,11 +1,11 @@
 # API 명세 v2 — 능동형 대응 루프 · 수사 지원
 
-> 상태: P1~P5 대부분 구현 (아래 '구현 현황' 참고) · 작성일 2026-11-14 · 갱신 2026-11-15
+> 상태: P1~P5 대부분 구현 (아래 '구현 현황' 참고) · 작성일 2026-11-14 · 갱신 2026-11-16
 > 기존 명세 [API_SPEC.md](API_SPEC.md)(v1)는 그대로 유효하다. v2는 **추가만** 하며 v1의 요청·응답 필드를 바꾸거나 지우지 않는다.
 
 ## 구현 현황 (2026-11-15)
 
-설계(아래 절)와 실제 구현이 다른 곳은 여기를 따른다. 모든 API는 접속 코드(`ACCESS_CODE`)가 설정되어 있으면 쿠키·`X-Access-Code` 헤더·`?code=` 중 하나가 맞아야 통과한다(관리 키·연동 키는 따로 두지 않았다).
+설계(아래 절)와 실제 구현이 다른 곳은 여기를 따른다. 모든 API는 접속 코드(`ACCESS_CODE`)가 설정되어 있으면 쿠키(`vg_access`)·`X-Access-Code` 헤더·`?code=` 중 하나가 맞아야 통과한다. 관리 코드(`ADMIN_CODE`)도 설정하면 관리 경로(`/dashboard`, `/investigation/*`, `/quality/*`, `/eval/*`, `/knowledge/*`, `/training-cases*`, `/docs`, `/redoc`, `/openapi.json`)는 접속 코드만으로는 열리지 않고 쿠키(`vg_admin`)나 `X-Admin-Code` 헤더가 맞아야 한다(관리 코드는 주소 쿼리로 받지 않는다). 관리 코드로는 참가자 경로도 쓸 수 있다. 참가자 경로(`/calls*`, WebSocket, `/analyze/*`, `/health`, 웹 앱)는 접속 코드만으로 동작한다. `ADMIN_CODE`가 비어 있으면 예전처럼 접속 코드 하나로 관리 경로까지 열리고(API 문서는 꺼짐) 서버 시작 때 경고를 남긴다. 틀린 관리 코드 제출은 접속 IP마다 1분에 10번까지 받고, 넘으면 `429`를 돌려준다. 참가자 접속 코드는 횟수를 세지 않고, 쿠키가 맞는 요청은 막지 않는다. 연동 키(`INTEGRATION_API_KEY`)·`X-API-Key` 방식은 구현하지 않았다.
 
 | 영역 | 구현된 API | 비고 |
 | --- | --- | --- |
@@ -17,7 +17,7 @@
 | 관계 그래프 | `GET /investigation/graph?min_risk=0.5&limit=80` | 사건(통화)–단서(계좌·번호·주소·사건번호·사칭 기관) 노드와 간선. 설계의 `log_id`·`depth`는 없음 |
 | 품질 루프 | `GET /quality/summary`, `GET /quality/retrain-candidates`, `POST /eval/run`, `GET /eval/runs` | 사용자 확인과 시스템 판정 비교, 학습 데이터 형식 내보내기, 회귀 평가(별도 프로세스·별도 DB)를 `eval_runs`에 기록 |
 | 신종 수법 | `POST /knowledge/collect?wait=`, `GET /knowledge/status`, `GET /knowledge/cards?status=`, `POST /knowledge/cards/{id}/review` | 공식 출처 수집(`services/official_sources.py`) → Claude가 카드로 정리 → 사람이 승인하면 상태 추적기 프롬프트에 반영하고 회귀 평가를 돌림. `/knowledge/candidates`·`/rules`는 없음 |
-| n8n | `n8n/voiceguard_knowledge_collect.json` | 매일 09:00 `POST /knowledge/collect?wait=true`, 새 카드가 있으면 Slack으로 검토 요청(Slack 노드는 꺼 둠) |
+| n8n | `n8n/voiceguard_knowledge_collect.json` | 매일 09:00 `POST /knowledge/collect?wait=true`(헤더 `X-Admin-Code`), 새 카드가 있으면 Slack으로 검토 요청(Slack 노드는 꺼 둠) |
 | 대시보드 | `GET /dashboard` | 탭: 사건 목록(우선순위 정렬, 증거 무결성) · 관계 그래프 · 신종 수법 · 모델 품질 |
 
 ## 0. 개요
@@ -91,6 +91,7 @@ WS:   ws://127.0.0.1:8000          (공개 시 wss://<터널 도메인>)
 | `INTEGRATION_API_KEY`, `ADMIN_API_KEY` | 1.2의 API 키 |
 | `N8N_WEBHOOK_URL` | 백엔드가 이벤트를 보낼 n8n 웹훅 주소 |
 | `ACCESS_CODE` | 시연용 접속 코드. 설정하면 쿠키·`X-Access-Code` 헤더·`code` 쿼리 중 하나가 맞아야 웹 앱·API·WebSocket을 쓸 수 있다. 비우면 제한 없음(로컬 개발) |
+| `ADMIN_CODE` | 관리 코드. `ACCESS_CODE`와 함께 설정하면 관리 경로(대시보드·수사·품질·평가·수법 카드·학습 사례 API, API 문서)는 쿠키(`vg_admin`)나 `X-Admin-Code` 헤더가 맞아야 열린다. 접속 코드와 다른 값으로 둔다. 비우면 접속 코드 하나로 관리 경로까지 열림(API 문서는 꺼짐, 시작 때 경고) |
 | `WEB_DIST_DIR` | 웹 앱 빌드 폴더(기본 `web_dist/`). 있으면 백엔드가 같은 주소에서 웹 앱을 함께 제공한다 |
 | `N8N_WEBHOOK_SECRET` | 웹훅 요청의 `X-Webhook-Secret` 값 |
 | `TELEGRAM_BOT_USERNAME` | 보호자 연결 링크 생성용 봇 이름 |
@@ -563,7 +564,7 @@ n8n은 5.4의 `POST /calls/{log_id}/actions/{action_id}/respond`를 `source: "te
 > - `GET /investigation/cases?min_risk=&limit=` → `{stats, cases[]}` (통화별 위험도·유형·도달 단계·단서 수·후속 확인 답·피해 확인 여부·단서 겹침 여부)
 > - `GET /investigation/cases/{log_id}` → 신고용 요약(5.7)과 같은 본문에 `overview`(LLM이 쓴 사건 개요, 위험 통화만), `links`(같은 계좌·전화번호·주소·사건번호가 나온 다른 통화), `similar_official_cases`(금감원·경찰청 공개 사례 중 유사한 것), `damage_reported`를 더한 것
 > - `GET /investigation/cases/{log_id}/links`
-> - `GET /dashboard` 수사 지원 화면 (접속 코드 쿠키 필요)
+> - `GET /dashboard` 수사 지원 화면 (`ADMIN_CODE`가 있으면 관리 코드, 없으면 접속 코드 필요)
 > - `GET /calls/{log_id}/report`도 같은 항목을 포함한다.
 > 유사 공식 사례는 참고 자료로만 붙이고 탐지 점수에는 쓰지 않는다(유형 일치 정확도 약 80%, `docs/MODEL_TRAINING_LOG.md` 참고).
 > 증거 음성 보존과 해시 체인(10.5)은 아직 구현하지 않았다.
@@ -627,7 +628,7 @@ Claude(`REPORT_MODEL`)로 사건 개요, 범행 수법, 시간순 경과, 확보
 
 ### 10.7 대시보드 `GET /dashboard`
 
-FastAPI가 서빙하는 정적 웹 페이지다. 위 API를 호출하며, 접속 시 관리 키를 입력받는다.
+FastAPI가 서빙하는 정적 웹 페이지다. 위 API를 호출한다. `ADMIN_CODE`가 설정돼 있으면 관리 코드가 없을 때 관리 코드 입력 화면이 먼저 나오고, 맞으면 `vg_admin` 쿠키(7일)를 심는다.
 
 ## 11. 통합 탐지 · 맞춤 주의보 (P5, 선택)
 

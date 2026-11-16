@@ -53,7 +53,7 @@
 </head>
 <body>
   <h1>VoiceGuard AI 시스템 구조</h1>
-  <div class="sub">휴대폰 앱(웹 PWA)은 QR로 접속하고, 모든 분석은 GPU 서버의 FastAPI 백엔드에서 실시간으로 돈다.</div>
+  <div class="sub">휴대폰 앱(웹 PWA)은 QR로 접속한다. 분석은 RunPod에서 빌려 직접 운영하는 GPU 서버의 FastAPI 백엔드가 맡고, 받아 적은 글은 Claude API로 보내 판단한다.</div>
   <div class="grid">
     <div class="col">
       <div class="label">사용자</div>
@@ -98,7 +98,7 @@
     </div>
     <div class="arrow">⇄</div>
     <div class="server">
-      <div class="title"><b>FastAPI 백엔드 <span class="pill">H100 GPU 서버</span></b><span>통화 1건 = 발화가 들어올 때마다 아래 흐름 반복</span></div>
+      <div class="title"><b>FastAPI 백엔드 <span class="pill">RunPod GPU 서버</span></b><span>통화 1건 = 발화가 들어올 때마다 아래 흐름 반복</span></div>
       <div class="lane">
         <div class="tag t-in">① 입력</div>
         <div class="boxes">
@@ -109,7 +109,7 @@
       <div class="lane">
         <div class="tag t-detect">② 감지·판단</div>
         <div class="boxes">
-          <div class="box fast"><b>빠른 경로 분류기</b><small>KLUE-RoBERTa 미세조정 (v3)<br>학습 데이터 통화 7,992건 (v2: 4,091)</small></div>
+          <div class="box fast"><b>빠른 경로 분류기</b><small>KLUE-RoBERTa 미세조정 (v5)<br>학습 데이터 통화 7,990건 (v2: 4,091)</small></div>
           <div class="box ai"><b>상태 추적기</b><small>Claude Haiku 5.5<br>사기 단계·유형·순응도·단서</small></div>
           <div class="box fuse"><b>위험도 융합</b><small>0.3 × 분류기 + 0.7 × 추적기<br>주의 0.70 / 강한 경고 0.85</small></div>
         </div>

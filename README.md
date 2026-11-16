@@ -41,7 +41,7 @@
 | 경고를 본 뒤에도 피해자는 무엇을 해야 할지 모른다 | "지금 끊으세요", "검찰청 1301로 직접 확인", "되물어 볼 질문", 지급정지 순서까지 화면에서 바로 안내 |
 | 통화가 끝나면 끝 | 통화 중·통화 후에 다시 묻고("통화를 끊으셨나요?", "통화 이후 괜찮으신가요?"), 답에 맞춰 피해 차단 절차를 안내 |
 | 피해 신고 내용이 수사로 이어지기 어렵다 | 계좌·전화번호·URL 같은 단서를 자동으로 뽑고, 다른 통화와 겹치는 단서를 찾아 **수사 우선순위·관계 그래프·SHA-256 증거 해시**와 함께 대시보드와 신고용 요약으로 정리 |
-| 은행·보험 상담 같은 정상 통화에도 경고가 뜬다 | AI Hub 금융·민원 상담 데이터로 재학습해 정상 상담 오경보를 **30.2% → 0.7%** 로 줄임 (분류기 단독, 아래 성능 참고) |
+| 은행·보험 상담 같은 정상 통화에도 경고가 뜬다 | AI Hub 금융·민원 상담 데이터로 재학습해 정상 상담 오경보를 **30.2% → 0.7%** 로 줄임 (v3 분류기 단독, 아래 성능 참고) |
 | 새 수법이 계속 나오는데 탐지는 그대로다 | 금감원·경찰청 새 글을 모으면(대시보드 '지금 수집' 또는 n8n 매일 일정) Claude가 **수법 카드**로 정리하고, 사람이 승인한 카드만 상태 추적기에 반영한 뒤 회귀 평가를 자동으로 돌린다 |
 
 </details>
@@ -261,7 +261,7 @@ flowchart TB
 
 ## 탐지 성능
 
-**분류기 단독과 전체 시스템을 따로 잽니다.** 자세한 데이터·방법·한계는 [보이스피싱 탐지 정확도](docs/tech/detection.md)와 [docs/MODEL_TRAINING_LOG.md](docs/MODEL_TRAINING_LOG.md)에 있습니다. "경보"는 점수가 주의 기준 0.70 이상인 경우입니다. 분류기는 v1이 KoELECTRA, v2와 v3(현재)가 KLUE-RoBERTa입니다.
+**분류기 단독과 전체 시스템을 따로 잽니다.** 자세한 데이터·방법·한계는 [보이스피싱 탐지 정확도](docs/tech/detection.md)와 [docs/MODEL_TRAINING_LOG.md](docs/MODEL_TRAINING_LOG.md)에 있습니다. "경보"는 점수가 주의 기준 0.70 이상인 경우입니다. 분류기는 v1이 KoELECTRA, v2부터 v5(현재)까지 KLUE-RoBERTa입니다.
 
 ### 통화 분류기 (빠른 경로)
 
@@ -284,12 +284,12 @@ v5는 공개 데이터가 가린 개인정보 자리를 그럴듯한 값으로 �
 
 <sub>분류기 + Claude 상태 추적기 + 대응 에이전트</sub>
 
-| 평가 | 이전 | 현재 |
-| --- | ---: | ---: |
-| 회귀 평가 대본<br><sub>12개 · 사기 6 · 정상 6</sub> | 12/12 | **12/12**<br><sub>경고 시점은 같거나 빨라짐</sub> |
-| 어려운 정상 상담 경고<br><sub>분류기가 1.00을 준 정상 상담 14건 · 프롬프트 조정용 dev</sub> | 9건 | **3건** |
-| test 정상 경고<br><sub>처음 보는 test 28건 중 정상 상담 14</sub> | 9/14 | **4/14** |
-| test 사기 탐지<br><sub>처음 보는 test 28건 중 사기 14 · 첫 경고 평균 7.1 → 6.8번째 발화</sub> | 13/14 | **13/14** |
+| 평가 | v2 + 이전 프롬프트 | v3 | v5<br><sub>현재</sub> |
+| --- | ---: | ---: | ---: |
+| 회귀 평가 대본<br><sub>12개 · 사기 6 · 정상 6</sub> | 12/12 | **12/12** | **12/12**<br><sub>카드 배송 첫 경고 4 → 6번째 발화</sub> |
+| 어려운 정상 상담 경고<br><sub>분류기가 1.00을 준 정상 상담 14건 · 프롬프트 조정용 dev</sub> | 9건 | **3건** | 4건 |
+| test 정상 경고<br><sub>처음 보는 test 28건 중 정상 상담 14</sub> | 9/14 | **4/14** | **4/14** |
+| test 사기 탐지<br><sub>처음 보는 test 28건 중 사기 14 · 첫 경고 평균 7.1 → 6.8 → 6.5번째 발화</sub> | 13/14 | **13/14** | **13/14** |
 
 ### 문자 · 문서
 
@@ -339,12 +339,12 @@ v5는 공개 데이터가 가린 개인정보 자리를 그럴듯한 값으로 �
 | 영역 | 기술 |
 | --- | --- |
 | Frontend | React Native · Expo · TypeScript · Zustand · PWA |
-| Backend · Infra | Python · FastAPI · WebSocket · SQLite · n8n · Cloudflare Tunnel · H100 GPU |
+| Backend · Infra | Python · FastAPI · WebSocket · SQLite · n8n · Cloudflare Tunnel · RunPod GPU 서버 (학습은 H100) |
 | AI | Claude API · PyTorch · Hugging Face · faster-whisper |
 
 | 역할 | 모델 |
 | --- | --- |
-| 음성 인식 | faster-whisper large-v3 (GPU 서버) |
+| 음성 인식 | faster-whisper large-v3 (직접 운영하는 GPU 서버) |
 | 통화 분류기 | KLUE-RoBERTa (`klue/roberta-base`) 미세조정 |
 | 문자 분류기 | KLUE-RoBERTa 미세조정 |
 | 실시간 상태 추적기 · 대응 에이전트 · 문자 판단 | Claude Haiku 5.5 |
@@ -422,6 +422,7 @@ AGENT_MODEL=claude-haiku-5-5        # 대응 에이전트 · 문자 판단
 REPORT_MODEL=claude-opus-5-5        # 사건 개요 · 문서 점검
 WHISPER_MODEL=large-v3
 ACCESS_CODE=...                     # 설정하면 접속 코드가 있어야 들어온다 (QR 링크에 포함)
+ADMIN_CODE=...                      # 설정하면 대시보드·수사·평가 화면은 관리 코드가 따로 있어야 열린다
 N8N_WEBHOOK_URL=...                 # 보호자 알림 (선택)
 PUBLIC_BASE_URL=...                 # 알림 메시지 속 대시보드 링크 (선택)
 ```
@@ -436,7 +437,7 @@ EXPO_PUBLIC_API_BASE=same-origin npm run build:web  # 배포용 웹 빌드 (백�
 
 ### 배포 구조
 
-휴대폰 → Cloudflare 터널(HTTPS) → GPU 서버의 FastAPI(웹 앱 + API + WebSocket). 참가자는 QR 링크로 접속해 홈 화면에 추가합니다(PWA). 넓은 화면에서 열면 앱 옆에 'AI 분석 과정' 패널이 함께 보이고, 수사관 화면은 `/dashboard`입니다.
+휴대폰 → Cloudflare 터널(HTTPS) → RunPod에서 빌려 직접 운영하는 GPU 서버의 FastAPI(웹 앱 + API + WebSocket). Whisper large-v3 전사, 통화·문자 분류기, 백엔드가 모두 이 서버에서 돕니다. 받아 적은 통화 내용은 Claude API로 보내 판단하고, 화자 구분과 다시 받아 적기에 리턴제로를 켜면 음성이 리턴제로로도 갑니다(시연 서버는 켜 둡니다). 모델 학습과 대부분의 평가는 H100 서버에서 했습니다. 참가자는 QR 링크로 접속해 홈 화면에 추가합니다(PWA). 넓은 화면에서 열면 앱 옆에 'AI 분석 과정' 패널이 함께 보이고, 수사관 화면은 `/dashboard`입니다.
 
 ### 평가
 
@@ -459,12 +460,14 @@ SPLIT=test python -m backend.app.eval_documents       # 문서 점검
 - [수사관 곁의 AI 에이전트](docs/investigator.md) — 수사 지원 기능을 에이전트가 하는 일과 사람이 정하는 일로 나눠 설명
 - [보이스피싱 탐지 정확도](docs/tech/detection.md) — 데이터, 전처리, 학습, 평가 방법, 결과, 한계
 - [전사 모델 정확도](docs/tech/transcription.md) — Whisper 추가 학습, 리턴제로 비교, 화자 분리, 로컬 운영
+- [모델 구성](docs/tech/models.md) — 쓰는 모델과 보관만 하는 모델, 각각의 성능과 이유, 어디서 도는지
 
 **명세 · 기록**
 
 - [docs/API_SPEC_V2.md](docs/API_SPEC_V2.md) — v2 API 명세 (WebSocket 이벤트, 상태·대응·수사 API, 문자·문서 분석)
 - [docs/MODEL_TRAINING_LOG.md](docs/MODEL_TRAINING_LOG.md) — 모델 학습·평가 기록 (데이터, 설정·가중치, 결과, 한계, 실시간 전사 비교)
 - [stt_lab/README.md](stt_lab/README.md) — 전사 모델 추가 학습·평가 스크립트
+- [docs/DEPLOY_RUNPOD.md](docs/DEPLOY_RUNPOD.md) — 시연 서버를 RunPod GPU pod로 옮기는 순서와 운영 메모
 - [docs/BACKLOG.md](docs/BACKLOG.md) — 추후 구현 사항
 - [docs/API_SPEC.md](docs/API_SPEC.md) — v1 API 명세
 - `docs/diagrams/` — 구조도 원본 (HTML)
