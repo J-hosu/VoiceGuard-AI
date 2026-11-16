@@ -1,6 +1,6 @@
 # API 명세 v2 — 능동형 대응 루프 · 수사 지원
 
-> 상태: P1~P5 대부분 구현 (아래 '구현 현황' 참고) · 작성일 2026-11-14 · 갱신 2026-11-16
+> 상태: P1~P5 대부분 구현 (아래 '구현 현황' 참고) · 작성일 2026-11-14 · 갱신 2026-11-17
 > 기존 명세 [API_SPEC.md](API_SPEC.md)(v1)는 그대로 유효하다. v2는 **추가만** 하며 v1의 요청·응답 필드를 바꾸거나 지우지 않는다.
 
 ## 구현 현황 (2026-11-15)
@@ -12,17 +12,17 @@
 | 기기 구분 | WS `start`·`GET /calls`·`POST /calls/analyze-audio`의 `device_id` | 앱이 기기(브라우저)마다 9~10자리 번호를 만들어 저장하고 보낸다. `/devices` 발급 API는 없음 |
 | 녹음 파일 분석 | `POST /calls/analyze-audio` | 실시간과 같은 전체 분석(빠른 경로 6발화마다 → 상태 추적 → 공식 번호·피해 차단·통화 후 확인). 지난 녹음이라 경고·보호자 알림은 만들지 않음 |
 | 통화 중 단서 대조 | `agent_action` `linked_case_alert` | 새 계좌(10자리 이상)·휴대전화(010·070·050)·주소·사건번호가 다른 통화에 있으면, 또는 주소 모양이 위험하면 바로 알림 |
-| 증거 무결성 | `GET /calls/{log_id}/evidence` | 음성 조각·업로드 파일을 받는 즉시 SHA-256 체인(`evidence_files`), 통화 종료 때 전사문 봉인. 신고용 요약(`/report`)에 포함 |
+| 증거 무결성 | `GET /calls/{log_id}/evidence` | 음성 조각·업로드 파일을 받는 즉시 SHA-256 체인(`evidence_files`), 통화 종료 때 전사문 봉인. 신고용 요약(`/report`)에 포함. 해시만 남기고 음성 원본은 전사 후 지움(`EVIDENCE_DIR`, `start.preserve_evidence`, 10.5의 다운로드·재검증 API는 미구현) |
 | 수사 우선순위 | `GET /investigation/cases`의 `priority`, `priority_reasons`, `linked_count` | 위험도 40 + 피해 확인 25 + 겹치는 단서 15 + 도달 단계 10 + 최근성 10 |
 | 관계 그래프 | `GET /investigation/graph?min_risk=0.5&limit=80` | 사건(통화)–단서(계좌·번호·주소·사건번호·사칭 기관) 노드와 간선. 설계의 `log_id`·`depth`는 없음 |
 | 품질 루프 | `GET /quality/summary`, `GET /quality/retrain-candidates`, `POST /eval/run`, `GET /eval/runs` | 사용자 확인과 시스템 판정 비교, 학습 데이터 형식 내보내기, 회귀 평가(별도 프로세스·별도 DB)를 `eval_runs`에 기록 |
-| 신종 수법 | `POST /knowledge/collect?wait=`, `GET /knowledge/status`, `GET /knowledge/cards?status=`, `POST /knowledge/cards/{id}/review` | 공식 출처 수집(`services/official_sources.py`) → Claude가 카드로 정리 → 사람이 승인하면 상태 추적기 프롬프트에 반영하고 회귀 평가를 돌림. `/knowledge/candidates`·`/rules`는 없음 |
-| n8n | `n8n/voiceguard_knowledge_collect.json` | 매일 09:00 `POST /knowledge/collect?wait=true`(헤더 `X-Admin-Code`), 새 카드가 있으면 Slack으로 검토 요청(Slack 노드는 꺼 둠) |
+| 신종 수법 | `POST /knowledge/collect?wait=`, `GET /knowledge/status`, `GET /knowledge/cards?status=`, `POST /knowledge/cards/{id}/review` | 공식 출처 수집(`services/official_sources.py`, 대시보드 '지금 수집'이나 API로 수동 실행) → Claude가 카드로 정리 → 사람이 승인하면 상태 추적기 프롬프트에 반영하고 회귀 평가를 돌림. 이 회귀 평가는 빈 평가 DB에서 돌아 승인한 카드가 평가에 들어가지 않음. 분류기 재학습에는 쓰지 않음. `/knowledge/candidates`·`/rules`는 없음 |
+| n8n | `n8n/voiceguard_slack_alert.json`, `n8n/voiceguard_knowledge_collect.json` | 위험 통화 알림 워크플로는 백엔드 웹훅 이벤트를 Slack 채널로 보냄(2026-11-17 연결). 앱은 알림 요청까지만 하고 수신은 확인하지 않음. 신종 수법은 수동 수집을 지원하며 정기 수집 워크플로는 연결 예정(템플릿만 있고 n8n에 연결하지 않음). 템플릿은 매일 09:00 `POST /knowledge/collect?wait=true`(헤더 `X-Admin-Code`) 호출, 새 카드가 있으면 Slack으로 검토 요청(Slack 노드는 꺼 둠) |
 | 대시보드 | `GET /dashboard` | 탭: 사건 목록(우선순위 정렬, 증거 무결성) · 관계 그래프 · 신종 수법 · 모델 품질 |
 
 ## 0. 개요
 
-v2는 "감지 → 판단 → 개입 → 후속 확인 → 학습" 루프를 만든다.
+v2는 "감지 → 판단 → 개입 → 후속 확인 → 검토·반영" 루프를 만든다.
 
 ```mermaid
 flowchart LR
@@ -87,7 +87,7 @@ WS:   ws://127.0.0.1:8000          (공개 시 wss://<터널 도메인>)
 | `STT_FILE_ENGINE` | 녹음 파일 분석(`/calls/analyze-audio`)·통화 후 전체 재전사(`/calls/{log_id}/retranscribe-audio`) `local`(기본)·`rtzr`(파일 전사, 화자 분리 2명) |
 | `STT_REFINE` | 통화 중 정리본 `off`(기본)·`rtzr`. 켜면 4.2의 `transcript_refined`를 보낸다 |
 | `REFINE_STEP`, `REFINE_LIVE`, `REFINE_CONTEXT`, `REFINE_SPK_MIN_S` | 정리 간격 15초, 최근 실시간 구간 20초, 앞 문맥 40초, 화자 수 2명 지정 최소 구간 8초 |
-| `RTZR_CLIENT_ID`, `RTZR_CLIENT_SECRET` | 리턴제로 키. `rtzr`를 골랐는데 없거나 호출이 실패하면 경고를 남기고 그 요청은 로컬로 받아 적는다(정리는 끈다) |
+| `RTZR_CLIENT_ID`, `RTZR_CLIENT_SECRET` | 리턴제로 키. `rtzr`를 골랐는데 없거나 호출이 실패하면 경고를 남기고 그 요청은 로컬로 전사한다(정리는 끈다) |
 | `INTEGRATION_API_KEY`, `ADMIN_API_KEY` | 1.2의 API 키 |
 | `N8N_WEBHOOK_URL` | 백엔드가 이벤트를 보낼 n8n 웹훅 주소 |
 | `ACCESS_CODE` | 시연용 접속 코드. 설정하면 쿠키·`X-Access-Code` 헤더·`code` 쿼리 중 하나가 맞아야 웹 앱·API·WebSocket을 쓸 수 있다. 비우면 제한 없음(로컬 개발) |
@@ -288,7 +288,7 @@ v1 이벤트(`start`, `audio_chunk`, `message`, `call_started`, `audio_analysis_
 
 **`audio_analysis_ack` · `audio_phishing_detected` 추가 필드** — `transcripts`의 항목마다 `t_start`, `t_end`(통화 시작 후 초)가 붙는다. 이 통화에서 받은 오디오의 누적 길이로 센다(클라이언트가 통째로 무음인 조각은 보내지 않으므로 벽시계와 다를 수 있다). 기존 `start_time`/`end_time`은 조각 안 기준 그대로다.
 
-**`transcript_refined`** — `STT_REFINE=rtzr`일 때 정리 요청 하나가 끝날 때마다 보낸다(약 15초마다, 통화 종료 `end` 때 한 번 더). 20초 넘게 지난 구간을 리턴제로 파일 전사(화자 분리·단어 시각)로 다시 받아 적은 정리본이다.
+**`transcript_refined`** — `STT_REFINE=rtzr`일 때 정리 요청 하나가 끝날 때마다 보낸다(약 15초마다, 통화 종료 `end` 때 한 번 더). 20초 넘게 지난 구간을 리턴제로 파일 전사(화자 분리·단어 시각)로 다시 전사한 정리본이다.
 
 ```json
 {
@@ -567,7 +567,7 @@ n8n은 5.4의 `POST /calls/{log_id}/actions/{action_id}/respond`를 `source: "te
 > - `GET /dashboard` 수사 지원 화면 (`ADMIN_CODE`가 있으면 관리 코드, 없으면 접속 코드 필요)
 > - `GET /calls/{log_id}/report`도 같은 항목을 포함한다.
 > 유사 공식 사례는 참고 자료로만 붙이고 탐지 점수에는 쓰지 않는다(유형 일치 정확도 약 80%, `docs/MODEL_TRAINING_LOG.md` 참고).
-> 증거 음성 보존과 해시 체인(10.5)은 아직 구현하지 않았다.
+> 10.5: 해시 체인과 전사문 봉인은 `GET /calls/{log_id}/evidence`로 구현(위 '구현 현황'과 12.1). 음성 원본 보존·다운로드·재검증 API는 미구현.
 
 `consent.investigation_share`가 `true`인 기기의 통화와 데모 시드 데이터만 노출한다.
 
@@ -629,6 +629,8 @@ Claude(`REPORT_MODEL`)로 사건 개요, 범행 수법, 시간순 경과, 확보
 ### 10.7 대시보드 `GET /dashboard`
 
 FastAPI가 서빙하는 정적 웹 페이지다. 위 API를 호출한다. `ADMIN_CODE`가 설정돼 있으면 관리 코드가 없을 때 관리 코드 입력 화면이 먼저 나오고, 맞으면 `vg_admin` 쿠키(7일)를 심는다.
+
+- 화면별로 실제 부르는 API: [12.2](#122-대시보드-화면별-api)
 
 ## 11. 통합 탐지 · 맞춤 주의보 (P5, 선택)
 
@@ -694,3 +696,84 @@ Claude(이미지 판독)가 보이스피싱에 쓰이는 위조 문서의 전형
 ```json
 { "alerts": [ { "card_id": 12, "title": "...", "summary": "...", "match_reasons": ["연령대 60대 대상", "과거 대출 사기형 경고 이력"], "published_at": "2026-11-10" } ] }
 ```
+
+## 12. 수사 지원 구현 상세
+
+[수사관 지원용 능동 AI 에이전트 기능](investigator.md)에서 옮긴 구현 정보입니다. 기능 설명과 한계는 그 페이지에 있고, 이 절에는 함수·저장 항목·화면별 API와 수집기 설정, 시험 기록을 둡니다. 10절의 설계와 다른 곳은 이 절과 '구현 현황'을 따릅니다.
+
+### 12.1 기능별 코드와 저장 항목
+
+| 기능 | 코드 | 저장 · 전달 |
+| --- | --- | --- |
+| 단서 수집 | [`state_tracker.py`](../backend/app/services/state_tracker.py) `SYSTEM_PROMPT`의 `[entities]`, `OUTPUT_SCHEMA`, `update_state` · [`state_repository.py`](../backend/app/state_repository.py) `normalize_entity`, `insert_entities` · [`codes.py`](../backend/app/codes.py) `ENTITY_TYPES` | `case_entities` 행(`entity_type`, 들린 그대로의 `value`, `normalized`, `turn_index`) · WS `state_update.entities` · 사건 상세 '단서' 목록 |
+| 단서 연결 | [`case_linking.py`](../backend/app/services/case_linking.py) `_alertable`, `match_entities`, `risky_urls` · [`response_agent.py`](../backend/app/services/response_agent.py) `on_new_entities` · [`investigation.py`](../backend/app/services/investigation.py) `find_links`, `_link_counts`, `graph` · [`message_analyzer.py`](../backend/app/services/message_analyzer.py) `inspect_urls` | 통화 중 `agent_action`의 `linked_case_alert`(값마다 한 번) · 사건 상세 `links` · 목록 `linked_count` · `GET /investigation/graph` |
+| 수사 검토 우선순위 제안 | [`investigation.py`](../backend/app/services/investigation.py) `_priority`, `list_cases`, `stats` | 사건마다 `priority`, `priority_reasons`, `linked_count`. 저장하지 않고 목록을 불러올 때 계산 |
+| 음성·전사 기록의 무결성 확인 | [`evidence.py`](../backend/app/services/evidence.py) `record_audio`, `seal_transcript`, `verify` · 호출 위치 [`websocket.py`](../backend/app/api/websocket.py)(실시간 조각), [`routes.py`](../backend/app/api/routes.py)(녹음 파일, 재전사), [`agent_loop.py`](../backend/app/services/agent_loop.py)(전사문 봉인) | `evidence_files` 행(`chunk_index`, 이름(`path`), `sha256`, `prev_hash`, `chain_hash`, `size`, `created_at`). 전사문 봉인은 `chunk_index` −1, 통화 후 전체 녹음은 100000 · `GET /calls/{log_id}/evidence` |
+| 신고용 요약 | [`report_builder.py`](../backend/app/services/report_builder.py) `build_report`, `render_markdown` · [`investigation.py`](../backend/app/services/investigation.py) `OVERVIEW_SYSTEM`, `get_overview`, `similar_official_cases`, `enrich_report` · [`official_cases.py`](../backend/app/services/official_cases.py) `find_similar` | `GET /calls/{log_id}/report?format=md`(`text/plain` 마크다운)·`format=json` · 사건 개요 재사용용 `case_overviews` |
+| 신종 수법 수집·검토·반영 | [`official_sources.py`](../backend/app/services/official_sources.py) `BOARDS`, `fetch_recent` · [`scam_knowledge.py`](../backend/app/services/scam_knowledge.py) `collect`, `CARD_SYSTEM`, `review`, `tracker_knowledge_block` · [`state_tracker.py`](../backend/app/services/state_tracker.py) `_approved_knowledge` · [`voiceguard_knowledge_collect.json`](../n8n/voiceguard_knowledge_collect.json)(템플릿, 미연결) | `knowledge_cards`(`pending`·`approved`·`rejected`·`skipped`=관련 없음) · `knowledge_runs`(실행마다 받은 글·새 카드·건너뛴 글·오류) · 승인마다 `eval_runs` 1건 |
+| 품질 점검 | [`quality.py`](../backend/app/services/quality.py) `labeled_calls`, `feedback_scenarios`, `retrain_candidates`, `start_run` · [`eval_loop.py`](../backend/app/eval_loop.py) · [`scenarios.json`](../backend/eval/scenarios.json) · [`response_agent.py`](../backend/app/services/response_agent.py) `_after_followup` | `call_feedback`(12.4) · `eval_runs` · 재학습 후보 JSON(`cases`, `source: user_feedback`) |
+
+- `entity_type`(2.4)별 정규화 규칙은 [investigator.md의 단서 수집](investigator.md#단서-수집)에 있습니다.
+- `verify` 결과에는 음성 조각 수·바이트·첫/마지막 시각, 체인 정상 여부, 마지막 체인 값, 전사문 봉인 여부·값·시각·발화 수, 현재 전사문과의 일치 여부가 들어갑니다. 사건 상세와 신고용 요약의 '증거 무결성 (SHA-256)' 절이 이 값을 씁니다.
+
+### 12.2 대시보드 화면별 API
+
+수사관 화면은 FastAPI가 직접 내주는 웹 페이지 하나입니다(`GET /dashboard`, [`dashboard.html`](../backend/app/web/dashboard.html)). 접속·관리 코드 규칙은 위 '구현 현황'을 따릅니다.
+
+| 대시보드 탭 · 보이는 것 | 부르는 API |
+| --- | --- |
+| **사건 목록**<br>통계(전체·위험·피해 확인·단서 겹침), 필터, 최신순·우선순위순, 10초마다 갱신 | `GET /investigation/cases?min_risk=&limit=` |
+| **사건 상세**<br>사건 개요, 단계 경과, 단서, 겹치는 단서, 유사 공식 사례, 위험 발화, AI 대응 기록, 사용자 확인, 증거 무결성, 통화 전문 | `GET /investigation/cases/{log_id}` |
+| **신고용 요약 열기 · 인쇄** | `GET /calls/{log_id}/report?format=md` |
+| **관계 그래프**<br>전체 또는 겹치는 단서만, 원을 누르면 사건으로 | `GET /investigation/graph?min_risk=0.5&limit=80` |
+| **신종 수법**<br>검토 대기·승인·반려 수, 마지막 수집, 카드와 승인·반려 | `GET /knowledge/status`<br>`GET /knowledge/cards?status=`<br>`POST /knowledge/collect`<br>`POST /knowledge/cards/{id}/review` |
+| **모델 품질**<br>현재 모델, 사용자 확인과 판정, 회귀 평가 기록 | `GET /quality/summary`<br>`GET /quality/retrain-candidates`<br>`POST /eval/run`<br>`GET /eval/runs` |
+
+### 12.3 화면 밖에서 쓰는 API
+
+- `GET /investigation/cases/{log_id}/links`: 같은 계좌·전화번호·웹 주소·사건번호가 나온 다른 통화만 돌려줍니다.
+- `GET /calls/{log_id}/evidence`: 무결성 확인 결과만 돌려줍니다.
+- `POST /knowledge/collect?wait=true&max_per_source=8`: 수집이 끝날 때까지 기다렸다가 새 카드 목록을 돌려줍니다. 정기 수집 워크플로 템플릿이 부르도록 만든 형식이며, 이 워크플로는 아직 연결하지 않았습니다.
+- `GET /calls/{log_id}/state`, `/timeline`, `/actions`: 통화의 최신 상태, 단계 전환·발화·행동의 시간순 기록, 에이전트 행동 목록을 돌려줍니다.
+- `POST /calls/{log_id}/actions/{action_id}/respond`: 행동 카드 반응과 후속 확인 답을 받습니다. 답에 따라 다음 행동을 만들고 확인 응답을 저장합니다.
+- `POST /calls/{log_id}/end`: 통화를 마무리합니다(마지막 상태, 통화 후 행동, 전사문 봉인).
+- `POST /calls/{log_id}/feedback`: 결과 화면의 확인 응답을 저장합니다(12.4).
+- WebSocket `/ws/calls/analyze`: 통화 중 `agent_action`으로 `linked_case_alert` 등 대응 카드를 보냅니다.
+
+### 12.4 확인 응답 저장값과 품질 비교
+
+| 확인 응답 | 저장값 `verdict` | 비교 기준 |
+| --- | --- | --- |
+| 위험으로 판정한 통화의 결과 화면 "실제 피싱이었어요" | `confirmed_phishing` | 사기 |
+| 위험으로 판정한 통화의 결과 화면 "정상 통화였어요" | `false_positive` | 정상 |
+| 정상으로 판정한 통화의 결과 화면 "사실은 피싱이었어요" | `missed_phishing` | 사기 |
+| 정상으로 판정한 통화의 결과 화면 "잘 모르겠어요" | `unsure` | 쓰지 않음 |
+| 통화 후 확인 `transferred_money`·`shared_info`·`installed_app` | `confirmed_phishing`(자동 저장, `source: followup:…`) | 사기 |
+| 통화 후 확인 `false_alarm`·`verified_safe` | `false_positive`(자동 저장, `source: followup:…`) | 정상 |
+
+- 통화마다 가장 최근 `call_feedback` 1건을 기준으로 쓰고, 위험도 0.70 이상을 '사기로 판정'으로 봅니다.
+- 회귀 평가는 별도 프로세스(`python -m backend.app.eval_loop`)와 별도 DB(`EVAL_DB`)로 돌고, 평가 중에는 `N8N_WEBHOOK_URL`을 비워 알림을 보내지 않습니다. 한 번에 하나, 최대 30분입니다.
+- 구현된 통과 기준은 '모든 대본 통과' 하나이며, 8.1의 설계 기준(`fpr` 증가 ≤ 0.01, `recall` 감소 없음)은 구현하지 않았습니다.
+- 수법 카드 승인 뒤 도는 회귀 평가의 DB는 빈 상태로 새로 만들어져 승인한 카드가 없습니다. 따라서 평가 중 상태 추적기 프롬프트에 승인 카드가 들어가지 않고, 신규 수법의 반영 효과는 이 평가로 검증되지 않습니다.
+
+### 12.5 신종 수법 수집기 설정
+
+[`official_sources.py`](../backend/app/services/official_sources.py)의 값입니다. 수집 순서와 출처는 [investigator.md의 신종 수법 수집·검토·반영](investigator.md#신종-수법-수집검토반영)에 있습니다.
+
+| 항목 | 값 |
+| --- | --- |
+| 요청 간격 | 앞 요청이 끝나고 0.5초 뒤에 다음 요청 |
+| User-Agent | 연락처를 넣지 않은 일반 User-Agent |
+| 응답 크기 | 10MB까지 받음 |
+| 본문 글자 수 | 6,000자까지 읽음. 40자 미만이면 이미지뿐인 글로 보고 주소만 남김 |
+
+### 12.6 통화 중 단서 대조 시험 기록
+
+[investigator.md의 단서 연결](investigator.md#단서-연결)에 적은 확인 결과의 시험 과정입니다. 운영 DB와 서버는 건드리지 않고 로컬 DB 복사본에서 돌렸습니다. 다른 고위험 통화에 시험용으로 만든 계좌번호 `943-202-0412-3456`을 넣어 두고, 새 통화에서 아래 값이 나왔다고 넣었습니다.
+
+| 넣은 값 | 결과 |
+| --- | --- |
+| `국민은행 943-202-0412-3456` (은행 이름이 붙은 같은 계좌) | 계좌 알림 카드 1장. "다른 통화 2건" (복사본에 같은 계좌를 말한 시험 통화가 하나 더 있었음) |
+| `http://bit.ly/3xYzAbC` | 주소 알림 카드 1장. 사유: 단축 주소, 암호화되지 않은 http |
+| `1588-1234` | 알리지 않음 (010·070·050 번호가 아님) |
+| 같은 세 값을 한 번 더 | 새 카드 0장 |

@@ -1,26 +1,31 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="300" viewBox="0 0 1280 300">
-  <!-- Key numbers strip, light card. Numbers come from the README performance tables (classifier v3, previous = v2).
-       When they change, edit the three tiles here, the caption and alt text under the image in README.md, then re-bake.
-       Columns are fitted to the text so each tile keeps a 64px gap to its divider (dividers at 474 and 856).
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="244" viewBox="0 0 1280 244">
+  <!-- Key numbers strip, light card. Two lines per tile: line 1 compares (previous value small and light, teal arrow, current value large and bold),
+       line 2 is the label. Tile 1 is the current call classifier v5. Tiles 2 and 3 are the v2 -> v3 improvement (v5 is 0.9% and 0 calls on the same evals).
+       Sources: docs/MODEL_TRAINING_LOG.md (v5 and v3 sections). The model and eval condition of each tile are in the note under the image in README.md.
+       When a number changes, edit the tile here, the note and alt text under the image in README.md, then re-bake.
+       Columns are fitted to the measured text so each tile keeps about a 50px gap to its divider (dividers at 365.5 and 831.5).
        Output: ../images/readme/numbers.png -->
-  <rect x="1" y="1" width="1278" height="298" rx="24" fill="#F7F9FC" stroke="#D3DCE7" stroke-width="2"/>
+  <rect x="1" y="1" width="1278" height="242" rx="24" fill="#F7F9FC" stroke="#D3DCE7" stroke-width="2"/>
   <g stroke="#DCE3EC" stroke-width="2">
-    <path d="M474.5 64 V236"/>
-    <path d="M856.5 64 V236"/>
+    <path d="M365.5 55 V191"/>
+    <path d="M831.5 55 V191"/>
+  </g>
+  <g fill="none" stroke="#0D9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M543 114 H571 M563 106 L571 114 L563 122"/>
+    <path d="M917 114 H945 M937 106 L945 114 L937 122"/>
   </g>
 
   <!-- 1 -->
-  <text x="64" y="138" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="112" font-weight="800" letter-spacing="-3">99.3</tspan><tspan font-family="Inter, sans-serif" font-size="52" font-weight="700" dx="8" fill="#0D9488">%</tspan></text>
-  <text x="66" y="194" font-family="'Noto Sans KR', sans-serif" font-size="36" font-weight="700" fill="#0B1424">사기 통화 탐지</text>
-  <text x="66" y="240" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E">통화 전체 · 이전 99.7%</text>
+  <text x="58" y="127" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="96" font-weight="800" letter-spacing="-3">99.7</tspan><tspan font-family="Inter, sans-serif" font-size="46" font-weight="700" dx="7" fill="#0D9488">%</tspan></text>
+  <text x="60" y="185" font-family="'Noto Sans KR', sans-serif" font-size="28" font-weight="600" fill="#56657E">사기 통화 탐지 정확도</text>
 
   <!-- 2 -->
-  <text x="538" y="138" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="112" font-weight="800" letter-spacing="-3">0.7</tspan><tspan font-family="Inter, sans-serif" font-size="52" font-weight="700" dx="8" fill="#0D9488">%</tspan></text>
-  <text x="540" y="194" font-family="'Noto Sans KR', sans-serif" font-size="36" font-weight="700" fill="#0B1424">정상 상담 오경보</text>
-  <text x="540" y="240" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E">이전 30.2%</text>
+  <text x="415" y="127" font-family="Inter, sans-serif" font-size="36" font-weight="600" fill="#8090A4">30.2%</text>
+  <text x="587" y="127" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="96" font-weight="800" letter-spacing="-3">0.7</tspan><tspan font-family="Inter, sans-serif" font-size="46" font-weight="700" dx="7" fill="#0D9488">%</tspan></text>
+  <text x="417" y="185" font-family="'Noto Sans KR', sans-serif" font-size="28" font-weight="600" fill="#56657E">정상 상담 오경보</text>
 
   <!-- 3 -->
-  <text x="920" y="138" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="112" font-weight="800" letter-spacing="-3">0</tspan><tspan font-family="Inter, 'Noto Sans KR', sans-serif" font-size="52" font-weight="700" dx="10" fill="#0D9488">/ 32통</tspan></text>
-  <text x="922" y="194" font-family="'Noto Sans KR', sans-serif" font-size="36" font-weight="700" fill="#0B1424">실제 녹음 오경보</text>
-  <text x="922" y="240" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E">정상 상담 · 이전 4통</text>
+  <text x="881" y="127" font-family="Inter, sans-serif" font-size="36" font-weight="600" fill="#8090A4">4</text>
+  <text x="961" y="127" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="96" font-weight="800" letter-spacing="-3">0</tspan><tspan font-family="Inter, 'Noto Sans KR', sans-serif" font-size="46" font-weight="700" dx="7" fill="#0D9488">통</tspan></text>
+  <text x="883" y="185" font-family="'Noto Sans KR', sans-serif" font-size="28" font-weight="600" fill="#56657E">실제 녹음 · 정상 상담 오경보</text>
 </svg>
