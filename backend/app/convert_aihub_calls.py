@@ -15,6 +15,9 @@ AI Hub의 Training/Validation 구분을 split 필드로 그대로 둔다. Valida
 '●'가 전혀 없고 'OO'는 생성한 사기 통화에만 조금 있어서, 그대로 넣으면 모델이 "●가 있으면 정상"을
 배운다. 그래서 'OO은행' 류는 레코드의 실제 기관명으로 바꾸고, 나머지 가림 표시는 지운다.
 
+KEEP_MASK=1이면 지운 결과(turns)는 그대로 두고, 가림 표시를 남긴 같은 발화를 turns_kept에 함께 적는다.
+가림 자리를 그럴듯한 값으로 바꿔 다시 학습할 때(build_dataset_v5.py) 어디를 바꿀지 알기 위해서다.
+
 표준 라이브러리만 쓴다 (내려받은 데이터를 읽으므로 격리 모드로 실행):
     python -I -X utf8 backend/app/convert_aihub_calls.py finance data/raw/aihub_finance_consult data/aihub/finance_consult.json
     python -I -X utf8 backend/app/convert_aihub_calls.py minwon data/raw/aihub_minwon data/aihub/minwon.json
@@ -23,6 +26,7 @@ AI Hub의 Training/Validation 구분을 split 필드로 그대로 둔다. Valida
 from __future__ import annotations
 
 import json
+import os
 import re
 import sys
 import unicodedata
@@ -47,6 +51,7 @@ _MASK = re.compile(
 _ORPHAN_DASHES = re.compile(r"(?<!\S)-(?:\s+-)*(?!\S)")  # 가린 계좌·전화번호에서 남은 '- -'
 _SPACES = re.compile(r"\s+")
 MIN_TURNS = 3
+KEEP_MASK = os.environ.get("KEEP_MASK", "0") == "1"
 
 
 def fix_name(info: zipfile.ZipInfo) -> str:
@@ -76,10 +81,12 @@ def institution_stem(name: str) -> str:
     return name
 
 
-def clean_text(text: str, institution: str = "") -> str:
+def clean_text(text: str, institution: str = "", keep_mask: bool = False) -> str:
     stem = institution_stem(institution)
     if stem:
         text = _MASKED_INSTITUTION.sub(stem, text)
+    if keep_mask:
+        return _SPACES.sub(" ", text).strip()
     # '●'를 지우면 'O●O'가 'O O'가 되는 식으로 새 가림 표시가 드러나므로 바뀌지 않을 때까지 반복한다.
     for _ in range(4):
         cleaned = _SPACES.sub(" ", _ORPHAN_DASHES.sub(" ", _MASK.sub(" ", text)))
@@ -121,8 +128,11 @@ def parse_consulting_content(content: str, institution: str) -> list[tuple[str, 
             utterances[-1][1] += " " + line
         else:
             utterances.append(["unknown", line])
-    cleaned = [(speaker, clean_text(text, institution)) for speaker, text in utterances]
-    return [(speaker, text) for speaker, text in cleaned if text]
+    cleaned = [
+        (speaker, clean_text(text, institution), clean_text(text, institution, keep_mask=True))
+        for speaker, text in utterances
+    ]
+    return [(speaker, text, kept) for speaker, text, kept in cleaned if text]
 
 
 def convert_finance(root: Path) -> list[dict]:
@@ -154,25 +164,26 @@ def convert_finance(root: Path) -> list[dict]:
                 if source_id in seen:
                     continue
                 utterances = parse_consulting_content(source.get("consulting_content", ""), source.get("source_institution", ""))
-                key = " ".join(text for _, text in utterances)
+                key = " ".join(text for _, text, _ in utterances)
                 if len(utterances) < MIN_TURNS or key in seen:
                     continue
                 seen.add(source_id)
                 seen.add(key)
                 counters[category] += 1
-                cases.append(
-                    {
-                        "id": f"normal_aihubfin_{category}_{counters[category]:05d}",
-                        "label": 0,
-                        "group": f"aihubfin_{source_id}",
-                        "source": "aihub_finance_consult",
-                        "split": split,
-                        "domain": category_ko,
-                        "category": label_text(topics.get(source_id, "")),
-                        "institution": source.get("source_institution", ""),
-                        "turns": _turns(utterances),
-                    }
-                )
+                case = {
+                    "id": f"normal_aihubfin_{category}_{counters[category]:05d}",
+                    "label": 0,
+                    "group": f"aihubfin_{source_id}",
+                    "source": "aihub_finance_consult",
+                    "split": split,
+                    "domain": category_ko,
+                    "category": label_text(topics.get(source_id, "")),
+                    "institution": source.get("source_institution", ""),
+                    "turns": _turns([(speaker, text) for speaker, text, _ in utterances]),
+                }
+                if KEEP_MASK:
+                    case["turns_kept"] = _turns([(speaker, kept) for speaker, _, kept in utterances])
+                cases.append(case)
     return cases
 
 
@@ -225,33 +236,36 @@ def convert_minwon(root: Path) -> list[dict]:
                     rows.sort(key=lambda row: int(re.sub(r"\D", "", str(row.get("문장번호") or "0")) or 0))
                     utterances = []
                     for row in rows:
-                        text = clean_text(_record_text(row))
+                        raw = _record_text(row)
+                        text = clean_text(raw)
                         if not text:
                             continue
+                        kept = clean_text(raw, keep_mask=True)
                         speaker = "customer" if str(row.get("화자", "")).strip() == "고객" else "agent"
                         if utterances and utterances[-1][0] == speaker:
-                            utterances[-1] = (speaker, utterances[-1][1] + " " + text)
+                            utterances[-1] = (speaker, utterances[-1][1] + " " + text, utterances[-1][2] + " " + kept)
                         else:
-                            utterances.append((speaker, text))
-                    key = " ".join(text for _, text in utterances)
+                            utterances.append((speaker, text, kept))
+                    key = " ".join(text for _, text, _ in utterances)
                     if len(utterances) < MIN_TURNS or key in seen:
                         continue
                     seen.add(key)
                     first = rows[0]
                     domain = _domain_code(first, str(zip_path))
                     counters[domain] += 1
-                    cases.append(
-                        {
-                            "id": f"normal_aihubminwon_{domain}_{counters[domain]:06d}",
-                            "label": 0,
-                            "group": f"aihubminwon_{domain}_{zip_path.stem}_{dialogue_id}",
-                            "source": "aihub_minwon",
-                            "split": split,
-                            "domain": label_text(first.get("도메인") or domain),
-                            "category": label_text(first.get("카테고리") or zip_path.stem).upper(),
-                            "turns": _turns(utterances),
-                        }
-                    )
+                    case = {
+                        "id": f"normal_aihubminwon_{domain}_{counters[domain]:06d}",
+                        "label": 0,
+                        "group": f"aihubminwon_{domain}_{zip_path.stem}_{dialogue_id}",
+                        "source": "aihub_minwon",
+                        "split": split,
+                        "domain": label_text(first.get("도메인") or domain),
+                        "category": label_text(first.get("카테고리") or zip_path.stem).upper(),
+                        "turns": _turns([(speaker, text) for speaker, text, _ in utterances]),
+                    }
+                    if KEEP_MASK:
+                        case["turns_kept"] = _turns([(speaker, kept) for speaker, _, kept in utterances])
+                    cases.append(case)
     return cases
 
 
