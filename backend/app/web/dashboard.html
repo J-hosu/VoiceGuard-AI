@@ -1627,8 +1627,8 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     var lastRun = arr(st && st.runs)[0];
     var collecting = !!(st && st.collecting);
     $('kBadge').hidden = !counts.pending; $('kBadge').textContent = String(counts.pending || '');
-    inner.appendChild(viewHead('신종 수법 자동 수집',
-      'n8n이 매일 오전 9시 금융감독원·경찰청의 새 사례를 모으면 AI가 수법 카드로 정리합니다. 사람이 승인한 카드만 실시간 탐지(상태 추적기)에 들어가고, 승인할 때마다 회귀 평가가 돌아 기존 탐지가 흔들리지 않았는지 확인합니다.',
+    inner.appendChild(viewHead('신종 수법 수집·검토·반영',
+      '‘지금 수집’을 누르면 금감원·경찰청 새 사례를 모아 AI가 수법 카드로 정리합니다. 담당자가 승인한 카드만 상태 추적기 지식에 반영됩니다. 정기 수집 워크플로는 연결 예정입니다.',
       [h('button', { type: 'button', class: 'btn primary', disabled: collecting, onclick: function () {
         postJSON('/knowledge/collect', {}).then(function () { setTimeout(loadKnowledge, 800); }).catch(function (e) { alertText(errorText(e)); });
       } }, icon('refresh'), collecting ? '수집 중…' : '지금 수집')]));
@@ -1640,9 +1640,11 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
         lastRun ? h('small', { text: lastRun.status === 'failed' ? '실패' : '새 카드 ' + lastRun.new_cards + '개 / 글 ' + lastRun.fetched + '개' }) : null))));
     var run = runs[0];
     if (run && String(run.trigger || '').indexOf('knowledge:') === 0) {
+      // 승인 뒤 평가는 빈 평가 DB에서 기본 대본만 돌리므로 승인한 카드의 효과는 재지 않는다.
       inner.appendChild(h('p', { class: 'note' }, '승인 뒤 회귀 평가: ',
-        run.status === 'running' ? '진행 중 (' + run.scenarios + '개 대본)' :
-          run.status === 'done' ? (run.passed_count + '/' + run.total + ' 통과' + (run.passed ? ' · 기존 탐지 유지' : ' · 실패 대본 확인 필요')) : '실패'));
+        run.status === 'running' ? '진행 중 (기본 대본 ' + run.scenarios + '개)' :
+          run.status === 'done' ? ('기본 대본 ' + run.passed_count + '/' + run.total + ' 통과' + (run.passed ? '' : ' · 실패 대본 확인 필요')) : '실패',
+        ' · 승인 카드는 평가 입력에 포함되지 않음'));
     }
     var filter = state.kFilter || 'pending';
     inner.appendChild(h('div', { class: 'seg', role: 'group', 'aria-label': '카드 상태' },
@@ -1652,7 +1654,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
       })));
     if (!cards.length) {
       inner.appendChild(h('div', { class: 'card empty' }, h('strong', { text: filter === 'pending' ? '검토할 새 수법이 없습니다.' : '카드가 없습니다.' }),
-        filter === 'pending' ? '‘지금 수집’을 누르거나 n8n 일정 실행을 기다리세요.' : ''));
+        filter === 'pending' ? '‘지금 수집’을 눌러 새 사례를 모으세요.' : ''));
     }
     cards.forEach(function (c) { inner.appendChild(knowledgeCard(c)); });
     if (collecting) setTimeout(function () { if (state.tab === 'knowledge') loadKnowledge(); }, 4000);
@@ -1702,7 +1704,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     var m = (q && q.model) || {}, fb = (q && q.feedback) || {}, counts = fb.counts || {};
     var runs = arr(q && q.runs), running = runs.some(function (r) { return r.status === 'running'; });
     inner.appendChild(viewHead('모델 품질과 개선 루프',
-      '사용자 확인(실제 피싱·오경보)을 시스템 판정과 맞대어 오경보와 놓친 사기를 찾고, 그 통화를 평가 대본과 재학습 데이터로 씁니다. 모델은 평가를 통과해야 교체합니다.',
+      '사용자 확인(실제 피싱·오경보)을 시스템 판정과 맞대어 오경보와 놓친 사기를 찾고, 그 통화를 평가 대본으로 쓰고 재학습 후보로 내보냅니다. 모델 교체는 이 평가 결과를 보고 담당자가 결정합니다.',
       [h('button', { type: 'button', class: 'btn primary', disabled: running, onclick: function () { startEval('regression'); } }, icon('play'), running ? '평가 중…' : '회귀 평가 실행'),
        h('button', { type: 'button', class: 'btn', disabled: running || !q.eval_scenarios_from_feedback, onclick: function () { startEval('all'); } }, '사용자 확인 대본 포함'),
        h('a', { class: 'btn', href: '/quality/retrain-candidates' }, icon('download'), '재학습 후보 내려받기 (' + (q.retrain_candidates || 0) + ')')]));

@@ -125,6 +125,7 @@ class _LiveSession:
     - STT_REFINE=rtzr면 REFINE_TICK_S마다 확인해, 마지막 정리 뒤 REFINE_STEP초가 지났고 REFINE_LIVE초 넘게 지난 조각이
       있으면 그 끝까지를 리턴제로 파일 전사로 다시 받아 적어 transcript_refined를 보낸다(live_refine 참고).
       정리는 통화마다 한 번에 하나만 돈다(작업 스레드). 연달아 실패하면 그 통화의 정리를 끄고 실시간 조각만 보여 준다.
+      리턴제로 무료 사용량이 소진되면 다시 시도하지 않고 바로 끈다.
     """
 
     def __init__(self, websocket: Optional[WebSocket]) -> None:
@@ -238,6 +239,10 @@ class _LiveSession:
                     spk_count=window.spk_count,
                     timeout=REFINE_REQUEST_TIMEOUT_S,
                 )
+            except rtzr_client.RtzrQuotaError:
+                # 무료 사용량 소진: 다시 보내도 같으므로 이 통화의 정리를 바로 끈다(경고는 rtzr_client가 한 번 남겼다).
+                self.stop_refine()
+                return
             except Exception as exc:
                 self._failures += 1
                 logger.warning("통화 중 정리(리턴제로) 실패 %d회(log_id=%s): %s", self._failures, self.log_id, exc)

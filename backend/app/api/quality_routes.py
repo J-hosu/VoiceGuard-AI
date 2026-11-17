@@ -2,7 +2,7 @@
 
 docs/API_SPEC_V2.md 7·8·10절의 일부를 구현한다. /quality·/eval·/knowledge·/investigation은 관리 경로라
 ACCESS_CODE와 ADMIN_CODE가 모두 설정돼 있으면 관리 코드가 있어야 열린다(access_gate.py). /calls/{id}/evidence는 참가자 경로다.
-n8n은 X-Admin-Code 헤더로 POST /knowledge/collect?wait=true 를 부른다.
+n8n 정기 수집 템플릿은 X-Admin-Code 헤더로 POST /knowledge/collect?wait=true 를 부르게 되어 있다(연결하지 않음).
 """
 
 from __future__ import annotations

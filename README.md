@@ -89,7 +89,7 @@
 <!-- STT:START -->
 ### 전사 · 화자 분리 성능
 
-**실시간 음성 인식은 자체 운영 GPU 서버에서 처리하며, 리턴제로 기능을 활성화하면 해당 음성이 외부 API로 전송됩니다.** 전사는 통화 음성을 텍스트로 바꾸는 과정입니다. 코드 기본값은 모든 전사를 자체 서버의 Whisper large-v3로 처리합니다. 시연 서버는 녹음 파일 분석·통화 후 재전사·통화 중 전사 보정에 리턴제로를 켜 두었고, 실시간 조각은 자체 서버에서 전사합니다. 아래 숫자는 문자 오류율(CER)이라 낮을수록 좋습니다.
+**실시간 음성 인식은 자체 운영 GPU 서버에서 처리하며, 리턴제로 기능을 활성화하면 해당 음성이 외부 API로 전송됩니다.** 전사는 통화 음성을 텍스트로 바꾸는 과정입니다. 코드 기본값은 모든 전사를 자체 서버의 Whisper large-v3로 처리합니다. 시연 서버는 녹음 파일 분석·통화 후 재전사·통화 중 전사 보정에 리턴제로를 켜 두었고, 실시간 조각은 자체 서버에서 전사합니다. 리턴제로 무료 사용량이 소진되면 서버가 바로 자체 서버의 Whisper로 바꿔 전사하고, 백엔드를 다시 켤 때까지 리턴제로를 부르지 않습니다. 아래 숫자는 문자 오류율(CER)이라 낮을수록 좋습니다.
 
 | 모델 | 파일 전체 | 실시간 조각 |
 | --- | ---: | ---: |
@@ -235,6 +235,7 @@
 | [신고용 요약](docs/investigator.md#신고용-요약) | 통화 기록을 바탕으로 신고용 요약을 생성합니다. 사건 개요 3~5문장만 Claude가 쓰고, 나머지는 저장된 기록으로 조립합니다. |
 | [신종 수법 수집·검토·반영](docs/investigator.md#신종-수법-수집검토반영) | 금감원·경찰청 게시판의 새 글을 Claude가 수법 카드 초안으로 정리하고, 담당자가 승인한 카드만 상태 추적기 프롬프트에 추가합니다. |
 | [품질 점검](docs/investigator.md#품질-점검) | 사용자가 제공한 확인 응답과 AI 판정을 비교해 오경보·미탐지 의심 사례를 모으고, 평가 대본과 재학습 후보로 내보냅니다. |
+| [자연어로 묻기 (n8n 채팅)](docs/investigator.md#자연어로-묻기-n8n-채팅) | 수사관이 채팅으로 물으면 Claude가 수사 데이터를 도구로 찾아 통화 번호와 함께 답하고, 요청하면 수동 수집을 시작합니다. 워크플로 템플릿만 있고 n8n에는 아직 연결하지 않았습니다. |
 
 <sub>우선순위 배점은 팀이 정한 값이고 실제 수사관과 검증하지 않았습니다. 같은 계좌·번호가 나와도 같은 범죄 조직이라고 확정할 수 없습니다. 음성 원본은 전사 후 지우고 해시만 남기므로, 해시 저장은 원본 음성 보관과 다릅니다. 신종 수법은 수동 수집을 지원하며 정기 수집 워크플로는 연결 예정입니다. 카드를 승인하면 기본 12개 대본으로 회귀 평가를 돌리지만, 평가는 빈 평가 DB에서 돌아 승인한 카드가 입력에 들어가지 않으므로 반영 효과는 아직 검증하지 않았습니다.</sub>
 
@@ -281,11 +282,12 @@ flowchart TB
 <tr><td nowrap valign="top">수사관 대시보드</td><td nowrap valign="top">사용 중</td><td valign="top">단서 연결, 우선순위 제안, 관계 그래프, 무결성 확인, 품질 점검을 한 화면에서 봅니다.</td></tr>
 <tr><td nowrap valign="top">신종 수법<br>수집·검토·반영</td><td nowrap valign="top">사용 중</td><td valign="top">대시보드의 '지금 수집' 버튼이나 API로 수동 수집합니다. 승인한 카드는 상태 추적기 프롬프트에 추가하며, 모델을 다시 학습하지 않습니다.</td></tr>
 <tr><td nowrap valign="top">수법 카드 승인 후<br>회귀 평가</td><td nowrap valign="top">사용 중</td><td valign="top">기본 12개 대본을 별도 평가 DB에서 다시 돌립니다. 이 DB가 비어 있어 승인한 카드는 평가 입력에 들어가지 않으므로, 반영 효과의 검증은 다음 개선 과제입니다.</td></tr>
-<tr><td nowrap valign="top">리턴제로<br>전사 · 화자 구분</td><td nowrap valign="top">선택 설정</td><td valign="top">코드 기본값은 꺼져 있습니다. 시연 서버는 녹음 파일 분석·통화 후 재전사·통화 중 전사 보정에 켜 두었고, 이때 해당 음성이 리턴제로 API로 전송됩니다.</td></tr>
+<tr><td nowrap valign="top">리턴제로<br>전사 · 화자 구분</td><td nowrap valign="top">선택 설정</td><td valign="top">코드 기본값은 꺼져 있습니다. 시연 서버는 녹음 파일 분석·통화 후 재전사·통화 중 전사 보정에 켜 두었고, 이때 해당 음성이 리턴제로 API로 전송됩니다. 무료 사용량이 소진되면 백엔드를 다시 켤 때까지 자체 서버의 Whisper로 전사하고 통화 중 보정은 끕니다.</td></tr>
 <tr><td nowrap valign="top">보호자 알림 요청<br>(n8n)</td><td nowrap valign="top">선택 설정</td><td valign="top"><code>N8N_WEBHOOK_URL</code>을 설정하면 위험 통화 이벤트를 n8n으로 보냅니다. 시연 서버의 n8n은 2026-11-17부터 Slack 채널에 알립니다. 앱은 전송을 요청하는 데까지만 하며 수신 확인은 없습니다.</td></tr>
 <tr><td nowrap valign="top">로컬 화자 분리<br>(3D-Speaker)</td><td nowrap valign="top">실험 완료</td><td valign="top">앱 코드로 옮겨 시험만 했고 앱 흐름에는 연결하지 않았습니다.</td></tr>
 <tr><td nowrap valign="top">Whisper<br>추가 학습 모델</td><td nowrap valign="top">실험 완료</td><td valign="top">실제 통화의 전화번호를 지우는 문제가 있어 서비스에 쓰지 않습니다.</td></tr>
 <tr><td nowrap valign="top">신종 수법 정기 수집<br>(n8n)</td><td nowrap valign="top">미연결</td><td valign="top">워크플로 템플릿만 있고, 정기 수집 워크플로는 연결 예정입니다.</td></tr>
+<tr><td nowrap valign="top">수사관 자연어 질의<br>(n8n 채팅)</td><td nowrap valign="top">템플릿 제공</td><td valign="top">n8n 채팅 창에 질문하면 Claude가 수사 데이터를 찾아 통화 번호와 함께 답합니다(<code>POST /investigation/assistant</code>, 관리 코드 필요). 워크플로 템플릿만 있어 n8n에 연결해야 씁니다.</td></tr>
 </table>
 
 ### 기술 스택
@@ -438,6 +440,7 @@ backend/app/
     official_sources.py       # 금감원 · 경찰청 게시판 새 글 수집
     scam_knowledge.py         # 신종 수법 카드 (Claude 초안 → 담당자 승인 → 추적기 반영)
     quality.py                # 품질 점검 (확인 응답 ↔ 판정, 회귀 평가 실행 기록)
+    investigator_assistant.py # 수사관 자연어 질의 (Claude 도구 사용 · n8n 채팅)
     webhook_emitter.py        # n8n 이벤트
   web/dashboard.html          # 수사관 대시보드 (사건 · 관계 그래프 · 신종 수법 · 모델 품질)
   train_transformer.py        # 분류기 학습
@@ -445,7 +448,7 @@ backend/app/
   build_dataset_v5.py         # 학습 데이터 v5 (가린 개인정보 자리를 가상 값으로 채움)
   eval_*.py                   # 평가 (회귀 · 앞부분 탐지 · 외부 데이터 · 녹음 · 문자 · 문서)
 stt_lab/                      # 전사 모델 추가 학습 · 평가 (Whisper, 리턴제로 비교, 화자 분리)
-n8n/                          # 위험 통화 알림(Slack · Telegram) · 신종 수법 정기 수집 워크플로 템플릿 (정기 수집은 미연결)
+n8n/                          # 위험 통화 알림(Slack · Telegram) · 신종 수법 정기 수집 · 수사관 자연어 질의(채팅) 워크플로 템플릿 (정기 수집·채팅은 미연결)
 docs/                         # API 명세 · 학습 기록 · 구조도
   one-call.md                 #   전화 흐름으로 기능 보기
   investigator.md             #   수사관 지원용 능동 AI 에이전트 기능

@@ -7,6 +7,8 @@
     STT_REFINE       off | rtzr     통화 중 지난 구간을 화자 분리와 함께 다시 받아 적기(live_refine, websocket)
 
 rtzr를 골랐는데 RTZR_CLIENT_ID/RTZR_CLIENT_SECRET이 없거나 호출이 실패하면 경고를 남기고 그 요청은 로컬로 받아 적는다.
+리턴제로 무료 사용량이 소진되면(HTTP 429, A0001) 기다리지 않고 바로 로컬로 넘기고, 프로세스가 끝날 때까지 세 설정 모두
+리턴제로를 부르지 않는다(rtzr_client.quota_exhausted, 정리는 끈다). 로컬은 백엔드가 도는 GPU 서버의 Whisper다.
 """
 
 from __future__ import annotations
@@ -33,8 +35,10 @@ logger = logging.getLogger(__name__)
 
 SAMPLE_RATE = 16000
 _ENGINES = ("local", "rtzr")
-# 녹음 파일 리턴제로 전사를 기다리는 상한. 보통 녹음 길이보다 훨씬 빨리 끝나고, 넘기면 로컬로 받아 적는다.
-RECORDING_TIMEOUT_S = 600.0
+# 녹음 파일 리턴제로 전사를 기다리는 상한(초). 넘기면 로컬로 받아 적는다. 두 요청(녹음 파일 분석, 통화 후 재전사)은
+# 웹 앱과 Cloudflare가 약 100초에 끊으므로, 그 안에 로컬 전사까지 마치도록 짧게 둔다(2분 녹음은 보통 8초 안팎).
+# 429로 쉬는 시간도 이 안에서 rtzr_client.RATE_LIMIT_RETRY_S까지만 쓴다.
+RECORDING_TIMEOUT_S = 60.0
 
 
 def transcribe_audio_file(audio_path: str, realtime: bool = False) -> list[dict]:
@@ -85,7 +89,7 @@ def file_engine() -> str:
 
 
 def refine_enabled() -> bool:
-    """STT_REFINE=rtzr이고 리턴제로 키가 있으면 True.
+    """STT_REFINE=rtzr이고 리턴제로 키가 있고 무료 사용량이 남아 있으면 True.
 
     정리(refine)에는 로컬 대안을 두지 않는다. 키가 없으면 경고만 남기고 끄며, 화면에는 실시간 조각만 나온다.
     """
@@ -98,15 +102,21 @@ def refine_enabled() -> bool:
     if not rtzr_client.is_configured():
         logger.warning("STT_REFINE=rtzr인데 RTZR_CLIENT_ID/RTZR_CLIENT_SECRET이 없어 통화 중 정리를 끕니다.")
         return False
-    return True
+    # 무료 사용량이 소진됐으면 끈다. 경고는 rtzr_client가 소진을 처음 알았을 때 한 번만 남긴다.
+    return not rtzr_client.quota_exhausted()
 
 
 def open_live_stream() -> Optional[rtzr_client.StreamSession]:
-    """STT_LIVE_ENGINE=rtzr면 통화 하나에 쓸 스트리밍 연결을 만든다(실제 연결은 첫 조각에서 연다). 아니면 None."""
+    """STT_LIVE_ENGINE=rtzr면 통화 하나에 쓸 스트리밍 연결을 만든다(실제 연결은 첫 조각에서 연다). 아니면 None.
+
+    무료 사용량이 소진됐으면 None이라 그 통화는 로컬 Whisper로 받아 적는다(경고는 rtzr_client가 한 번만 남긴다).
+    """
     if live_engine() != "rtzr":
         return None
     if not rtzr_client.is_configured():
         logger.warning("STT_LIVE_ENGINE=rtzr인데 RTZR_CLIENT_ID/RTZR_CLIENT_SECRET이 없어 로컬 Whisper로 받아 적습니다.")
+        return None
+    if rtzr_client.quota_exhausted():
         return None
     return rtzr_client.StreamSession()
 
@@ -119,11 +129,14 @@ def transcribe_live_chunk(
 ) -> list[dict]:
     """실시간 조각 하나를 받아 적는다. 스트리밍 연결(stream)이 있으면 리턴제로로, 실패하면 이 조각은 로컬 Whisper로 받아 적는다.
 
+    통화 도중 무료 사용량이 소진되면 남은 조각은 스트리밍을 건너뛰고 바로 로컬로 받아 적는다(경고는 한 번만).
     samples는 같은 조각을 16kHz로 푼 것이다(decode_audio_16k). 반환 segment의 start/end는 조각 기준 초다.
     """
-    if stream is not None and samples is not None and len(samples):
+    if stream is not None and samples is not None and len(samples) and not rtzr_client.quota_exhausted():
         try:
             return stream.transcribe(samples)
+        except rtzr_client.RtzrQuotaError:
+            pass  # 경고는 rtzr_client가 소진을 처음 알았을 때 남겼다
         except Exception as exc:
             logger.warning("리턴제로 실시간 전사 실패, 이 조각은 로컬 Whisper로 받아 적습니다: %s", exc)
     return transcribe_audio_bytes(audio_bytes, audio_format)
@@ -134,12 +147,13 @@ def transcribe_recording(audio_path: str) -> list[dict]:
 
     STT_FILE_ENGINE=rtzr면 리턴제로 파일 전사로 두 사람을 나눠 받아 적고, 발화마다 화자 번호(spk)를 붙인다.
     상대방/나는 화자 번호 단위로 label_diarized_speakers가 정한다. 키가 없거나 호출이 실패하면 경고를 남기고
-    로컬 Whisper로 받아 적는다(화자 번호 없음).
+    로컬 Whisper로 받아 적는다(화자 번호 없음). 무료 사용량이 소진됐으면(이번 요청에서 처음 알았어도) 기다리지 않고
+    바로 로컬로 받아 적는다.
     """
     if file_engine() == "rtzr":
         if not rtzr_client.is_configured():
             logger.warning("STT_FILE_ENGINE=rtzr인데 RTZR_CLIENT_ID/RTZR_CLIENT_SECRET이 없어 로컬 Whisper로 받아 적습니다.")
-        else:
+        elif not rtzr_client.quota_exhausted():
             try:
                 path = Path(audio_path)
                 # WAV(통화 후 전체 녹음)는 브라우저가 48kHz로 줄 때가 있어 16kHz mono로 맞춰 올리고,
@@ -161,6 +175,8 @@ def transcribe_recording(audio_path: str) -> list[dict]:
                     }
                     for utterance in result.utterances
                 ]
+            except rtzr_client.RtzrQuotaError:
+                pass  # 경고는 rtzr_client가 소진을 처음 알았을 때 남겼다
             except Exception as exc:
                 logger.warning("리턴제로 파일 전사 실패, 로컬 Whisper로 받아 적습니다: %s", exc)
     return transcribe_audio_file(audio_path)

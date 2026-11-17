@@ -1,0 +1,105 @@
+{
+  "name": "VoiceGuard 수사관 자연어 질의 (채팅)",
+  "nodes": [
+    {
+      "parameters": {
+        "public": true,
+        "mode": "hostedChat",
+        "authentication": "n8nUserAuth",
+        "initialMessages": "VoiceGuard 수사 지원 도우미입니다. 통화 기록을 찾아 답합니다.\n예: 오늘 우선 검토할 사건 3개 알려줘 · 계좌 110-123-456789가 나온 통화 찾아줘 · 사건 12번 요약하고 관련 통화 보여줘 · 새 수법 수집해줘",
+        "options": {
+          "title": "VoiceGuard 수사 지원",
+          "subtitle": "수법 카드 승인, 사건 판단, 연락은 대시보드에서 담당자가 합니다.",
+          "inputPlaceholder": "질문이나 요청을 입력하세요",
+          "responseMode": "lastNode"
+        }
+      },
+      "id": "2463e629-37c5-4d88-9110-c13ef01d7b41",
+      "name": "수사관 채팅",
+      "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+      "typeVersion": 1.1,
+      "position": [0, 0],
+      "notes": "n8n 사용자 인증: n8n에 로그인한 사람만 채팅 창을 씁니다. 직접 설치한 n8n은 이 인증의 우회 취약점(GHSA-jh8h-6c9q-7gmw)이 고쳐진 1.123.22 이상(1.x), 2.9.3 이상(2.x, 2.10.0 제외)이어야 합니다. 워크플로를 켜면 채팅 주소(Chat URL)가 열립니다.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "03302796-e75e-4fac-815f-d328efd64bc9",
+              "name": "base_url",
+              "value": "https://<VoiceGuard 서버 주소>",
+              "type": "string"
+            }
+          ]
+        },
+        "includeOtherFields": true,
+        "options": {}
+      },
+      "id": "2164d74d-d1f5-431d-97dd-c263880a51fe",
+      "name": "설정",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [220, 0],
+      "notes": "base_url에 VoiceGuard 서버 주소를 넣으세요. 관리 코드는 여기 넣지 않고 'VoiceGuard에 질문' 노드의 자격 증명에 넣습니다.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "={{ String($json.base_url).replace(/\\/+$/, '') }}/investigation/assistant",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ message: $json.chatInput, session_id: $json.sessionId }) }}",
+        "options": {
+          "timeout": 90000,
+          "response": {
+            "response": {
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "7dc90716-0897-496a-9de5-7344d7504e01",
+      "name": "VoiceGuard에 질문",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [440, 0],
+      "onError": "continueRegularOutput",
+      "notes": "Header Auth 자격 증명을 새로 만들어 Name에 X-Admin-Code, Value에 관리 코드(ADMIN_CODE, 서버에 없으면 접속 코드)를 넣고 고르세요. 자격 증명은 암호화해 저장되고 실행 기록에 남지 않습니다.",
+      "notesInFlow": true
+    },
+    {
+      "parameters": {
+        "jsCode": "// VoiceGuard 답을 채팅 답으로 바꾼다. n8n 채팅 창은 마지막 노드의 output 필드를 보여준다.\nconst r = $input.first().json;\nconst base = String($('설정').first().json.base_url || '').replace(/\\/+$/, '');\nlet output;\nif (typeof r.answer === 'string' && r.answer.trim()) {\n  // 채팅 창은 답을 마크다운으로 그려 이미지 주소를 저절로 불러오므로, 이미지는 대체 글만 남긴다(서버도 지운다).\n  output = r.answer.trim().replace(/!\\[([^\\]\\n]*)\\]\\([^)\\n]*\\)/g, '$1').replace(/!\\[/g, '!\\\\[');\n  // 답에 나온 상대 주소(/calls/…, /dashboard…)를 서버 주소로 바꾼다.\n  output = output.replace(/(^|[\\s(<\\[])(\\/(?:calls|dashboard)\\b[^\\s)>\\]]*)/g, (m, pre, path) => pre + base + path);\n  const cases = Array.isArray(r.cases) ? r.cases.slice(0, 5) : [];\n  if (cases.length) {\n    output += '\\n\\n대시보드에서 보기: ' + cases.map((id) => `[통화 #${id}](${base}/dashboard#case=${id})`).join(' · ');\n  }\n} else if (r.error) {\n  // 서버에 닿지 못함(시간 초과, 연결 실패)\n  const reason = typeof r.error === 'string' ? r.error : (r.error.message || '');\n  output = 'VoiceGuard 서버에 연결하지 못했습니다. 잠시 뒤 다시 물어봐 주세요.' + (reason ? ` (${reason})` : '');\n} else {\n  // 서버가 받지 않음(관리 코드가 틀리면 401, 너무 많이 틀리면 429, Claude 키가 없으면 503)\n  const detail = typeof r.detail === 'string' ? r.detail : '';\n  output = 'VoiceGuard 서버가 요청을 처리하지 못했습니다.' + (detail ? ' ' + detail : '');\n  if (detail.includes('코드')) output += \" 'VoiceGuard에 질문' 노드의 자격 증명(X-Admin-Code)을 확인해 주세요.\";\n}\nreturn [{ json: { output } }];"
+      },
+      "id": "c1a2f52e-ef7c-4b13-945b-3116c9d39030",
+      "name": "답변 만들기",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [660, 0]
+    }
+  ],
+  "connections": {
+    "수사관 채팅": {
+      "main": [[{ "node": "설정", "type": "main", "index": 0 }]]
+    },
+    "설정": {
+      "main": [[{ "node": "VoiceGuard에 질문", "type": "main", "index": 0 }]]
+    },
+    "VoiceGuard에 질문": {
+      "main": [[{ "node": "답변 만들기", "type": "main", "index": 0 }]]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1",
+    "saveDataSuccessExecution": "none",
+    "saveDataErrorExecution": "none",
+    "saveManualExecutions": false,
+    "saveExecutionProgress": false
+  },
+  "pinData": {}
+}

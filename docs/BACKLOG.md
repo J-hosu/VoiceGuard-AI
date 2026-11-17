@@ -5,6 +5,7 @@
 ## 0. 운영에 남은 일 (사람이 해야 함)
 
 - n8n에 `n8n/voiceguard_knowledge_collect.json`을 가져와 `base_url`과 관리 코드(서버에 `ADMIN_CODE`가 없으면 접속 코드)를 넣는다. 그 전까지 신종 수법 수집은 대시보드의 '지금 수집' 버튼으로만 돈다.
+- 수사관 자연어 질의 채팅은 아직 연결하지 않았다. 쓰려면 n8n에 `n8n/voiceguard_investigator_chat.json`을 가져와 '설정' 노드에 `base_url`을 넣고, 'VoiceGuard에 질문' 노드에 Header Auth 자격 증명(Name `X-Admin-Code`, Value 관리 코드)을 만들어 고른 뒤 켠다. 직접 설치한 n8n이면 먼저 버전을 확인한다(1.x는 1.123.22 이상, 2.x는 2.9.3 이상이고 2.10.0 제외). 이어 묻기 기억은 서버 메모리에 있어 백엔드가 uvicorn 프로세스 하나로 돌아야 한다. 연결하면 `docs/investigator.md`·`docs/API_SPEC_V2.md`·README의 '템플릿만 있음' 문구와 참가자 개인정보 안내(`frontend/src/core/config/privacy.ts`)를 고친다.
 - 서버에 검토 대기 수법 카드 8장(2026-11-15 첫 수집). 승인하면 실시간 상태 추적기 프롬프트가 바뀌고 회귀 평가가 돈다(Claude API 비용).
 - 본문이 이미지뿐인 게시글(경찰청 카드뉴스 등)은 카드로 만들지 않고 주소만 기록한다(`status=skipped`). 이미지 판독은 아직 없다.
 

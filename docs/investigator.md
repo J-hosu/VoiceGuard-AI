@@ -15,6 +15,7 @@ AI가 통화 단서를 정리하고 관련 의심 통화를 연결해 수사 검
 | [신고용 요약](#신고용-요약) | 통화 기록을 바탕으로 신고용 요약을 생성하고, 사건 개요만 Claude가 작성 | 제출용 요약 문서 |
 | [신종 수법 수집·검토·반영](#신종-수법-수집검토반영) | 수집을 실행하면 금감원·경찰청 새 글을 수법 카드 초안으로 정리 | 승인을 기다리는 카드 |
 | [품질 점검](#품질-점검) | 사용자 확인 응답과 시스템 판정을 비교 | 오경보·미탐지 의심 사례, 평가 대본 |
+| [자연어로 묻기 (n8n 채팅)](#자연어로-묻기-n8n-채팅) | 질문을 받으면 수사 데이터를 도구로 찾아 답하고, 요청하면 수동 수집을 시작 | 통화 번호와 대시보드 링크가 붙은 답 |
 
 <p align="center">
   <img src="images/v2/web_priority.png" alt="수사관 대시보드 사건 목록과 사건 상세, 우선순위순 정렬">
@@ -294,7 +295,7 @@ flowchart TB
 <p align="center">
   <img src="images/readme/investigator_knowledge.png" alt="신종 수법 탭: 검토 대기 8, 카드 초안과 승인·반려 버튼">
   <br>
-  <sub>신종 수법 탭. 경찰청 통합대응단 피싱 시나리오(2026-10-07)로 만든 카드 초안이 승인을 기다립니다. 화면 위 안내 문구(n8n 매일 수집, 승인 뒤 회귀 평가로 기존 탐지 유지 확인)는 현재 대시보드에도 남아 있는 예전 문구로, 실제 동작과 다릅니다. 정기 수집 워크플로는 아직 연결하지 않았고, 승인 뒤 회귀 평가에는 승인한 카드가 들어가지 않습니다. (<a href="images/v2/web_knowledge.png">전체 화면</a>)</sub>
+  <sub>신종 수법 탭. 경찰청 통합대응단 피싱 시나리오(2026-10-07)로 만든 카드 초안이 승인을 기다립니다. 화면 위 제목('신종 수법 자동 수집')과 안내 문구(n8n 매일 수집, 승인 뒤 회귀 평가로 기존 탐지 유지 확인)는 캡처할 때의 예전 문구입니다. 지금 대시보드는 제목이 '신종 수법 수집·검토·반영'이고, '지금 수집'을 누르면 수집하며 정기 수집 워크플로는 연결 예정이라고 안내합니다. 승인 뒤 회귀 평가 줄에도 승인 카드가 평가 입력에 포함되지 않는다고 적습니다. (<a href="images/v2/web_knowledge.png">전체 화면</a>)</sub>
 </p>
 
 <details>
@@ -330,7 +331,7 @@ flowchart TB
 <p align="center">
   <img src="images/readme/investigator_quality.png" alt="모델 품질 탭: 현재 모델 카드와 사용자 확인 응답 비교">
   <br>
-  <sub>모델 품질 탭 (분류기 v3를 쓰던 때의 화면). 현재 모델, 이전 대비 평가, 사용자 확인 응답과 시스템 판정을 보여 줍니다. 지금 쓰는 분류기 v5의 성능은 <a href="tech/detection.md">보이스피싱 탐지 성능</a>에 있습니다. (<a href="images/v2/web_quality.png">전체 화면</a>)</sub>
+  <sub>모델 품질 탭 (분류기 v3를 쓰던 때의 화면). 현재 모델, 이전 대비 평가, 사용자 확인 응답과 시스템 판정을 보여 줍니다. 화면 위 안내의 '모델은 평가를 통과해야 교체합니다'는 캡처할 때의 예전 문구이고, 지금 대시보드는 '모델 교체는 이 평가 결과를 보고 담당자가 결정합니다'로 안내합니다. 지금 쓰는 분류기 v5의 성능은 <a href="tech/detection.md">보이스피싱 탐지 성능</a>에 있습니다. (<a href="images/v2/web_quality.png">전체 화면</a>)</sub>
 </p>
 
 <details>
@@ -341,6 +342,27 @@ flowchart TB
 - 기본 12개 대본: 사기 6(검찰 사칭, 금감원 사칭과 보안 앱 설치, 저축은행 대출 선상환, 납치 협박, 자녀 사칭, 카드 배송 스미싱), 정상 6(은행 대출 상담, 은행 이상 거래 확인, 가족 통화, 택배, 보험 갱신 안내, 경찰서 분실 신고 회신).
 
 </details>
+
+## 자연어로 묻기 (n8n 채팅)
+
+**수사관이 n8n 채팅 창에 질문이나 요청을 쓰면 Claude가 수사 데이터를 도구로 찾아 통화 번호와 함께 한국어로 답합니다.** 대시보드에서 찾을 내용을 말로 빠르게 찾는 보조 창구이며, 질문을 받았을 때만 움직입니다.
+
+n8n의 채팅 트리거가 질문을 `POST /investigation/assistant`로 넘기면, 백엔드의 도우미(대응 에이전트와 같은 `AGENT_MODEL`, 기본 Claude Haiku 5.5)가 필요한 도구를 골라 부르고 답합니다. Haiku가 답을 거절하면 Claude Opus 5.5로 한 번 더 묻습니다. 도구는 사건 목록·사건 상세·단서 연결·수법 카드 화면이 쓰는 기존 함수를 그대로 부르므로, 점수와 단서 값은 대시보드와 같은 계산에서 나옵니다. 답에는 근거가 된 통화 번호(`통화 #12`)가 붙고, n8n이 그 통화의 대시보드 링크를 덧붙입니다. 같은 채팅 창에서 이어 물으면 최근 대화 10개까지 이어서 이해합니다.
+
+| 묻는 예 | 도우미가 쓰는 도구 |
+| --- | --- |
+| 오늘 우선 검토할 사건 3개 알려줘 | 우선순위 목록(점수와 근거) |
+| 계좌 110-123-456789가 나온 통화 찾아줘 | 단서 검색. 하이픈·공백은 저장된 단서와 같은 규칙으로 맞추고, 같은 값이 없으면 부분 일치로 찾음 |
+| 사건 12번 요약하고 관련 통화 보여줘 | 사건 요약(단서, 위험 발화, 전사 앞부분) · 공통 단서가 있는 통화 |
+| 이번 주 위험 통화가 몇 건이야? | 위험도 단계별·유형별 집계 |
+| 검토 대기 중인 수법 카드 보여줘 | 수법 카드 목록과 마지막 수집 결과 |
+| 12번 신고용 요약 링크 줘 | 신고용 요약·대시보드 주소 |
+| 새 수법 수집해줘 | 수동 수집 시작(대시보드 '지금 수집'과 같음) |
+
+- **할 수 없는 일**: 수법 카드 승인·반려, 사건 판단·종결, 데이터 수정, 신고·연락·메시지 발송은 도구에 없어 하지 못합니다. 데이터를 바꾸는 도구는 새 수법 수집 하나이며, 이것도 검토 대기 카드만 만들고 승인은 대시보드에서 담당자가 합니다. 수집은 수사관이 보낸 그 메시지에 수집을 시키는 말('새 수법 수집해줘', '신종 수법 모아줘'처럼)이 있을 때만 시작합니다. 그래서 수집을 요청하지 않은 질문에서는 통화 전사에 섞인 문장이 수집을 시작하지 못합니다. '위험 통화 모아서 보여줘', '전사 가져와'처럼 읽기만 하는 요청은 수집 요청으로 보지 않습니다.
+- **데이터가 가는 곳**: 질문과 도구 결과(통화 요약, 단서, 위험 발화와 전사 앞부분)가 Claude API(Anthropic)로 전송됩니다. n8n 채팅을 연결하면 질문과 답(통화 번호, 단서 값, 전사 인용 포함)이 n8n을 거치며, 템플릿은 n8n이 실행 기록을 저장하지 않도록 설정했습니다(문제를 볼 때만 워크플로 설정에서 잠시 켭니다). 전사는 지시가 아닌 자료로 다루라고 지시문에 적었지만, 전사에 섞인 문장이 답의 내용에 영향을 줄 가능성은 남습니다. 채팅 창은 답을 마크다운으로 그려 이미지 주소를 저절로 불러오므로, 전사에 심은 이미지로 열람 사실이나 사건 정보가 새지 않도록 서버와 n8n이 답의 이미지를 지웁니다. 접속·관리 코드와 키는 Claude에 보내지 않습니다. 서버는 질문과 답을 DB에 저장하지 않고, 이어 묻기를 위해 메모리에 2시간 둡니다(서버를 다시 켜면 사라짐). 누가 물었는지는 기록하지 않습니다.
+- **설정**: n8n에서 [`voiceguard_investigator_chat.json`](../n8n/voiceguard_investigator_chat.json)을 가져와 '설정' 노드에 서버 주소를 넣고, 'VoiceGuard에 질문' 노드에 Header Auth 자격 증명(Name `X-Admin-Code`, Value 관리 코드. `ADMIN_CODE`가 없으면 접속 코드)을 만들어 고른 뒤 워크플로를 켭니다. 자격 증명은 n8n이 암호화해 저장하고 실행 기록에 남지 않습니다. 이 API는 관리 경로라 관리 코드가 맞지 않으면 답하지 않습니다(`401`). 채팅 트리거는 n8n 사용자 인증으로 설정되어 n8n에 로그인한 사람만 채팅 창을 씁니다. 이 인증은 우회 취약점([GHSA-jh8h-6c9q-7gmw](https://github.com/advisories/GHSA-jh8h-6c9q-7gmw))이 고쳐진 n8n(1.x는 1.123.22 이상, 2.x는 2.9.3 이상이고 2.10.0 제외)에서만 믿을 수 있으므로, 연결 전에 n8n 버전을 확인합니다.
+- **운영 상태와 한계**: 템플릿만 있고 시연 서버의 n8n에는 아직 연결하지 않았습니다. 로컬 DB 복사본에서 "우선 검토할 사건 3개 알려줘"를 실제 Claude로 한 번 물었을 때 우선순위 목록 도구를 한 번 부르고 약 8초 만에 통화 번호가 붙은 답을 받았지만, 답의 정확도를 잰 평가는 없습니다. 한 질문에 도구 왕복은 6번까지, 전체 약 45초 안에 끝나도록 묶었고, 시간이 모자라면 그때까지 찾은 것으로 답합니다. Claude가 요청 한도(429)로 기다리라고 하면 그보다 길어질 수 있습니다. 답이 길이 상한에서 끊기면 끊긴 글 대신 범위를 좁혀 다시 물어 달라고 답합니다. 단서 검색은 추출된 단서에서만 찾고 전사 전체를 뒤지지 않습니다. 요청 형식과 도구 목록은 [API 명세 10.8](API_SPEC_V2.md#108-수사관-자연어-질의-post-investigationassistant)에 있습니다.
 
 ## 한계
 
@@ -385,6 +407,7 @@ flowchart TB
 | 신고용 요약 | [`report_builder.py`](../backend/app/services/report_builder.py) · [`investigation.py`](../backend/app/services/investigation.py) · [`official_cases.py`](../backend/app/services/official_cases.py) |
 | 신종 수법 수집·검토·반영 | [`official_sources.py`](../backend/app/services/official_sources.py) · [`scam_knowledge.py`](../backend/app/services/scam_knowledge.py) · [`state_tracker.py`](../backend/app/services/state_tracker.py) · [`voiceguard_knowledge_collect.json`](../n8n/voiceguard_knowledge_collect.json) (템플릿) |
 | 품질 점검 | [`quality.py`](../backend/app/services/quality.py) · [`eval_loop.py`](../backend/app/eval_loop.py) · [`scenarios.json`](../backend/eval/scenarios.json) · [`response_agent.py`](../backend/app/services/response_agent.py) |
+| 자연어로 묻기 (n8n 채팅) | [`investigator_assistant.py`](../backend/app/services/investigator_assistant.py) · [`investigation_routes.py`](../backend/app/api/investigation_routes.py) · [`voiceguard_investigator_chat.json`](../n8n/voiceguard_investigator_chat.json) (템플릿) |
 | 수사관 화면 · API | [`dashboard.html`](../backend/app/web/dashboard.html) · [`investigation_routes.py`](../backend/app/api/investigation_routes.py) · [`quality_routes.py`](../backend/app/api/quality_routes.py) · [`agent_routes.py`](../backend/app/api/agent_routes.py) · [`websocket.py`](../backend/app/api/websocket.py) |
 
 함수 이름과 저장 항목, 대시보드 화면별 API와 화면 밖에서 쓰는 API는 [API 명세 12절](API_SPEC_V2.md#12-수사-지원-구현-상세)에 정리했습니다. 설계와 구현이 다른 곳은 API 명세의 '구현 현황'을 따릅니다.

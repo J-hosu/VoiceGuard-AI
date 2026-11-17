@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Alert, Platform, Pressable, ScrollView, Switch, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { AppText } from '@/components/AppText';
@@ -5,6 +6,7 @@ import { Card } from '@/components/Card';
 import { ScreenHeader } from '@/components/ScreenHeader';
 import { PRIVACY_NOTICE, PRIVACY_NOTICE_CHECKS } from '@/core/config/privacy';
 import { useTheme } from '@/core/theme/theme';
+import { friendlyNetworkError } from '@/core/utils/format';
 import { toPercent } from '@/core/utils/riskLevel';
 import { useCallStore } from '@/state/callStore';
 import { useSettingsStore, type ThemeMode } from '@/state/settingsStore';
@@ -68,6 +70,28 @@ export default function Settings() {
     setVibration,
   } = useSettingsStore();
   const fetchCalls = useCallStore((s) => s.fetchCalls);
+  const [refreshNote, setRefreshNote] = useState<{ kind: 'loading' | 'done' | 'error'; text: string } | null>(null);
+
+  // 웹(react-native-web)에서는 Alert 대화상자가 뜨지 않으므로 확인 없이 바로 불러오고 결과를 버튼 아래에 적는다.
+  const refreshHistory = () => {
+    if (Platform.OS !== 'web') {
+      Alert.alert('히스토리 새로고침', '백엔드에서 통화 기록을 다시 불러옵니다.', [
+        { text: '취소', style: 'cancel' },
+        { text: '새로고침', onPress: () => void fetchCalls() },
+      ]);
+      return;
+    }
+    setRefreshNote({ kind: 'loading', text: '통화 기록을 불러오는 중입니다…' });
+    void fetchCalls().then(() => {
+      // fetchCalls는 실패해도 throw하지 않고 저장소의 error에 남긴다.
+      const error = useCallStore.getState().error;
+      setRefreshNote(
+        error
+          ? { kind: 'error', text: friendlyNetworkError(error) }
+          : { kind: 'done', text: '통화 기록을 다시 불러왔습니다.' },
+      );
+    });
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.bg }}>
@@ -160,18 +184,22 @@ export default function Settings() {
             </Card>
           </View>
 
-          <Pressable
-            onPress={() =>
-              Alert.alert('히스토리 새로고침', '백엔드에서 통화 기록을 다시 불러옵니다.', [
-                { text: '취소', style: 'cancel' },
-                { text: '새로고침', onPress: () => void fetchCalls() },
-              ])
-            }
-          >
-            <AppText weight="600" color={colors.primary} style={{ fontSize: 14, textAlign: 'center' }}>
-              히스토리 새로고침
-            </AppText>
-          </Pressable>
+          <View style={{ gap: 6 }}>
+            <Pressable onPress={refreshHistory} disabled={refreshNote?.kind === 'loading'}>
+              <AppText weight="600" color={colors.primary} style={{ fontSize: 14, textAlign: 'center' }}>
+                히스토리 새로고침
+              </AppText>
+            </Pressable>
+            {refreshNote ? (
+              <AppText
+                aria-live="polite"
+                color={refreshNote.kind === 'error' ? colors.dangerText : colors.textMuted}
+                style={{ fontSize: 12.5, lineHeight: 18, textAlign: 'center' }}
+              >
+                {refreshNote.text}
+              </AppText>
+            ) : null}
+          </View>
         </ScrollView>
       </SafeAreaView>
     </View>
