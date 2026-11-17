@@ -26,6 +26,10 @@ import { useSettingsStore } from '@/state/settingsStore';
  */
 export type HaltReason = 'connect_failed' | 'disconnected' | 'mic';
 
+/** 브라우저 Screen Wake Lock API(타입 정의가 없는 환경도 있어 쓰는 부분만 적는다). */
+type WakeSentinel = { released: boolean; release: () => Promise<void> };
+type WakeLockApi = { request: (type: 'screen') => Promise<WakeSentinel> };
+
 export interface CallSessionState {
   logId: number; // 백엔드가 발급한 통화 로그 id (call_started) — 0이면 아직 없음
   turns: TranscriptTurn[];
@@ -724,6 +728,38 @@ export function useCallSession(
       if (timer.current) clearInterval(timer.current);
     };
   }, []);
+
+  // 화면 꺼짐 방지(웹): 분석하는 동안 휴대폰 화면이 꺼지면 브라우저가 마이크를 멈추므로 Screen Wake Lock을 잡는다.
+  // 시작·재개 때 잡고 일시정지·종료·멈춤 때 푼다(running 기준). 다른 앱에 갔다 돌아오면 브라우저가 풀어 둔 잠금을 다시 잡는다.
+  // 지원하지 않는 브라우저(일부 앱 안 브라우저 등)나 거부되면 조용히 넘어간다(분석은 그대로 계속).
+  useEffect(() => {
+    if (Platform.OS !== 'web' || typeof navigator === 'undefined' || typeof document === 'undefined') return;
+    const wakeLock = (navigator as Navigator & { wakeLock?: WakeLockApi }).wakeLock;
+    if (!state.running || !wakeLock) return;
+    let sentinel: WakeSentinel | null = null;
+    let cancelled = false;
+    const acquire = () => {
+      if (cancelled || document.visibilityState !== 'visible' || (sentinel && !sentinel.released)) return;
+      wakeLock
+        .request('screen')
+        .then((s) => {
+          if (cancelled) void s.release();
+          else sentinel = s;
+        })
+        .catch(() => undefined);
+    };
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') acquire();
+    };
+    acquire();
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      cancelled = true;
+      document.removeEventListener('visibilitychange', onVisibility);
+      if (sentinel && !sentinel.released) void sentinel.release().catch(() => undefined);
+      sentinel = null;
+    };
+  }, [state.running]);
 
   return { state, start, restart, stop, pause, resume, finish, buildResult, respondAction, answerFollowup };
 }
