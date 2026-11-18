@@ -1,20 +1,20 @@
 <?xml-stylesheet href="theme.css" type="text/css"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="640" viewBox="0 0 1280 640">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="540" viewBox="0 0 1280 540">
   <!-- README 배너. ../images/v2/의 실제 화면 두 장을 합성한다: app_realtime_agent.png(휴대폰), web_priority.png(대시보드).
        두 화면 중 하나를 다시 찍으면 다시 굽는다. 결과: ../images/readme/hero.webp, hero-dark.webp -->
   <defs>
-    <clipPath id="card"><rect width="1280" height="640" rx="28"/></clipPath>
+    <clipPath id="card"><rect width="1280" height="540" rx="28"/></clipPath>
     <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
       <stop class="hero-stop1" offset="0"/>
       <stop class="hero-stop2" offset="1"/>
     </linearGradient>
-    <radialGradient id="glow" cx="800" cy="340" r="440" gradientUnits="userSpaceOnUse">
+    <radialGradient id="glow" cx="800" cy="290" r="440" gradientUnits="userSpaceOnUse">
       <stop class="hero-glow" offset="0" stop-opacity="0.24"/>
       <stop class="hero-glow" offset="0.55" stop-opacity="0.07"/>
       <stop class="hero-glow" offset="1" stop-opacity="0"/>
     </radialGradient>
-    <clipPath id="dash"><rect x="754" y="60" width="800" height="500" rx="14"/></clipPath>
-    <clipPath id="screen"><rect x="676" y="116" width="212" height="471" rx="32"/></clipPath>
+    <clipPath id="dash"><rect x="754" y="46" width="800" height="500" rx="14"/></clipPath>
+    <clipPath id="screen"><rect x="676" y="104" width="212" height="471" rx="32"/></clipPath>
     <filter id="liftDash" x="-30%" y="-30%" width="160%" height="160%">
       <feDropShadow class="hero-shadow" dx="0" dy="18" stdDeviation="22" flood-opacity="0.16"/>
     </filter>
@@ -23,39 +23,39 @@
     </filter>
     <linearGradient id="fade" x1="1070" y1="0" x2="1280" y2="0" gradientUnits="userSpaceOnUse">
       <stop class="hero-fade" offset="0" stop-opacity="0"/>
-      <stop class="hero-fade" offset="1" stop-opacity="0.88"/>
+      <stop class="hero-fade hero-fade-end" offset="1"/>
     </linearGradient>
   </defs>
 
   <g clip-path="url(#card)">
-    <rect width="1280" height="640" fill="url(#bg)"/>
-    <rect width="1280" height="640" fill="url(#glow)"/>
+    <rect width="1280" height="540" fill="url(#bg)"/>
+    <rect width="1280" height="540" fill="url(#glow)"/>
     <g class="f-none hero-ring" stroke-opacity="0.075" stroke-width="1.5">
-      <circle cx="782" cy="351" r="210"/>
-      <circle cx="782" cy="351" r="290"/>
-      <circle cx="782" cy="351" r="370"/>
-      <circle cx="782" cy="351" r="450"/>
-      <circle cx="782" cy="351" r="530"/>
+      <circle cx="782" cy="301" r="210"/>
+      <circle cx="782" cy="301" r="290"/>
+      <circle cx="782" cy="301" r="370"/>
+      <circle cx="782" cy="301" r="450"/>
+      <circle cx="782" cy="301" r="530"/>
     </g>
 
     <!-- 대시보드 -->
-    <rect x="754" y="60" width="800" height="500" rx="14" fill="#FFFFFF" filter="url(#liftDash)"/>
-    <image href="../images/v2/web_priority.png" x="754" y="60" width="800" height="500" clip-path="url(#dash)" preserveAspectRatio="xMinYMin slice"/>
-    <rect x="754.75" y="60.75" width="798.5" height="498.5" rx="14" fill="none" stroke="#0F2340" stroke-opacity="0.12" stroke-width="1.5"/>
-    <rect x="1040" y="40" width="240" height="560" fill="url(#fade)"/>
+    <rect x="754" y="46" width="800" height="500" rx="14" fill="#FFFFFF" filter="url(#liftDash)"/>
+    <image href="../images/v2/web_priority.png" x="754" y="46" width="800" height="500" clip-path="url(#dash)" preserveAspectRatio="xMinYMin slice"/>
+    <rect x="754.75" y="46.75" width="798.5" height="498.5" rx="14" fill="none" stroke="#0F2340" stroke-opacity="0.12" stroke-width="1.5"/>
+    <rect x="1040" y="0" width="240" height="540" fill="url(#fade)"/>
 
     <!-- 휴대폰 -->
-    <rect class="f-phone" x="664" y="104" width="236" height="495" rx="44" filter="url(#liftPhone)"/>
-    <rect class="f-none s-phone-edge" x="665" y="105" width="234" height="493" rx="43" stroke-width="2"/>
-    <image href="../images/v2/app_realtime_agent.png" x="676" y="116" width="212" height="471" clip-path="url(#screen)" preserveAspectRatio="xMidYMin slice"/>
+    <rect class="f-phone" x="664" y="92" width="236" height="495" rx="44" filter="url(#liftPhone)"/>
+    <rect class="f-none s-phone-edge" x="665" y="93" width="234" height="493" rx="43" stroke-width="2"/>
+    <image href="../images/v2/app_realtime_agent.png" x="676" y="104" width="212" height="471" clip-path="url(#screen)" preserveAspectRatio="xMidYMin slice"/>
   </g>
-  <rect class="f-none s-border" x="1" y="1" width="1278" height="638" rx="27" stroke-width="2"/>
+  <rect class="f-none s-border" x="1" y="1" width="1278" height="538" rx="27" stroke-width="2"/>
 
   <!-- 문구 -->
-  <circle class="f-accent" cx="88" cy="203" r="15" fill-opacity="0.18"/>
-  <circle class="f-accent" cx="88" cy="203" r="7"/>
-  <text class="kr f-accent-ink" x="112" y="215" font-size="34" font-weight="600">능동형 보이스피싱 대응 AI</text>
-  <text class="en f-ink" x="76" y="306" font-size="76" font-weight="800" letter-spacing="-1.5">VoiceGuard AI</text>
-  <text class="kr f-ink2" x="80" y="380" font-size="44" font-weight="700" letter-spacing="-0.5">감지에서 끝나지 않습니다</text>
-  <text class="kr f-muted" x="80" y="438" font-size="34" font-weight="500">통화 중 · 통화 후 · 수사까지</text>
+  <circle class="f-accent" cx="88" cy="153" r="15" fill-opacity="0.18"/>
+  <circle class="f-accent" cx="88" cy="153" r="7"/>
+  <text class="kr f-accent-ink" x="112" y="165" font-size="34" font-weight="600">능동형 보이스피싱 대응 AI</text>
+  <text class="en f-ink" x="76" y="256" font-size="76" font-weight="800" letter-spacing="-1.5">VoiceGuard AI</text>
+  <text class="kr f-ink2" x="80" y="330" font-size="44" font-weight="700" letter-spacing="-0.5">감지에서 끝나지 않습니다</text>
+  <text class="kr f-muted" x="80" y="388" font-size="34" font-weight="500">통화 중 · 통화 후 · 수사까지</text>
 </svg>

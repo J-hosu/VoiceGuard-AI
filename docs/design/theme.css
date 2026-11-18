@@ -27,6 +27,7 @@
   --hero-bg1: #FBFCFE;
   --hero-bg2: #EBF1F7;
   --hero-fade: #EDF2F8;
+  --hero-fade-o: 0.88;
   --hero-ring: #0F766E;
   --shadow: #0F2340;
   --phone: #0B1424;
@@ -58,6 +59,7 @@
   --hero-bg1: #131C2B;
   --hero-bg2: #0B111C;
   --hero-fade: #0B111C;
+  --hero-fade-o: 0.5;
   --hero-ring: #5EEAD4;
   --shadow: #000000;
   --phone: #05070D;
@@ -103,10 +105,14 @@
 .s-danger { stroke: var(--danger); }
 .s-card { stroke: var(--card); }
 
+/* 선 위에 놓이는 글자: 카드 색 테두리로 뒤의 선을 가린다 */
+.halo text { paint-order: stroke; stroke: var(--card); stroke-width: 8px; stroke-linejoin: round; }
+
 /* 배너 전용 */
 .hero-stop1 { stop-color: var(--hero-bg1); }
 .hero-stop2 { stop-color: var(--hero-bg2); }
 .hero-fade { stop-color: var(--hero-fade); }
+.hero-fade-end { stop-opacity: var(--hero-fade-o); }
 .hero-glow { stop-color: var(--accent); }
 .hero-ring { stroke: var(--hero-ring); }
 .hero-shadow { flood-color: var(--shadow); }

@@ -68,32 +68,45 @@
   <text class="kr f-ink" x="970" y="720" font-size="26" font-weight="700">휴대폰 화면</text>
   <text class="kr f-muted" x="970" y="754" font-size="24" font-weight="400">경고 화면 · 진동</text>
 
-  <!-- 흐름 -->
+  <!-- 흐름: 굵은 실선은 발화 하나가 지나는 주 흐름, 가는 실선은 서버 안의 기록 흐름, 주황 점선은 외부 서비스 호출 -->
+  <g class="f-none s-ink" stroke-width="4" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M190 680 V448 M181 458 L190 448 L199 458"/>
+    <path d="M316 386 H357 M347 377 L357 386 L347 395"/>
+    <path d="M612 386 H653 M643 377 L653 386 L643 395"/>
+    <path d="M908 386 H949 M939 377 L949 386 L939 395"/>
+    <path d="M1078 444 V676 M1069 666 L1078 676 L1087 666"/>
+  </g>
   <g class="f-none s-muted" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M316 386 H358 M349 378 L358 386 L349 394"/>
-    <path d="M612 386 H654 M645 378 L654 386 L645 394"/>
-    <path d="M908 386 H950 M941 378 L950 386 L941 394"/>
-    <path d="M338 386 V152 H358 M349 144 L358 152 L349 160"/>
-    <path d="M782 208 V326 M774 317 L782 326 L790 317"/>
-    <path d="M1078 328 V210 M1070 219 L1078 210 L1086 219"/>
     <path d="M782 444 V474 M774 465 L782 474 L790 465"/>
     <path d="M782 592 V678 M774 669 L782 678 L790 669"/>
-    <path d="M190 680 V446 M182 455 L190 446 L198 455"/>
-    <path d="M1078 444 V678 M1070 669 L1078 678 L1086 669"/>
   </g>
-  <circle class="f-muted" cx="338" cy="386" r="5"/>
   <g class="f-none s-warn" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M338 380 V152 H352" stroke-dasharray="7 7"/>
+    <path d="M349 144 L358 152 L349 160"/>
+    <path d="M782 214 V320" stroke-dasharray="7 7"/>
+    <path d="M774 317 L782 326 L790 317"/>
+    <path d="M1078 322 V216" stroke-dasharray="7 7"/>
+    <path d="M1070 219 L1078 210 L1086 219"/>
     <path d="M296 216 V320" stroke-dasharray="7 7"/>
     <path d="M288 220 L296 211 L304 220 M288 316 L296 325 L304 316"/>
   </g>
+  <circle class="f-warn" cx="338" cy="386" r="6"/>
 
   <!-- 흐름 이름 -->
-  <g class="kr f-muted" font-size="24" font-weight="500">
+  <g class="kr f-warn-ink" font-size="24" font-weight="600">
+    <text x="284" y="257" text-anchor="end">음성</text>
     <text x="350" y="257">전사문</text>
     <text x="794" y="257">단계 · 위험 판단</text>
     <text x="1090" y="257">웹훅</text>
+  </g>
+  <g class="kr f-muted" font-size="24" font-weight="500">
     <text x="202" y="657">음성 조각</text>
     <text x="1066" y="657" text-anchor="end">경고 · 대응 카드</text>
   </g>
-  <text class="kr f-warn-ink" x="284" y="257" font-size="24" font-weight="600" text-anchor="end">음성</text>
+
+  <!-- 선의 뜻 -->
+  <path class="f-none s-ink" d="M348 714 H398" stroke-width="4" stroke-linecap="round"/>
+  <text class="kr f-muted" x="412" y="722" font-size="24" font-weight="500">발화가 지나는 흐름</text>
+  <path class="f-none s-warn" d="M348 752 H398" stroke-width="2.5" stroke-linecap="round" stroke-dasharray="7 7"/>
+  <text class="kr f-muted" x="412" y="760" font-size="24" font-weight="500">외부 서비스 호출</text>
 </svg>
