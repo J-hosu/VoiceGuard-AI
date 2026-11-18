@@ -151,7 +151,7 @@ v1의 사기 데이터는 금감원 공개 녹취 한 출처, 두 유형(기관 
 
 ### 저장소에 없는 것
 
-- `data/`(원본·변환·생성 데이터, 평가 결과)와 `models/`(학습된 모델)는 git에서 제외했습니다. AI Hub 데이터는 재배포가 금지이고, 스미싱 문자 데이터는 비상업 라이선스이며, 문서 이미지는 항목별 이용 조건을 확인하지 않았습니다. AI Hub 데이터로 학습한 모델도 올리지 않습니다. 생성 통화와 공식 사례 수집본도 같은 폴더에 있어 함께 빠져 있습니다.
+- `data/`(원본·변환·생성 데이터, 평가 결과)와 `models/`(학습된 모델)는 git에서 제외했습니다. AI Hub 데이터는 재배포가 금지이고, 스미싱 문자 데이터는 비상업 라이선스이며, 문서 이미지는 항목별 이용 조건을 확인하지 않았습니다. 생성 통화와 공식 사례 수집본도 같은 폴더에 있어 함께 빠져 있습니다. 학습된 통화 분류기 v5와 문자 분류기는 2026-11-18부터 [릴리스](https://github.com/J-hosu/VoiceGuard-AI/releases/tag/models-v5)로 따로 공개합니다. 데이터 원본은 들어 있지 않으며, 이용 조건은 릴리스 설명에 적었습니다.
 - 저장소에 있는 것은 데이터를 만드는 코드, 평가 시나리오 12개, 문자 16건, 문서 출처 목록, 모델 정보 [`model_card.json`](../../backend/eval/model_card.json)입니다. 코드는 변환 [`convert_aihub_calls.py`](../../backend/app/convert_aihub_calls.py), 생성 [`generate_official_scenarios.py`](../../backend/app/generate_official_scenarios.py), 비식별 구간 채우기 [`mask_fill_batches.py`](../../backend/app/mask_fill_batches.py), 구성 [`build_dataset_v2.py`](../../backend/app/build_dataset_v2.py) · [`build_dataset_v3.py`](../../backend/app/build_dataset_v3.py) · [`build_dataset_v5.py`](../../backend/app/build_dataset_v5.py) · [`build_sms_dataset.py`](../../backend/app/build_sms_dataset.py)입니다. 가중치 해시는 [재현 설정](#재현-설정)에 있습니다.
 
 ## 모델 선택 이유
