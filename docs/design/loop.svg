@@ -1,53 +1,64 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="450" viewBox="0 0 1280 450">
-  <!-- How it works: the 5-step loop, light card. Step details live in the numbered list under the image in README.md.
-       Output: ../images/readme/loop.png -->
-  <rect x="1" y="1" width="1278" height="448" rx="24" fill="#F7F9FC" stroke="#D3DCE7" stroke-width="2"/>
+<?xml-stylesheet href="theme.css" type="text/css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="462" viewBox="0 0 1280 462">
+  <!-- 통화 대응 흐름: 다섯 단계. 단계 이름 아래에 하는 일(둘째 줄)과 맡는 구성 요소(셋째 줄)를 적는다.
+       다섯째 단계는 자동 학습이 아니라 담당자가 검토해 반영하는 단계이므로, 되돌아가는 점선에 그 조건을 적는다.
+       README '통화 대응 흐름'의 설명과 뜻이 같아야 한다. 결과: ../images/readme/loop.png, loop-dark.png -->
+  <rect class="card" x="1" y="1" width="1278" height="460" rx="24"/>
 
-  <!-- connectors -->
-  <g fill="none" stroke="#AEBACB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M222 108 H338 M328 99 L338 108 L328 117"/>
-    <path d="M462 108 H578 M568 99 L578 108 L568 117"/>
-    <path d="M702 108 H818 M808 99 L818 108 L808 117"/>
-    <path d="M942 108 H1058 M1048 99 L1058 108 L1048 117"/>
-  </g>
-
-  <!-- nodes -->
-  <g fill="#0B1424">
-    <circle cx="160" cy="108" r="46"/>
-    <circle cx="400" cy="108" r="46"/>
-    <circle cx="640" cy="108" r="46"/>
-    <circle cx="880" cy="108" r="46"/>
-    <circle cx="1120" cy="108" r="46"/>
-  </g>
-  <g font-family="Inter, sans-serif" font-size="34" font-weight="700" fill="#5EEAD4" text-anchor="middle">
-    <text x="160" y="120">01</text>
-    <text x="400" y="120">02</text>
-    <text x="640" y="120">03</text>
-    <text x="880" y="120">04</text>
-    <text x="1120" y="120">05</text>
+  <!-- 연결선 -->
+  <g class="f-none s-wire" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M222 104 H338 M328 95 L338 104 L328 113"/>
+    <path d="M462 104 H578 M568 95 L578 104 L568 113"/>
+    <path d="M702 104 H818 M808 95 L818 104 L808 113"/>
+    <path d="M942 104 H1058 M1048 95 L1058 104 L1048 113"/>
   </g>
 
-  <!-- step names -->
-  <g font-family="'Noto Sans KR', sans-serif" font-size="46" font-weight="800" fill="#0B1424" text-anchor="middle" letter-spacing="-0.5">
-    <text x="160" y="226">감지</text>
-    <text x="400" y="226">판단</text>
-    <text x="640" y="226">개입</text>
-    <text x="880" y="226">후속 확인</text>
-    <text x="1120" y="226">개선</text>
+  <!-- 단계 번호 -->
+  <g class="f-node">
+    <circle cx="160" cy="104" r="46"/>
+    <circle cx="400" cy="104" r="46"/>
+    <circle cx="640" cy="104" r="46"/>
+    <circle cx="880" cy="104" r="46"/>
+    <circle cx="1120" cy="104" r="46"/>
   </g>
-  <g font-family="'Noto Sans KR', sans-serif" font-size="30" font-weight="500" fill="#56657E" text-anchor="middle">
-    <text x="160" y="280">전사·사기 확률</text>
-    <text x="400" y="280">단계 추적</text>
-    <text x="640" y="280">대응 방법 안내</text>
-    <text x="880" y="280">피해 여부 확인</text>
-    <text x="1120" y="280">검토·반영·재평가</text>
+  <g class="en f-node-ink" font-size="34" font-weight="700" text-anchor="middle">
+    <text x="160" y="116">01</text>
+    <text x="400" y="116">02</text>
+    <text x="640" y="116">03</text>
+    <text x="880" y="116">04</text>
+    <text x="1120" y="116">05</text>
   </g>
 
-  <!-- feedback loop -->
-  <g fill="none" stroke="#0D9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M1120 308 V350 Q1120 378 1092 378 H188 Q160 378 160 350 V312" stroke-dasharray="10 9"/>
-    <path d="M149 322 L160 309 L171 322"/>
+  <!-- 단계 이름 -->
+  <g class="kr f-ink" font-size="44" font-weight="800" text-anchor="middle" letter-spacing="-0.5">
+    <text x="160" y="218">감지</text>
+    <text x="400" y="218">판단</text>
+    <text x="640" y="218">개입</text>
+    <text x="880" y="218">후속 확인</text>
+    <text x="1120" y="218">개선</text>
   </g>
-  <rect x="400" y="352" width="480" height="52" fill="#F7F9FC"/>
-  <text x="640" y="390" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="600" fill="#0F766E" text-anchor="middle">다음 통화의 감지·판단에 반영</text>
+  <!-- 하는 일 -->
+  <g class="kr f-muted" font-size="28" font-weight="500" text-anchor="middle">
+    <text x="160" y="266">전사 · 사기 확률</text>
+    <text x="400" y="266">단계 · 유형 추적</text>
+    <text x="640" y="266">대응 방법 안내</text>
+    <text x="880" y="266">피해 여부 확인</text>
+    <text x="1120" y="266">담당자 검토 · 반영</text>
+  </g>
+  <!-- 맡는 구성 요소 -->
+  <g class="kr f-accent-ink" font-size="24" font-weight="600" text-anchor="middle">
+    <text x="160" y="308">Whisper · 분류기 v5</text>
+    <text x="400" y="308">Claude 상태 추적기</text>
+    <text x="640" y="308">대응 에이전트</text>
+    <text x="880" y="308">앱의 확인 질문</text>
+    <text x="1120" y="308">수법 카드 · 품질 점검</text>
+  </g>
+
+  <!-- 되돌아가는 선 -->
+  <g class="f-none s-accent" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1120 334 V366 Q1120 394 1092 394 H188 Q160 394 160 366 V340" stroke-dasharray="10 9"/>
+    <path d="M149 350 L160 337 L171 350"/>
+  </g>
+  <rect class="f-card" x="282" y="368" width="716" height="52"/>
+  <text class="kr f-accent-ink" x="640" y="405" font-size="30" font-weight="600" text-anchor="middle">담당자가 승인한 내용만 다음 통화의 판단에 반영</text>
 </svg>

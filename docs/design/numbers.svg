@@ -1,31 +1,35 @@
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="244" viewBox="0 0 1280 244">
-  <!-- Key numbers strip, light card. Two lines per tile: line 1 compares (previous value small and light, teal arrow, current value large and bold),
-       line 2 is the label. Tile 1 is the current call classifier v5. Tiles 2 and 3 are the v2 -> v3 improvement (v5 is 0.9% and 0 calls on the same evals).
-       Sources: docs/MODEL_TRAINING_LOG.md (v5 and v3 sections). The model and eval condition of each tile are in the note under the image in README.md.
-       When a number changes, edit the tile here, the note and alt text under the image in README.md, then re-bake.
-       Columns are fitted to the measured text so each tile keeps about a 50px gap to its divider (dividers at 365.5 and 831.5).
-       Output: ../images/readme/numbers.png -->
-  <rect x="1" y="1" width="1278" height="242" rx="24" fill="#F7F9FC" stroke="#D3DCE7" stroke-width="2"/>
-  <g stroke="#DCE3EC" stroke-width="2">
-    <path d="M365.5 55 V191"/>
-    <path d="M831.5 55 V191"/>
-  </g>
-  <g fill="none" stroke="#0D9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M543 114 H571 M563 106 L571 114 L563 122"/>
-    <path d="M917 114 H945 M937 106 L945 114 L937 122"/>
+<?xml-stylesheet href="theme.css" type="text/css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="316" viewBox="0 0 1280 316">
+  <!-- 핵심 숫자 카드. 세 칸 모두 현재 모델(통화 분류기 v5) 결과이고, 칸마다 무엇을 어떤 데이터로 잰 값인지 함께 적는다.
+       1: 분류기 단독 사기 통화 탐지율(v2 평가 분할 사기 307통, 통화 끝 0.70 이상)
+       2: 분류기 단독 정상 상담 오경보율(AI Hub 상담 Validation 5,041건, 한 번이라도 0.70 이상)
+       3: 전체 시스템 사기 통화 탐지(처음 보는 test 사기 14통, 글로 입력, 최종 위험도 0.70 이상)
+       출처: docs/tech/detection.md '현재 모델 성능'. 숫자가 바뀌면 README의 표와 대체 문구도 함께 고친다.
+       결과: ../images/readme/numbers.png, numbers-dark.png -->
+  <rect class="card" x="1" y="1" width="1278" height="314" rx="24"/>
+  <g class="s-line" stroke-width="2">
+    <path d="M426.5 44 V236"/>
+    <path d="M853.5 44 V236"/>
+    <path d="M58 262 H1222"/>
   </g>
 
   <!-- 1 -->
-  <text x="58" y="127" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="96" font-weight="800" letter-spacing="-3">99.7</tspan><tspan font-family="Inter, sans-serif" font-size="46" font-weight="700" dx="7" fill="#0D9488">%</tspan></text>
-  <text x="60" y="185" font-family="'Noto Sans KR', sans-serif" font-size="28" font-weight="600" fill="#56657E">사기 통화 탐지 정확도</text>
+  <text class="kr f-accent-ink" x="60" y="70" font-size="24" font-weight="700">통화 분류기 v5</text>
+  <text class="f-ink" x="56" y="162"><tspan class="en" font-size="92" font-weight="800" letter-spacing="-3">99.7</tspan><tspan class="en f-accent" font-size="44" font-weight="700" dx="7">%</tspan></text>
+  <text class="kr f-ink2" x="60" y="204" font-size="28" font-weight="700">사기 통화 탐지율</text>
+  <text class="kr f-muted" x="60" y="238" font-size="24" font-weight="400">학습에 쓰지 않은 307통</text>
 
   <!-- 2 -->
-  <text x="415" y="127" font-family="Inter, sans-serif" font-size="36" font-weight="600" fill="#8090A4">30.2%</text>
-  <text x="587" y="127" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="96" font-weight="800" letter-spacing="-3">0.7</tspan><tspan font-family="Inter, sans-serif" font-size="46" font-weight="700" dx="7" fill="#0D9488">%</tspan></text>
-  <text x="417" y="185" font-family="'Noto Sans KR', sans-serif" font-size="28" font-weight="600" fill="#56657E">정상 상담 오경보</text>
+  <text class="kr f-accent-ink" x="478" y="70" font-size="24" font-weight="700">통화 분류기 v5</text>
+  <text class="f-ink" x="474" y="162"><tspan class="en" font-size="92" font-weight="800" letter-spacing="-3">0.9</tspan><tspan class="en f-accent" font-size="44" font-weight="700" dx="7">%</tspan></text>
+  <text class="kr f-ink2" x="478" y="204" font-size="28" font-weight="700">정상 상담 오경보율</text>
+  <text class="kr f-muted" x="478" y="238" font-size="24" font-weight="400">AI Hub 상담 5,041건</text>
 
   <!-- 3 -->
-  <text x="881" y="127" font-family="Inter, sans-serif" font-size="36" font-weight="600" fill="#8090A4">4</text>
-  <text x="961" y="127" fill="#0B1424"><tspan font-family="Inter, sans-serif" font-size="96" font-weight="800" letter-spacing="-3">0</tspan><tspan font-family="Inter, 'Noto Sans KR', sans-serif" font-size="46" font-weight="700" dx="7" fill="#0D9488">통</tspan></text>
-  <text x="883" y="185" font-family="'Noto Sans KR', sans-serif" font-size="28" font-weight="600" fill="#56657E">실제 녹음 · 정상 상담 오경보</text>
+  <text class="kr f-accent-ink" x="905" y="70" font-size="24" font-weight="700">전체 시스템</text>
+  <text class="f-ink" x="901" y="162"><tspan class="en" font-size="92" font-weight="800" letter-spacing="-3">13</tspan><tspan class="en f-accent" font-size="44" font-weight="700" dx="10">/ 14</tspan><tspan class="kr f-accent" font-size="40" font-weight="700" dx="4">통</tspan></text>
+  <text class="kr f-ink2" x="905" y="204" font-size="28" font-weight="700">사기 통화 탐지</text>
+  <text class="kr f-muted" x="905" y="238" font-size="24" font-weight="400">처음 보는 통화 · 글로 입력</text>
+
+  <text class="kr f-faint" x="640" y="296" font-size="24" font-weight="500" text-anchor="middle">경보 기준 0.70 · 세 값은 평가 데이터와 조건이 서로 다릅니다</text>
 </svg>

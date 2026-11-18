@@ -1,14 +1,16 @@
 # README 그림 원본
 
-[README](../../README.md)에 쓰는 배너, 핵심 숫자 카드, 다섯 단계 그림의 원본입니다. 결과 파일은 `docs/images/readme/`에 있습니다.
+[README](../../README.md)에 쓰는 배너와 그림의 원본입니다. 결과 파일은 `docs/images/readme/`에 있습니다. 그림마다 GitHub의 밝은 화면용과 어두운 화면용(`-dark`)을 함께 만듭니다.
 
 | 원본 | 결과 | README에서 쓰는 곳 | 다시 구울 때 |
 | --- | --- | --- | --- |
-| `hero.svg` | `hero.webp` | 맨 위 배너 | 휴대폰 화면(`app_realtime_agent.png`)이나 대시보드 화면(`web_priority.png`)을 교체했을 때 다시 굽습니다. 두 화면은 README 본문과 같은 현재 빌드에서 가상 데이터로 촬영한 것을 쓰고, 배너의 대체 문구가 화면과 맞는지 확인합니다. |
-| `numbers.svg` | `numbers.png` | 첫 화면의 핵심 숫자 카드 | 카드 숫자(99.7% · 30.2% → 0.7% · 4 → 0통)나 기준 모델이 바뀔 때 다시 굽습니다. 99.7%는 통화 분류기 v5, 나머지 둘은 v2 → v3 결과입니다. README의 카드 아래 문장, 기준 각주, 대체 문구도 함께 고칩니다. |
-| `loop.svg` | `loop.png` | '통화 대응 흐름'의 다섯 단계 그림 | 단계 이름이나 단계 아래 설명(전사·사기 확률, 단계 추적, 대응 방법 안내, 피해 여부 확인, 검토·반영·재평가)이 바뀔 때 다시 굽습니다. README의 다섯 단계 목록과 뜻이 같아야 합니다. |
+| `hero.svg` | `hero.webp`<br>`hero-dark.webp` | 맨 위 배너 | 휴대폰 화면(`app_realtime_agent.png`)이나 대시보드 화면(`web_priority.png`)을 교체했을 때 다시 굽습니다. 두 화면은 README 본문과 같은 현재 빌드에서 가상 데이터로 촬영한 것을 씁니다. |
+| `numbers.svg` | `numbers.png`<br>`numbers-dark.png` | '검증 결과와 한계'의 숫자 카드 | 숫자나 기준 모델이 바뀔 때 다시 굽습니다. 세 칸 모두 현재 모델(통화 분류기 v5)의 결과이며, 칸마다 무엇을 어떤 데이터로 잰 값인지 함께 적습니다. README의 표와 대체 문구도 함께 고칩니다. |
+| `loop.svg` | `loop.png`<br>`loop-dark.png` | '통화 한 건의 흐름'의 다섯 단계 | 단계 이름, 하는 일, 맡는 구성 요소가 바뀔 때 다시 굽습니다. README의 다섯 단계 목록과 뜻이 같아야 합니다. |
+| `timeline.svg` | `timeline.png`<br>`timeline-dark.png` | '통화 한 건의 흐름'의 위험도 추이 | 기준 시연 기록([전화 흐름으로 기능 보기](../one-call.md))을 다시 만들었을 때 다시 굽습니다. 시각과 위험도, 좌표 계산식은 원본의 주석에 있습니다. |
+| `architecture.svg` | `architecture.png`<br>`architecture-dark.png` | '시스템 구조'의 요약 구조도 | 구성 요소나 외부로 보내는 데이터가 바뀔 때 다시 굽습니다. 자세한 구조도는 `../diagrams/architecture.html`에 따로 있습니다. |
 
-숫자 카드는 카드마다 첫 줄에 이전 값 → 현재 값, 둘째 줄에 이름을 둡니다. 대시보드 화면과 조각 그림은 [수사관 지원용 능동 AI 에이전트 기능](../investigator.md)에 있습니다.
+`docs/images/readme/demo_wide.gif`는 넓은 화면의 대본 시연을 녹화한 것으로, 이 폴더의 원본에서 만들지 않습니다. 대시보드 화면과 조각 그림은 [수사관 지원용 능동 AI 에이전트 기능](../investigator.md)에 있습니다.
 
 ## 굽기
 
@@ -19,17 +21,29 @@ npm i --prefix ~/.cache/voiceguard-bake puppeteer-core     # 저장소 밖에 �
 NODE_PATH=~/.cache/voiceguard-bake/node_modules CHROME="<Chrome 또는 Edge 실행 파일>" node docs/design/bake.js
 ```
 
-`bake.js`는 이 폴더의 SVG 세 개를 모두 다시 굽습니다. 원본을 고치지 않은 그림은 결과 파일이 달라져도 커밋하지 않습니다.
+`bake.js`는 이 폴더의 SVG를 모두 두 가지 화면용으로 다시 굽습니다. 그림 이름을 주면 그 그림만 굽습니다(`node docs/design/bake.js numbers loop`). 원본을 고치지 않은 그림은 결과 파일이 달라져도 커밋하지 않습니다.
+
+README에서는 `<picture>`로 화면에 맞는 그림을 고릅니다.
+
+```html
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/numbers-dark.png">
+  <img src="docs/images/readme/numbers.png" width="100%" alt="...">
+</picture>
+```
 
 ## 색
 
-밝은 카드 한 벌로 GitHub의 밝은 화면과 어두운 화면에 모두 씁니다. 어두운 화면에서는 테두리 있는 밝은 카드로 보입니다.
+그림은 색을 직접 적지 않고 `theme.css`의 클래스를 씁니다(`f-`는 면, `s-`는 선). 색을 바꿀 때는 `theme.css`만 고치고 다시 굽습니다. SVG 파일을 브라우저에서 바로 열면 밝은 화면용으로 보입니다.
 
-| 쓰임 | 색 |
-| --- | --- |
-| 카드 배경 · 테두리 | `#F7F9FC` · `#D3DCE7` |
-| 글자 · 보조 글자 | `#0B1424` · `#56657E` |
-| 이전 값 (숫자 카드에서 작고 연하게) | `#8090A4` |
-| 신호색 (단위 · 화살표 · 점) | `#0D9488` |
-| 신호색 글자 | `#0F766E` |
-| 단계 번호 원 · 번호 | `#0B1424` · `#5EEAD4` |
+| 쓰임 | 밝은 화면 | 어두운 화면 |
+| --- | --- | --- |
+| 카드 배경 · 테두리 | `#F7F9FC` · `#D3DCE7` | `#0F1724` · `#2B384C` |
+| 카드 안의 상자 | `#FFFFFF` | `#162132` |
+| 글자 · 보조 글자 · 흐린 글자 | `#0B1424` · `#56657E` · `#7A8AA0` | `#F1F5F9` · `#A6B4C8` · `#8292A9` |
+| 신호색 (단위 · 선 · 점) · 신호색 글자 | `#0D9488` · `#0F766E` | `#2DD4BF` · `#5EEAD4` |
+| 단계 번호 원 · 번호 | `#0B1424` · `#5EEAD4` | `#134E4A` · `#99F6E4` |
+| 주의 (선 · 글자 · 바탕) | `#D97706` · `#B45309` · `#FDF1DC` | `#F59E0B` · `#FCD34D` · `#33270F` |
+| 위험 (선 · 글자 · 바탕) | `#DC2626` · `#B91C1C` · `#FCE5E4` | `#F87171` · `#FCA5A5` · `#3A1B1E` |
+
+글자 크기는 1280px 폭 기준 24px 이상으로 둡니다. README 본문 폭에서는 약 0.7배로 줄어 보이기 때문입니다.

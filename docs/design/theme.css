@@ -1,0 +1,114 @@
+/* README 그림 공용 색과 글꼴. 그림(SVG)은 색을 직접 적지 않고 아래 클래스를 쓴다.
+   bake.js가 같은 SVG를 밝은 화면용과 어두운 화면용(<html data-theme="dark">)으로 두 번 굽는다.
+   SVG 파일을 브라우저에서 바로 열면 밝은 화면용으로 보인다(<?xml-stylesheet?>). */
+
+:root {
+  --card: #F7F9FC;
+  --panel: #FFFFFF;
+  --border: #D3DCE7;
+  --line: #DCE3EC;
+  --wire: #9FADC0;
+  --ink: #0B1424;
+  --ink2: #1C2A40;
+  --muted: #56657E;
+  --faint: #7A8AA0;
+  --accent: #0D9488;
+  --accent-ink: #0F766E;
+  --accent-soft: #E3F4F1;
+  --node: #0B1424;
+  --node-ink: #5EEAD4;
+  --warn: #D97706;
+  --warn-ink: #B45309;
+  --warn-soft: #FDF1DC;
+  --danger: #DC2626;
+  --danger-ink: #B91C1C;
+  --danger-soft: #FCE5E4;
+  --on-solid: #FFFFFF;
+  --hero-bg1: #FBFCFE;
+  --hero-bg2: #EBF1F7;
+  --hero-fade: #EDF2F8;
+  --hero-ring: #0F766E;
+  --shadow: #0F2340;
+  --phone: #0B1424;
+  --phone-edge: #2B3B57;
+}
+
+:root[data-theme="dark"] {
+  --card: #0F1724;
+  --panel: #162132;
+  --border: #2B384C;
+  --line: #263346;
+  --wire: #5B6C85;
+  --ink: #F1F5F9;
+  --ink2: #E2E8F0;
+  --muted: #A6B4C8;
+  --faint: #8292A9;
+  --accent: #2DD4BF;
+  --accent-ink: #5EEAD4;
+  --accent-soft: #11302F;
+  --node: #134E4A;
+  --node-ink: #99F6E4;
+  --warn: #F59E0B;
+  --warn-ink: #FCD34D;
+  --warn-soft: #33270F;
+  --danger: #F87171;
+  --danger-ink: #FCA5A5;
+  --danger-soft: #3A1B1E;
+  --on-solid: #0B1424;
+  --hero-bg1: #131C2B;
+  --hero-bg2: #0B111C;
+  --hero-fade: #0B111C;
+  --hero-ring: #5EEAD4;
+  --shadow: #000000;
+  --phone: #05070D;
+  --phone-edge: #3A4A66;
+}
+
+/* 글꼴 */
+.kr { font-family: 'Noto Sans KR', sans-serif; }
+.en { font-family: Inter, 'Noto Sans KR', sans-serif; }
+
+/* 면 */
+.card { fill: var(--card); stroke: var(--border); stroke-width: 2; }
+.panel { fill: var(--panel); stroke: var(--border); stroke-width: 2; }
+.f-card { fill: var(--card); }
+.f-panel { fill: var(--panel); }
+.f-ink { fill: var(--ink); }
+.f-ink2 { fill: var(--ink2); }
+.f-muted { fill: var(--muted); }
+.f-faint { fill: var(--faint); }
+.f-line { fill: var(--line); }
+.f-accent { fill: var(--accent); }
+.f-accent-ink { fill: var(--accent-ink); }
+.f-accent-soft { fill: var(--accent-soft); }
+.f-node { fill: var(--node); }
+.f-node-ink { fill: var(--node-ink); }
+.f-warn { fill: var(--warn); }
+.f-warn-ink { fill: var(--warn-ink); }
+.f-warn-soft { fill: var(--warn-soft); }
+.f-danger { fill: var(--danger); }
+.f-danger-ink { fill: var(--danger-ink); }
+.f-danger-soft { fill: var(--danger-soft); }
+.f-on-solid { fill: var(--on-solid); }
+.f-none { fill: none; }
+
+/* 선 */
+.s-border { stroke: var(--border); }
+.s-line { stroke: var(--line); }
+.s-wire { stroke: var(--wire); }
+.s-ink { stroke: var(--ink); }
+.s-muted { stroke: var(--muted); }
+.s-accent { stroke: var(--accent); }
+.s-warn { stroke: var(--warn); }
+.s-danger { stroke: var(--danger); }
+.s-card { stroke: var(--card); }
+
+/* 배너 전용 */
+.hero-stop1 { stop-color: var(--hero-bg1); }
+.hero-stop2 { stop-color: var(--hero-bg2); }
+.hero-fade { stop-color: var(--hero-fade); }
+.hero-glow { stop-color: var(--accent); }
+.hero-ring { stroke: var(--hero-ring); }
+.hero-shadow { flood-color: var(--shadow); }
+.f-phone { fill: var(--phone); }
+.s-phone-edge { stroke: var(--phone-edge); }

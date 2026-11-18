@@ -1,74 +1,107 @@
-<p><img src="docs/images/readme/hero.webp" width="100%" alt="VoiceGuard AI. 감지에서 끝나지 않는 능동형 보이스피싱 대응 AI. 휴대폰의 실시간 통화 분석 화면과 그 뒤의 수사관 대시보드"></p>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/hero-dark.webp">
+  <img src="docs/images/readme/hero.webp" width="100%" alt="VoiceGuard AI. 감지에서 끝나지 않는 능동형 보이스피싱 대응 AI. 휴대폰의 실시간 통화 분석 화면과 그 뒤의 수사관 대시보드">
+</picture>
 
-VoiceGuard AI는 통화 내용을 분석해 보이스피싱 진행 단계를 파악하고, 위험 상황에 맞는 대응 방법을 먼저 안내하는 웹 앱입니다. **위험 탐지부터 대응 안내, 통화 후 피해 확인, 수사 지원까지 연결합니다.**
+**VoiceGuard AI는 통화 내용에서 보이스피싱의 진행 단계를 읽고, 그 단계에 맞는 대응을 안내하는 웹 앱입니다.** 탐지에서 끝내지 않고 통화 중 대응 안내, 통화 후 피해 확인, 수사 검토용 정리까지 한 흐름으로 잇습니다. AI 해커톤 출품작이며, 현재는 시연 서버에서 동작하는 시연 단계입니다.
 
-<table>
-<tr><td nowrap valign="top"><sub>통화 중</sub></td><td><b>위험 상황별 대응 방법을 안내합니다</b><br>전화를 끊으라는 경고, 공식 대표번호, 상대에게 되물어 볼 질문, 피해 차단 순서를 화면에 표시합니다.</td></tr>
-<tr><td nowrap valign="top"><sub>통화가 끝난 뒤</sub></td><td><b>피해가 없는지 다시 묻습니다</b><br>"통화 이후 상황을 알려주세요"에 고른 답(돈을 보냈어요·앱을 설치했어요 등)에 맞춰 지급정지·신고 순서를 안내합니다.</td></tr>
-<tr><td nowrap valign="top"><sub>수사관에게</sub></td><td><b>공통 단서를 바탕으로 관련 의심 통화를 연결합니다</b><br>AI 에이전트가 계좌·전화번호 같은 공통 단서가 있는 통화를 찾아 연결하고, 우선 검토할 의심 통화와 선정 근거를 대시보드에 정리합니다.</td></tr>
-</table>
-
-<!-- 핵심 숫자 카드: 99.7%는 통화 분류기 v5, 30.2% → 0.7%와 4 → 0통은 v2 → v3 결과입니다. 숫자가 바뀌면 docs/design/numbers.svg, 아래 설명·각주와 대체 문구를 함께 고치고 numbers.png를 다시 굽습니다 (docs/design/README.md) -->
-<p><img src="docs/images/readme/numbers.png" width="100%" alt="핵심 숫자 카드. 사기 통화 탐지 정확도 99.7% (통화 분류기 v5). 정상 상담 오경보 30.2%에서 0.7%로 감소 (v2에서 v3). 실제 녹음 정상 상담 오경보 4통에서 0통으로 감소 (v2에서 v3, 녹음 32통)"></p>
-
-2026-11-16부터 데이터를 추가로 전처리하여 성능을 높인 v5 모델을 사용합니다. v5는 사기 통화 탐지 99.7%이고, 실제 녹음 전사 정상 상담 1,400건의 오경보를 2.0%에서 1.1%로 줄였습니다([비교](docs/tech/detection.md#v3--v5-비식별-처리-구간을-가상-정보로-보완)).
-
-<sub>카드는 통화 분류기 단독 결과입니다(경보 기준 0.70). 99.7%: v5, v2 평가 세트 사기 통화 307통 · 30.2% → 0.7%: v2 → v3, AI Hub 정상 상담 5,041건(v5 0.9%) · 4 → 0통: v2 → v3, 정상 상담 녹음 32통(v5 0통)</sub>
+<p align="center">
+  <a href="#시연"><b>시연</b></a> &nbsp;·&nbsp;
+  <a href="#검증-결과와-한계"><b>검증 결과와 한계</b></a> &nbsp;·&nbsp;
+  <a href="docs/one-call.md"><b>통화 한 건의 흐름</b></a> &nbsp;·&nbsp;
+  <a href="docs/investigator.md"><b>수사 지원</b></a> &nbsp;·&nbsp;
+  <a href="#시스템-구조"><b>시스템 구조</b></a> &nbsp;·&nbsp;
+  <a href="#실행"><b>실행</b></a>
+</p>
 
 <table>
 <tr>
-<td width="50%" valign="top"><a href="docs/one-call.md"><b>전화 흐름으로 기능 보기</b></a><br><sub>검찰 사칭 시연 통화로 보는 통화 시작부터 종료 후 대응까지</sub></td>
-<td width="50%" valign="top"><a href="docs/investigator.md"><b>수사관 지원용 능동 AI 에이전트 기능</b></a><br><sub>AI가 처리하는 범위, 담당자 검토, 수사 지원 결과</sub></td>
+<th width="33%" align="left">통화 중</th>
+<th width="33%" align="left">통화가 끝난 뒤</th>
+<th width="34%" align="left">수사 지원</th>
 </tr>
 <tr>
-<td width="50%" valign="top"><a href="docs/tech/detection.md"><b>보이스피싱 탐지 성능</b></a><br><sub>모델별 평가 방법, 결과, 적용 범위와 한계</sub></td>
-<td width="50%" valign="top"><a href="docs/tech/transcription.md"><b>음성 인식·화자 분리 성능</b></a><br><sub>전사와 화자 분리 비교, 현재 구성과 채택 이유</sub></td>
+<td valign="top"><b>단계에 맞는 대응을 안내합니다</b><br>전화를 끊으라는 경고, 공식 대표번호, 상대에게 되물어 볼 질문, 피해 차단 순서를 화면에 띄웁니다.</td>
+<td valign="top"><b>피해 여부를 확인합니다</b><br>"통화 이후 상황을 알려주세요"에 고른 답(돈을 보냈어요, 앱을 설치했어요 등)에 맞춰 지급정지와 신고 순서를 안내합니다.</td>
+<td valign="top"><b>단서가 겹치는 통화를 묶어 보여 줍니다</b><br>같은 계좌나 전화번호가 나온 통화를 찾아 관련 후보로 표시하고, 먼저 검토할 통화와 그 근거를 대시보드에 정리합니다.</td>
 </tr>
 </table>
 
-[핵심 성과](#핵심-성과) · [통화 대응 흐름](#통화-대응-흐름) · [사용자 기능](#사용자-기능) · [수사 지원](#수사-지원) · [시스템 구조](#시스템-구조) · [체험과 실행](#체험과-실행) · [문서](#문서)
+## 시연
 
-## 핵심 성과
+<p><img src="docs/images/readme/demo_wide.gif" width="100%" alt="검찰 사칭 대본 시연. 첫 문장 뒤 전체 화면 경고가 뜨고, 위험도가 72% 주의, 86% 위험, 99%로 오르면서 공식 번호 안내, '지금 바로 전화를 끊으세요', 보호자 알림 요청 카드가 차례로 쌓인다. 오른쪽 AI 분석 과정 패널에는 위험도 추이, 사기 진행 단계, 발화별 분석, 추출된 단서가 표시된다"></p>
 
-현재 구성(통화 분류기 v5, 2026-11-16 적용)의 결과입니다. 점수 0.70 이상을 경보로 보며, 분류기 단독 결과와 전체 시스템(분류기 + Claude 상태 추적기 + 대응 에이전트) 결과를 나누어 적습니다.
+<sub>검찰 사칭 대본으로 진행한 시연입니다(2026-11-18, 통화 분류기 v5). 왼쪽은 휴대폰 화면이고, 오른쪽은 넓은 화면에서 함께 보이는 'AI 분석 과정' 패널입니다. 발화 사이의 기다리는 시간은 잘라 냈고, 재생 속도는 실제와 같습니다. 통화가 끝나면 <a href="docs/images/v2/web_result.png">분석 결과 화면</a>으로 바뀝니다.</sub>
+
+> [!NOTE]
+> **시연 조건** — 이 시연은 대본 문장을 글로 서버에 보낸 것이며, 마이크 입력과 음성 전사는 거치지 않았습니다. 그 뒤의 분류기, 상태 추적기, 대응 에이전트는 실제 서비스와 같은 코드입니다. 마이크 입력과 녹음 파일 분석도 지원하지만, 웹 앱은 휴대폰의 통화 음성을 직접 가져오지 못하고 기기 마이크로 들어온 소리를 전사합니다. 화면의 이름과 번호는 가상 정보입니다.
+
+## 검증 결과와 한계
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/numbers-dark.png">
+  <img src="docs/images/readme/numbers.png" width="100%" alt="핵심 숫자 카드. 통화 분류기 v5의 사기 통화 탐지율 99.7%(학습에 쓰지 않은 사기 통화 307통), 정상 상담 오경보율 0.9%(AI Hub 상담 5,041건), 전체 시스템의 사기 통화 탐지 14통 중 13통(처음 보는 통화를 글로 입력). 경보 기준은 0.70이고, 세 값은 평가 데이터와 조건이 서로 다르다">
+</picture>
+
+현재 구성(통화 분류기 v5, 2026-11-16 적용)의 결과입니다. 점수 0.70 이상을 경보로 봅니다. 분류기 단독 결과와 전체 시스템(분류기 + Claude 상태 추적기 + 대응 에이전트) 결과를 나누어 적었습니다. 전체 시스템은 음성이 아니라 통화 대본을 글로 입력해 평가했습니다.
 
 <table>
-<tr><th align="left" nowrap>구분</th><th align="left" nowrap>지표</th><th align="left">평가 데이터 · 판정 기준</th><th align="right" nowrap>v5 결과</th></tr>
-<tr><td nowrap valign="top" rowspan="4">분류기 단독</td><td nowrap valign="top">사기 통화 탐지율</td><td valign="top">v2 평가 세트의 사기 통화 307통 · 통화 끝 판정</td><td nowrap valign="top" align="right"><b>99.7%</b></td></tr>
-<tr><td nowrap valign="top">정상 상담 오경보율</td><td valign="top">AI Hub 정상 상담 5,041건(개인정보 자리를 지운 글) · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">0.9%</td></tr>
-<tr><td nowrap valign="top">녹음 전사 오경보율</td><td valign="top">AI Hub 정상 상담 녹음 1,400건의 Whisper 전사 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right"><b>1.1%</b></td></tr>
-<tr><td nowrap valign="top">녹음 전사 탐지율</td><td valign="top">금감원 공개 사기 녹취 258건의 Whisper 전사 · 통화 끝 판정</td><td nowrap valign="top" align="right"><b>99.6%</b></td></tr>
-<tr><td nowrap valign="top" rowspan="3">전체 시스템</td><td nowrap valign="top">회귀 평가 대본 통과</td><td valign="top">대본 12개(사기 6 · 정상 6)</td><td nowrap valign="top" align="right"><b>12/12</b></td></tr>
-<tr><td nowrap valign="top">사기 통화 탐지</td><td valign="top">조정에 쓰지 않은 test 사기 통화 14통</td><td nowrap valign="top" align="right">13/14<br><sub>첫 경고 평균 6.5번째 발화</sub></td></tr>
-<tr><td nowrap valign="top">정상 상담 경보</td><td valign="top">조정에 쓰지 않은 test 정상 상담 14통 · 분류기가 경보(0.70 이상)를 낸 어려운 상담</td><td nowrap valign="top" align="right">4/14</td></tr>
+<tr><th align="left" nowrap>구분</th><th align="left" nowrap>지표</th><th align="left">평가 데이터 · 판정 기준</th><th align="right" nowrap>결과</th></tr>
+<tr><td nowrap valign="top" rowspan="5">분류기 단독</td><td nowrap valign="top">사기 통화 탐지율</td><td valign="top">학습에 쓰지 않은 사기 통화 307통 · 통화 끝 판정</td><td nowrap valign="top" align="right">99.7%</td></tr>
+<tr><td nowrap valign="top">정상 상담 오경보율</td><td valign="top">AI Hub 금융·민원 상담 5,041건(이름·번호를 지운 글) · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">0.9%</td></tr>
+<tr><td nowrap valign="top">정상 통화 오경보율</td><td valign="top">피싱을 주제로 한 상담(KISA 118)이 섞인 정상 통화 530통 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">5.5%</td></tr>
+<tr><td nowrap valign="top">녹음 전사 오경보율</td><td valign="top">대본을 읽어 녹음한 AI Hub 상담 1,400건의 Whisper 전사 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">1.1%</td></tr>
+<tr><td nowrap valign="top">녹음 전사 탐지율</td><td valign="top">금감원 공개 사기 녹취 258건의 Whisper 전사 · 통화 끝 판정</td><td nowrap valign="top" align="right">99.6%</td></tr>
+<tr><td nowrap valign="top" rowspan="4">전체 시스템<br><sub>글로 입력</sub></td><td nowrap valign="top">회귀 평가 대본 통과</td><td valign="top">따로 작성한 대본 12개(사기 6 · 정상 6)</td><td nowrap valign="top" align="right">12/12</td></tr>
+<tr><td nowrap valign="top">처음 보는 통화 통과</td><td valign="top">조정에 쓰지 않은 test 28통(사기 14 · 정상 14) · 판정, 유형, 단계가 모두 맞아야 통과</td><td nowrap valign="top" align="right">20/28</td></tr>
+<tr><td nowrap valign="top">사기 통화 탐지</td><td valign="top">위 test의 사기 통화 14통</td><td nowrap valign="top" align="right">13/14<br><sub>첫 경고 평균 6.5번째 발화</sub></td></tr>
+<tr><td nowrap valign="top">정상 상담 경고</td><td valign="top">위 test의 정상 상담 14통 · 분류기가 경보를 낸 어려운 상담만 고름</td><td nowrap valign="top" align="right">4/14</td></tr>
 </table>
 
-- 상담 녹음은 실제 고객 통화가 아니라 상담사와 고객 역할로 대본을 읽어 녹음한 AI Hub 데이터입니다. 금감원 녹취는 공개된 실제 사기 통화이지만, 258건 중 212건은 같은 녹취를 다른 엔진으로 전사한 글이 학습 데이터에 있습니다. 따라서 99.6%는 처음 보는 사기 통화의 탐지율이 아니라, 서비스와 같은 Whisper 전사에서도 사기를 탐지하는지 확인한 값입니다.
-- 분류기 단독으로는 같은 회귀 평가 대본 12개 중 카드 배송 사칭 1개를 놓칩니다(11/12). 전체 시스템에서는 상태 추적기가 이 대본을 탐지했지만, 첫 경고가 v3의 4번째 발화에서 6번째 발화로 늦어졌습니다.
-- 앞 3턴 탐지율은 금감원 녹취의 수사기관 사칭·대출 사기와 생성한 기관 사칭 통화에서 v3보다 낮습니다([유형별 초반 탐지](docs/tech/detection.md#유형별-초반-탐지)).
+**현재 한계**
 
-평가 방법과 재현 명령, 버전별 비교(v1 → v5), 한계는 [보이스피싱 탐지 성능](docs/tech/detection.md)과 [학습 기록](docs/MODEL_TRAINING_LOG.md)에 있습니다.
+- **실제 음성으로 잰 전체 평가가 없습니다.** 마이크 입력에서 경고까지 이어지는 경로를 음성으로 대규모 평가하지 않았습니다. 전체 시스템 수치는 글로 입력한 통화 28통과 대본 12개에서 나온 값입니다.
+- **첫 문장에 강한 경고가 뜰 수 있습니다.** 상태 추적기의 첫 판단이 오기 전에는 분류기 점수만으로 위험도를 정합니다. 위 시연에서도 기관과 이름·직함을 밝힌 첫 문장에 전체 화면 경고가 떴습니다. 정상 통화 첫마디에 이름과 직함 소개를 넣은 시험에서는 80통 중 6통이 첫 세 마디 안에 경보를 냈습니다. 전체 화면 경고는 통화당 한 번만 표시합니다.
+- **피싱을 주제로 한 정상 통화에서는 오경보가 늘어납니다.** 피싱 상담이 섞인 정상 통화 530통의 오경보율은 5.5%로, 일반 상담(0.9%)보다 높습니다.
+- **실제 녹취로 확인한 사기 유형은 두 가지입니다.** 기관 사칭과 대출 사기만 실제 사기 녹취로 확인했고, 나머지 유형은 공식 사례를 근거로 생성한 통화로 평가했습니다. 분류기 단독으로는 카드 배송 사칭 대본을 놓치며, 일부 유형은 초반 탐지가 이전 모델(v3)보다 늦습니다.
+- **평가 데이터가 실제 통화와 다릅니다.** 상담 녹음은 실제 고객 통화가 아니라 대본을 읽어 녹음한 데이터입니다. 금감원 녹취 258건 중 212건은 같은 녹취를 다른 엔진으로 전사한 글이 학습 데이터에 있어, 99.6%는 처음 보는 사기 통화의 탐지율이 아닙니다.
 
-- **문자 검사 · 문서 점검** — 문자 분류기 단독은 학습에 쓰지 않은 문자 3,600건에서 정확도 99.4%(F1 99.2%)였고, 분류기 40%와 Claude 60%를 합친 문자 검사는 별도로 작성한 문자 16건(스미싱 8 · 정상 8)을 모두 맞혔습니다. 문서 점검은 경찰청·금감원·검찰이 공개한 위조 문서와 실제 공문으로 구성한 test 23장에서 정확도 95.7%(위조 14/15 탐지, 오경보 0/8)였습니다. → [보이스피싱 탐지 성능](docs/tech/detection.md)
-- **전사 · 화자 분리** — 통화 음성을 텍스트로 바꾸는 전사는 자체 운영 GPU 서버의 Whisper large-v3가 기본 모델입니다. 문자 오류율(CER)은 AI Hub 민원(콜센터) 녹음에서 파일 전체 5.81%(녹음 100개), 실시간 조각 9.24%(녹음 40개)입니다. 콜센터 음성으로 추가 학습한 모델은 파일 전체 CER이 2.45%로 낮아졌지만, 실제 통화의 전화번호를 지워 서비스에 쓰지 않습니다. → [음성 인식·화자 분리 성능](docs/tech/transcription.md)
+평가 방법과 재현 명령, 버전별 비교(v1 → v5)는 [보이스피싱 탐지 성능](docs/tech/detection.md)과 [학습 기록](docs/MODEL_TRAINING_LOG.md)에 있습니다.
+
+<details>
+<summary><b>문자 · 문서 · 음성 인식 결과와 데이터 이용 조건</b></summary>
+
+<br>
+
+- **문자 검사 · 문서 점검** — 문자 분류기 단독은 학습에 쓰지 않은 문자 3,600건에서 정확도 99.4%(F1 99.2%)였습니다. 분류기 40%와 Claude 60%를 합친 문자 검사는 따로 작성한 문자 16건(스미싱 8 · 정상 8)을 모두 맞혔습니다. 문서 점검은 경찰청·금감원·검찰이 공개한 위조 문서와 실제 공문으로 구성한 test 23장에서 정확도 95.7%(위조 14/15 탐지, 오경보 0/8)였습니다. → [보이스피싱 탐지 성능](docs/tech/detection.md)
+- **전사 · 화자 분리** — 통화 음성을 글로 바꾸는 전사는 자체 운영 GPU 서버의 Whisper large-v3가 맡습니다. 문자 오류율(CER)은 AI Hub 민원(콜센터) 녹음에서 파일 전체 5.81%(녹음 100개), 실시간 조각 9.24%(녹음 40개)입니다. 콜센터 음성으로 추가 학습한 모델은 파일 전체 CER이 2.45%로 낮아졌지만, 실제 통화의 전화번호를 지우는 문제가 있어 서비스에 쓰지 않습니다. → [음성 인식·화자 분리 성능](docs/tech/transcription.md)
 - **데이터와 이용 조건** — 금감원 공개 사기 녹취 전사, 공식 사례를 근거로 생성한 통화, KISA 118 상담 합성데이터, AI Hub 상담 데이터, 공개 스미싱 문자 데이터 등으로 학습하고 평가했습니다. 데이터 원본과 학습된 모델은 이용 조건(AI Hub 재배포 금지, 스미싱 문자 데이터 CC BY-NC-SA 4.0 등) 때문에 저장소에 올리지 않습니다(`data/`, `models/`는 git 제외). → [데이터와 전처리](docs/tech/detection.md#데이터와-전처리)
 
-## 통화 대응 흐름
+</details>
 
-**감지에서 개선까지 다섯 단계가 이어집니다.** 발화가 들어올 때마다 감지·판단·개입이 몇 초 안에 이루어지고, 후속 확인은 통화 중 강한 경고 45초 뒤와 통화가 끝난 뒤에 이어집니다. 통화 결과와 확인 응답은 개선 단계에 모이고, 담당자가 검토한 내용이 다음 통화의 탐지에 반영됩니다.
+## 통화 한 건의 흐름
 
-<p><img src="docs/images/readme/loop.png" width="100%" alt="감지, 판단, 개입, 후속 확인, 개선의 다섯 단계. 개선 결과는 다음 통화의 감지와 판단에 반영"></p>
+**감지에서 개선까지 다섯 단계가 이어집니다.** 발화가 들어올 때마다 감지, 판단, 개입이 몇 초 안에 이루어집니다. 후속 확인은 통화 중 강한 경고 45초 뒤와 통화가 끝난 뒤에 이어집니다. 다섯째 단계는 자동 학습이 아닙니다. 담당자가 검토해 승인한 내용만 다음 통화의 판단에 반영합니다.
 
-1. **감지** — 통화 음성을 전사하고 발화마다 바로 사기 확률을 계산합니다.<br><sub>faster-whisper large-v3 (자체 운영 GPU 서버) · KLUE-RoBERTa 통화 분류기 v5</sub>
-2. **판단** — 대화 흐름을 읽어 사기 단계와 유형, 사용자가 상대방 요구를 따르는 정도, 수사 단서를 파악합니다.<br><sub>Claude 상태 추적기 (구조화 출력)</sub>
-3. **개입** — 위험도·단계·유형에 맞는 대응을 골라 안내합니다.<br><sub>대응 에이전트 (대응은 규칙으로 선택, 문구는 Claude가 작성) · 보호자 알림은 n8n에 전송을 요청</sub>
-4. **후속 확인** — 통화 중과 통화가 끝난 뒤에 상황을 다시 묻고, 답에 맞춰 안내합니다.<br><sub>통화 중 "통화를 끊으셨나요?" · 통화 후 "통화 이후 상황을 알려주세요" → 지급정지·신고 순서 안내 · 답은 확인 응답으로 저장</sub>
-5. **개선** — 확인 응답과 AI 판정을 비교해 오경보·미탐지 의심 사례를 모으고, 담당자가 승인한 신종 수법 정보를 상태 추적기 프롬프트에 반영합니다.<br><sub>품질 점검(확인 응답 → 평가 대본·재학습 후보) · 신종 수법 카드(공식 게시판 → Claude 초안 → 담당자 승인) · 회귀 평가 대본 12개 · 모델 재학습과 교체는 담당자가 결정</sub>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/loop-dark.png">
+  <img src="docs/images/readme/loop.png" width="100%" alt="다섯 단계. 01 감지: 전사와 사기 확률(Whisper, 분류기 v5). 02 판단: 단계와 유형 추적(Claude 상태 추적기). 03 개입: 대응 방법 안내(대응 에이전트). 04 후속 확인: 피해 여부 확인(앱의 확인 질문). 05 개선: 담당자 검토와 반영(수법 카드, 품질 점검). 담당자가 승인한 내용만 다음 통화의 판단에 반영">
+</picture>
 
-화면 위험도는 `0.3 × 분류기 + 0.7 × 상태 추적기`로 계산하며([API 명세](docs/API_SPEC_V2.md) 4.2절), 0.70 이상이면 주의, 0.85 이상이면 강한 경고입니다. 추적기의 첫 판단이 도착하기 전에는 분류기 점수를 그대로 씁니다. 2026-11-18 검찰 사칭 [대본 시연](#입력-방식)(분류기 v5, 1회 실행)에서는 첫 문장의 분류기 점수가 0.9997이어서 추적기의 첫 판단보다 먼저, 분석 시작 약 3초 뒤에 전체 화면 경고가 표시됐습니다. 추적기 판단이 도착하자 위험도는 65%로 재평가됐고, 단계가 진행되면서 72%, 79%, 86%로 다시 올랐습니다([전화 흐름으로 기능 보기](docs/one-call.md)).
+1. **감지** — 통화 음성을 전사하고, 발화마다 사기 확률을 계산합니다.
+2. **판단** — 대화 흐름에서 사기 단계와 유형, 사용자가 상대방 요구를 따르는 정도, 수사 단서를 파악합니다.
+3. **개입** — 위험도, 단계, 유형에 맞는 대응을 규칙으로 고르고, 안내 문구는 Claude가 씁니다.
+4. **후속 확인** — 통화 중에는 "통화를 끊으셨나요?", 통화가 끝난 뒤에는 "통화 이후 상황을 알려주세요"라고 묻고 답에 맞춰 안내합니다.
+5. **개선** — 확인 응답과 AI 판정을 비교해 오경보·미탐지 의심 사례를 모으고, 담당자가 승인한 신종 수법 정보를 상태 추적기 프롬프트에 추가합니다. 모델 재학습과 교체는 담당자가 결정합니다.
 
-<p><img src="docs/images/v2/web_demo_panel.png" width="100%" alt="발표용 넓은 화면. 왼쪽 앱은 위험도 99% 위험, 금전 요구 단계, 보호자 알림 요청 카드. 오른쪽 AI 분석 과정 패널은 위험도 추이, 판단, 사기 진행 단계, 발화별 분석, 추출된 단서, AI 대응"><br>
-<sub>발표용 넓은 화면(위 시연의 금전 요구 단계). 앱 옆의 'AI 분석 과정' 패널에 위험도 추이, 판단, 사기 진행 단계, 발화별 분석, 추출된 단서, AI 대응이 표시됩니다. 통화가 끝나면 <a href="docs/images/v2/web_result.png">분석 결과 화면</a>으로 바뀝니다.</sub></p>
+아래는 위 시연 한 건에서 화면 위험도가 바뀐 과정입니다. 화면 위험도는 `0.3 × 분류기 + 0.7 × 상태 추적기`로 계산하며, 0.70 이상이면 주의, 0.85 이상이면 강한 경고입니다.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/timeline-dark.png">
+  <img src="docs/images/readme/timeline.png" width="100%" alt="검찰 사칭 대본 시연의 화면 위험도. 3초에 분류기 단독 판단으로 100%가 되어 전체 화면 경고가 표시되고, 6초에 추적기 판단이 도착해 65%로 재평가된다. 14초에 72% 주의와 공식 번호 안내, 19초에 79%, 26초에 86% 위험과 '전화를 끊으세요' 안내, 31초에 97%, 39초에 98%, 45초에 99%와 보호자 알림 요청. 사기 단계는 사칭, 위기 조성, 고립, 금전 요구 순으로 진행">
+</picture>
+
+<sub>2026-11-18 대본 시연 1회의 기록입니다. ①은 상태 추적기의 첫 판단이 오기 전이어서 분류기 점수(0.9997)만으로 뜬 경고입니다. 추적기 판단이 도착한 ②에서 위험도가 65%로 재평가됐고, 단계가 진행되면서 다시 올랐습니다. 전체 화면 경고는 통화당 한 번만 표시하므로 ④에서는 카드로 안내했습니다. 발화별 화면과 판단 근거는 <a href="docs/one-call.md">전화 흐름으로 기능 보기</a>에 있습니다.</sub>
 
 <details>
 <summary><b>단계별 기술과 예시를 담은 워크플로 그림</b></summary>
@@ -78,14 +111,24 @@ VoiceGuard AI는 통화 내용을 분석해 보이스피싱 진행 단계를 파
 
 </details>
 
-## 사용자 기능
+## 사용자 화면
 
-**통화 중에는 위험 상황별 대응 방법을 안내하고, 통화가 끝나면 피해가 없는지 다시 확인합니다.** 받은 문자·문서와 지난 통화 녹음 파일도 분석할 수 있습니다. 실시간 분석이 진행되는 모습은 [시연 GIF](docs/images/v2/demo_realtime.gif)에서, 시연 통화 한 건의 전체 흐름은 [전화 흐름으로 기능 보기](docs/one-call.md)에서 볼 수 있습니다.
+**통화 중에는 단계에 맞는 대응을 안내하고, 통화가 끝나면 피해 여부를 확인합니다.** 받은 문자와 문서, 지난 통화의 녹음 파일도 분석합니다.
 
-<sub>화면은 2026-11-18에 현재 빌드(통화 분류기 v5)에서 촬영했습니다. 통화 화면은 [대본 시연](#입력-방식)으로 기록해 마이크 입력과 전사를 거치지 않았고, 화면의 이름과 번호는 가상 정보입니다.</sub>
+<table>
+<tr>
+<td width="33%" align="center" valign="top"><img src="docs/images/v2/app_realtime.png" width="250" alt="실시간 통화 분석 화면. 위험도 72% 주의, 사기 진행 단계는 사칭이고 다음 예상은 위기 조성, 수사기관 사칭형, AI 대응 카드 '상대에게 이렇게 물어보세요'와 질문 3개"><br><b>통화 중 · 대응 안내</b><br><sub>위험도와 사기 단계를 실시간으로 보여 주고, 공식 대표번호와 상대에게 되물어 볼 질문을 카드로 안내합니다.</sub></td>
+<td width="33%" align="center" valign="top"><img src="docs/images/v2/app_result_answered.png" width="250" alt="'돈을 보냈어요'라고 답한 뒤의 결과 화면. '지금 바로 지급정지를 요청하세요' 안내 3단계와 112·1332 전화 버튼"><br><b>통화 후 · 피해 확인</b><br><sub>"돈을 보냈어요"라고 답하면 지급정지를 요청하는 순서와 112 · 1332 전화 버튼을 보여 줍니다.</sub></td>
+<td width="34%" align="center" valign="top"><img src="docs/images/v2/app_document.png" width="250" alt="문서 점검 결과. 경찰청이 공개한 위조 검찰 공문 사진에 '사기 가능성이 높아요', 위험도 97%, 검찰 명의 공문(사건 통지서)"><br><b>문자 · 문서 · 녹음 파일</b><br><sub>받은 문자, 공문 사진, 지난 통화의 녹음을 올리면 사기 가능성과 대응 방법을 알려 줍니다.</sub></td>
+</tr>
+</table>
 
-### 통화 중
+<sub>화면은 2026-11-18에 현재 빌드(통화 분류기 v5)에서 촬영했습니다. 통화 화면은 <a href="#입력-방식">대본 시연</a>으로 기록했고, 화면의 이름과 번호는 가상 정보입니다. 휴대폰에서 진행되는 모습은 <a href="docs/images/v2/demo_realtime.gif">세로 화면 시연 GIF</a>에서 볼 수 있습니다.</sub>
 
+<details>
+<summary><b>통화 중</b> · 화면 3장과 기능</summary>
+
+<br>
 <p align="center">
   <img src="docs/images/v2/app_realtime.png" width="256" hspace="4" vspace="6" alt="실시간 통화 분석 화면. 위험도 72% 주의, 사기 진행 단계는 사칭이고 다음 예상은 위기 조성, 수사기관 사칭형, AI 대응 카드 '상대에게 이렇게 물어보세요'와 질문 3개">
   <img src="docs/images/v2/app_realtime_agent.png" width="256" hspace="4" vspace="6" alt="위험도 99% 위험, 금전 요구 단계. AI 대응 카드 '지금 바로 전화를 끊으세요', '보호자 알림을 요청했습니다', '검찰청에 직접 확인하세요'">
@@ -98,8 +141,12 @@ VoiceGuard AI는 통화 내용을 분석해 보이스피싱 진행 단계를 파
 - **강한 경고** — 위험도가 강한 경고 기준을 넘으면 전체 화면 경고를 통화당 한 번 띄우고, 진동을 지원하는 기기에서는 진동도 울립니다.
 - **통화 중 단서 대조** — 상대가 말한 계좌·휴대전화·웹 주소·사건번호가 다른 통화에도 나왔거나 웹 주소 형태가 위험하면 바로 알립니다([단서 연결](docs/investigator.md#단서-연결)).
 
-### 통화가 끝난 뒤
+</details>
 
+<details>
+<summary><b>통화가 끝난 뒤</b> · 화면 3장과 기능</summary>
+
+<br>
 <p align="center">
   <img src="docs/images/v2/app_result.png" width="256" hspace="4" vspace="6" alt="분석 결과 화면. 보이스피싱 의심 99% 수사기관 사칭형, 통화 후 확인 질문 '통화 이후 상황을 알려주세요'와 답 6개, 사기 진행 단계">
   <img src="docs/images/v2/app_result_answered.png" width="256" hspace="4" vspace="6" alt="'돈을 보냈어요'라고 답한 뒤의 결과 화면. '지금 바로 지급정지를 요청하세요' 안내 3단계와 112·1332 전화 버튼">
@@ -107,11 +154,15 @@ VoiceGuard AI는 통화 내용을 분석해 보이스피싱 진행 단계를 파
   <br><sub>통화 후 확인 질문 &nbsp;·&nbsp; 답에 맞춘 피해 차단 안내 &nbsp;·&nbsp; 대화 내용과 수법 태그</sub>
 </p>
 
-- **후속 확인** — 통화 중에는 "통화를 끊으셨나요?", 위험 통화가 끝난 뒤에는 "통화 이후 상황을 알려주세요"라고 묻고, 고른 답(돈을 보냈어요·앱을 설치했어요 등)에 맞는 지급정지·신고 순서를 안내합니다.
+- **후속 확인** — 통화 중에는 "통화를 끊으셨나요?", 위험 통화가 끝난 뒤에는 "통화 이후 상황을 알려주세요"라고 묻고, 고른 답(돈을 보냈어요, 앱을 설치했어요 등)에 맞는 지급정지·신고 순서를 안내합니다.
 - **통화 결과** — 요약, 대화 내용(발화별 수법 태그), 탐지 근거를 확인하고, 판정이 맞았는지 확인 응답을 남길 수 있습니다.
 
-### 문자·문서·녹음 파일 분석
+</details>
 
+<details>
+<summary><b>문자 · 문서 · 녹음 파일 분석</b> · 화면 3장과 기능</summary>
+
+<br>
 <p align="center">
   <img src="docs/images/v2/app_message.png" width="256" hspace="4" vspace="6" alt="문자 검사 결과. 택배 반송 예시 문자에 '사기 가능성이 높아요', 위험도 94%, 택배·배송 사칭, 이렇게 하세요 3단계">
   <img src="docs/images/v2/app_document.png" width="256" hspace="4" vspace="6" alt="문서 점검 결과. 경찰청이 공개한 위조 검찰 공문 사진에 '사기 가능성이 높아요', 위험도 97%, 검찰 명의 공문(사건 통지서)">
@@ -119,12 +170,14 @@ VoiceGuard AI는 통화 내용을 분석해 보이스피싱 진행 단계를 파
   <br><sub>문자 검사 &nbsp;·&nbsp; 문서 점검 &nbsp;·&nbsp; 녹음 파일 분석</sub>
 </p>
 
-- **문자 검사** — 받은 문자·메신저 내용을 붙여 넣거나 캡처를 올리면 스미싱 여부와 링크 위험을 판단합니다.
+- **문자 검사** — 받은 문자나 메신저 내용을 붙여 넣거나 캡처를 올리면 스미싱 여부와 링크 위험을 판단합니다.
 - **문서 점검** — 검찰·법원·금감원 공문이나 영장 사진을 올리면 위조 문서의 특징을 점검합니다.
-- **녹음 파일 분석** — 지난 통화 녹음(mp3·wav·m4a)을 올리면 실시간 분석과 같은 분류기·상태 추적기·대응 에이전트로 분석하고, 원본 파일의 SHA-256 해시를 남깁니다.
+- **녹음 파일 분석** — 지난 통화 녹음(mp3 · wav · m4a)을 올리면 실시간 분석과 같은 분류기, 상태 추적기, 대응 에이전트로 분석하고 원본 파일의 SHA-256 해시를 남깁니다.
+
+</details>
 
 <details>
-<summary><b>홈 · 통화 기록 · 정보 화면</b></summary>
+<summary><b>홈 · 통화 기록 · 정보</b> · 화면 3장</summary>
 
 <br>
 <p align="center">
@@ -138,74 +191,82 @@ VoiceGuard AI는 통화 내용을 분석해 보이스피싱 진행 단계를 파
 
 ## 수사 지원
 
-**AI가 통화 단서를 정리하고 관련 의심 통화를 연결해 수사 검토를 지원합니다.** 위험 통화가 들어오면 AI 에이전트가 단서를 추출해 다른 통화와 대조하고, 우선 검토할 의심 통화와 선정 근거, 신고용 요약을 준비합니다. 결과는 수사관 대시보드(`/dashboard`)에서 확인합니다.
+**AI가 통화에서 단서를 뽑아 정리하고, 단서가 겹치는 통화를 찾아 수사 검토를 돕습니다.** 위험 통화가 들어오면 AI 에이전트가 단서를 추출해 다른 통화와 대조하고, 먼저 검토할 통화와 그 근거, 신고용 요약을 준비합니다. 결과는 수사관 대시보드(`/dashboard`)에서 확인합니다.
 
-<p><img src="docs/images/v2/web_priority.png" width="100%" alt="수사관 대시보드. 위쪽에 사건 목록·관계 그래프·신종 수법·모델 품질 탭과 통계, 왼쪽에 우선순위순으로 정렬한 통화 목록, 오른쪽에 선택한 사건의 상세"><br>
-<sub>수사관 대시보드. 왼쪽은 우선순위순으로 정렬한 통화 목록이고, 오른쪽은 선택한 사건의 위험도, 우선순위 근거, 사건 개요, 단계 경과입니다. 화면의 통화는 실제 사건이 아니며, 이름과 번호는 가상 정보입니다.</sub></p>
+> [!IMPORTANT]
+> 수사 지원 기능은 시연 단계이며, 실제 수사기관에서 쓰거나 검증한 적이 없습니다. 수사관 개인 계정, 통화별 수사 공유 동의, 열람 기록은 구현하지 않았고, 대시보드는 공용 관리 코드로 엽니다. 수법 카드 반영, 모델 재학습과 교체, 신고와 수사 판단은 담당자가 결정합니다([자동 처리와 담당자 결정](docs/investigator.md#자동-처리와-담당자-결정)).
+
+<p><img src="docs/images/readme/investigator_priority.png" width="100%" alt="사건 상세의 위쪽. 수사기관 사칭형, 위험도 99% 높음, 도달 단계 금전 요구, 수사 우선순위 100점과 근거(위험도 높음, 피해 확인: 앱을 설치했어요, 다른 통화 4건과 단서 겹침, 금전 요구 단계까지 진행, 최근 24시간), 피해 확인 알림"><br>
+<sub><b>우선순위와 근거</b> — 위험도, 피해 확인, 겹치는 단서, 사기 단계, 최근성으로 100점 만점 점수를 매기고 근거를 함께 보여 줍니다. 통화 후 확인 질문의 답("앱을 설치했어요")도 여기에 반영됩니다.</sub></p>
+
+<p><img src="docs/images/readme/investigator_graph.png" width="100%" alt="관계 그래프. 통화 열두 건이 같은 사칭 기관, 계좌번호, 사건번호, 웹 주소로 이어져 있다"><br>
+<sub><b>관계 그래프</b> — 같은 계좌번호, 전화번호, 사건번호, 사칭 기관이 나온 통화가 선으로 이어집니다. 화면의 통화는 실제 사건이 아니며, 이름과 번호는 가상 정보입니다.</sub></p>
 
 <table>
 <tr><th align="left" nowrap>기능</th><th align="left">AI가 처리하는 일</th></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#단서-수집">단서 수집 · 연결</a></td><td valign="top">통화에서 계좌번호·전화번호·웹 주소·사건번호 등 단서 8종을 발화 번호와 함께 저장하고, 공통 단서가 있는 통화를 찾아 연결합니다. 관계 그래프는 같은 계좌·번호·사건번호·사칭 기관으로 이어진 통화를 한 화면에 모읍니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#수사-검토-우선순위-제안">수사 검토<br>우선순위 제안</a></td><td valign="top">위험도·피해 확인·공통 단서·사기 단계·최근성으로 100점 만점 점수를 매기고 선정 근거를 함께 표시합니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#음성전사-기록의-무결성-확인">음성·전사 기록의<br>무결성 확인</a></td><td valign="top">음성 조각과 녹음 파일의 SHA-256 해시를 체인으로 잇고, 통화가 끝나면 전사문 해시를 고정해 이후 변경 여부를 확인합니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#신고용-요약">신고용 요약</a></td><td valign="top">통화 기록을 바탕으로 신고용 요약을 생성합니다. 사건 개요 3~5문장만 Claude가 쓰고, 나머지는 저장된 기록으로 조립합니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#신종-수법-수집검토반영">신종 수법<br>수집·검토·반영</a></td><td valign="top">담당자가 수집을 실행하면 금감원·경찰청 게시판의 새 글을 Claude가 수법 카드 초안으로 정리하고, 담당자가 승인한 카드만 상태 추적기 프롬프트에 추가합니다.</td></tr>
+<tr><td nowrap valign="top"><a href="docs/investigator.md#단서-수집">단서 수집 · 연결</a></td><td valign="top">계좌번호, 전화번호, 웹 주소, 사건번호 등 단서 8종을 발화 번호와 함께 저장하고, 같은 단서가 나온 통화를 찾아 관련 후보로 표시합니다.</td></tr>
+<tr><td nowrap valign="top"><a href="docs/investigator.md#수사-검토-우선순위-제안">검토 우선순위 제안</a></td><td valign="top">먼저 검토할 통화를 점수순으로 정렬하고, 점수의 근거를 함께 보여 줍니다.</td></tr>
+<tr><td nowrap valign="top"><a href="docs/investigator.md#음성전사-기록의-무결성-확인">기록의 무결성 확인</a></td><td valign="top">음성 조각과 녹음 파일의 SHA-256 해시를 체인으로 잇고, 통화가 끝나면 전사문 해시를 고정해 이후에 바뀌었는지 확인합니다.</td></tr>
+<tr><td nowrap valign="top"><a href="docs/investigator.md#신고용-요약">신고용 요약</a></td><td valign="top">사건 개요 3~5문장은 Claude가 쓰고, 나머지는 저장된 기록으로 조립합니다.</td></tr>
+<tr><td nowrap valign="top"><a href="docs/investigator.md#신종-수법-수집검토반영">신종 수법 수집 · 반영</a></td><td valign="top">담당자가 수집을 실행하면 금감원·경찰청 게시판의 새 글을 Claude가 수법 카드 초안으로 정리합니다. 담당자가 승인한 카드만 상태 추적기 프롬프트에 추가합니다.</td></tr>
 <tr><td nowrap valign="top"><a href="docs/investigator.md#품질-점검">품질 점검</a></td><td valign="top">사용자가 남긴 확인 응답과 AI 판정을 비교해 오경보·미탐지 의심 사례를 모으고, 평가 대본과 재학습 후보로 내보냅니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#자연어로-묻기-n8n-채팅">자연어로 묻기<br>(n8n 채팅)</a></td><td valign="top">수사관이 채팅으로 물으면 Claude가 읽기 전용 도구 일곱 개로 수사 데이터를 찾아 통화 번호와 함께 답합니다. 요청하면 수동 수집을 시작하며, 이때도 검토 대기 카드만 만듭니다.</td></tr>
+<tr><td nowrap valign="top"><a href="docs/investigator.md#자연어로-묻기-n8n-채팅">자연어로 묻기</a></td><td valign="top">수사관이 n8n 채팅으로 물으면 Claude가 읽기 전용 도구 일곱 개로 수사 데이터를 찾아 통화 번호와 함께 답합니다. 2026-11-18에 시연 서버에서 질문 한 건에 약 9초 만에 답하는 것을 확인했고, 답의 정확도는 평가하지 않았습니다.</td></tr>
 </table>
-
-자연어 질의는 n8n 채팅 워크플로에서 실행합니다. 2026-11-18에 시연 서버에 연결해 질문 한 건에 약 9초 만에 답하는 것을 확인했으며, 답의 정확도는 평가하지 않았습니다. n8n에 로그인한 사용자만 쓸 수 있고, 관리 코드는 n8n 자격 증명에 저장합니다.
-
-수법 카드 반영, 모델 재학습과 교체, 신고와 수사 판단은 담당자가 결정합니다([자동 처리와 담당자 결정](docs/investigator.md#자동-처리와-담당자-결정)). 검증 상태와 한계는 다음과 같습니다.
 
 - AI가 쓴 사건 개요는 초안이므로 통화 전문과 대조해야 합니다.
 - 우선순위 배점은 팀이 정한 값이며, 실제 수사관과 검증하지 않았습니다.
-- 같은 계좌·번호가 나왔다는 사실만으로 같은 범죄 조직이라고 확정할 수 없습니다.
-- 음성 원본은 전사 후 지우고 해시만 남깁니다. 해시 저장은 원본 음성 보관과 다릅니다.
-- 신종 수법은 수동 수집을 지원합니다. 정기 수집 워크플로는 템플릿만 제공합니다. 승인한 카드의 반영 효과는 검증하지 않았습니다. 승인 뒤 실행하는 회귀 평가에 승인한 카드가 들어가지 않기 때문입니다.
+- 같은 계좌나 번호가 나왔다는 사실만으로 같은 범죄 조직이라고 확정할 수 없습니다.
+- 음성 원본은 전사한 뒤 지우고 해시만 남깁니다. 해시 저장은 원본 음성 보관과 다릅니다.
+- 승인한 수법 카드의 반영 효과는 검증하지 않았습니다. 승인 뒤 실행하는 회귀 평가에 승인한 카드가 들어가지 않기 때문입니다.
+
+<details>
+<summary><b>대시보드 화면 더 보기</b> · 전체 화면, 겹치는 단서, 추출한 단서</summary>
+
+<br>
+<p><img src="docs/images/v2/web_priority.png" width="100%" alt="수사관 대시보드. 위쪽에 사건 목록·관계 그래프·신종 수법·모델 품질 탭과 통계, 왼쪽에 우선순위순으로 정렬한 통화 목록, 오른쪽에 선택한 사건의 상세"><br>
+<sub>대시보드 전체 화면. 왼쪽은 우선순위순으로 정렬한 통화 목록이고, 오른쪽은 선택한 사건의 위험도, 우선순위 근거, 사건 개요, 단계 경과입니다.</sub></p>
+
+<p><img src="docs/images/readme/investigator_links.png" width="100%" alt="다른 통화와 겹치는 단서 4건. 같은 사건번호, 계좌번호, 웹 주소가 나온 다른 통화의 목록"><br>
+<sub>다른 통화와 겹치는 단서. 같은 사건번호, 계좌번호, 웹 주소가 나온 통화를 모아 보여 주고, 누르면 그 통화를 엽니다.</sub></p>
+
+<p><img src="docs/images/readme/investigator_clues.png" width="100%" alt="추출한 단서 7개. 계좌번호, 웹 주소, 사건번호, 설치 요구 앱, 언급된 기관·회사와 각 단서가 나온 발화 번호, 다른 통화에도 나온 횟수"><br>
+<sub>추출한 단서. 단서마다 나온 발화 번호와 다른 통화에 나온 횟수를 함께 표시합니다.</sub></p>
+
+</details>
 
 ## 시스템 구조
 
 **발화 하나가 들어오면 분류기(빠른 경로)와 Claude 상태 추적기가 함께 판단합니다.** 두 점수를 합친 위험도에 따라 대응 에이전트가 안내하고, 단서와 기록은 수사관 대시보드로 이어집니다.
 
-```mermaid
-flowchart TB
-    MIC["휴대폰 마이크<br/>음성 조각"] -->|WebSocket| STT["faster-whisper large-v3<br/>전사 (자체 GPU 서버)"]
-    STT --> CLS["KLUE-RoBERTa 분류기 v5<br/>(빠른 경로)"]
-    STT --> TRK["Claude 상태 추적기<br/>단계·유형<br/>사용자 반응·단서"]
-    CLS --> FUSE["위험도 융합<br/>0.3 × 분류기<br/>+ 0.7 × 추적기"]
-    TRK --> FUSE
-    FUSE --> AGT["대응 에이전트<br/>경고·공식번호<br/>되물을 질문·차단 안내"]
-    AGT -->|WebSocket| APP["휴대폰 화면<br/>경고 팝업·진동"]
-    AGT -->|웹훅| N8N["n8n<br/>보호자 알림 요청<br/>(Slack 채널)"]
-    TRK --> DB[("SQLite<br/>상태·단서<br/>대응·무결성 해시")]
-    TRK --> LINK["단서 즉시 대조<br/>다른 통화<br/>위험 주소"]
-    LINK --> AGT
-    DB --> DASH["수사관 대시보드<br/>우선순위<br/>관계 그래프<br/>신고용 요약"]
-    OFF["금감원·경찰청 새 글<br/>(수동 수집)"] --> CARD["Claude 수법 카드 초안"]
-    CARD -->|담당자 승인| TRK
-    CARD -->|승인 시| EVAL["회귀 평가<br/>(기본 12개 대본)"]
-```
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/images/readme/architecture-dark.png">
+  <img src="docs/images/readme/architecture.png" width="100%" alt="시스템 구조. 휴대폰 웹 앱의 마이크 음성 조각이 자체 운영 GPU 서버로 들어와 Whisper large-v3 전사, 통화 분류기 v5, 위험도 융합(0.3 × 분류기 + 0.7 × 추적기), 대응 에이전트를 거쳐 휴대폰 화면에 경고와 대응 카드로 돌아온다. 전사문은 외부의 Claude API로 보내 상태 추적기가 단계와 위험을 판단한다. 기록은 SQLite에 저장되어 수사관 대시보드로 이어진다. 외부 서비스는 Claude API(전사한 통화 내용, 문자 캡처, 문서 사진 전송), 리턴제로(선택 설정, 음성 전송), n8n과 Slack(알림 내용 전송)">
+</picture>
 
-실시간 음성 인식은 자체 운영 GPU 서버에서 처리하며, 리턴제로 기능을 활성화하면 해당 음성이 외부 API로 전송됩니다. 전사한 통화 내용과 문자 캡처·문서 사진은 Claude API로 보내 판단합니다([실행 위치와 외부 전송](docs/tech/models.md#실행-위치와-외부-전송)).
+음성 인식(전사)과 통화·문자 분류기는 자체 운영 GPU 서버에서 실행합니다. 전사한 통화 내용과 문자 캡처, 문서 사진은 Claude API로 보내 판단합니다. 리턴제로는 선택 설정이며, 켜면 해당 음성이 리턴제로 API로 전송됩니다([실행 위치와 외부 전송](docs/tech/models.md#실행-위치와-외부-전송)).
 
-### 기능 상태
+### 구현과 검증 상태
+
+'동작'은 시연 서버에서 동작한다는 뜻이며, 실제 사용자나 기관이 쓰고 있다는 뜻이 아닙니다.
 
 <table>
-<tr><th align="left">기능</th><th align="left" nowrap>상태</th><th align="left">설명</th></tr>
-<tr><td nowrap valign="top">실시간 통화 분석<br>후속 확인 · 신고용 요약</td><td nowrap valign="top">사용 중</td><td valign="top">자체 운영 GPU 서버의 Whisper large-v3가 전사하고, 통화 분류기 v5(2026-11-16부터)와 Claude 상태 추적기가 판단하며, 대응 에이전트가 안내합니다. 위험 통화에는 후속 확인 질문과 신고용 요약을 준비합니다.</td></tr>
-<tr><td nowrap valign="top">문자 검사 · 문서 점검<br>녹음 파일 분석</td><td nowrap valign="top">사용 중</td><td valign="top">앱 홈에서 바로 사용합니다.</td></tr>
-<tr><td nowrap valign="top">수사관 대시보드</td><td nowrap valign="top">사용 중</td><td valign="top">단서 연결, 우선순위 제안, 관계 그래프, 무결성 확인, 품질 점검을 한 화면에서 확인합니다.</td></tr>
-<tr><td nowrap valign="top">신종 수법<br>수집·검토·반영</td><td nowrap valign="top">사용 중<br><sub>수동 수집</sub></td><td valign="top">대시보드의 '지금 수집' 버튼이나 API로 수집을 실행합니다. 승인한 카드는 상태 추적기 프롬프트에 추가하며, 모델을 다시 학습하지 않습니다.</td></tr>
-<tr><td nowrap valign="top">수법 카드 승인 후<br>회귀 평가</td><td nowrap valign="top">사용 중</td><td valign="top">기본 12개 대본을 별도 평가 DB에서 다시 실행합니다. 이 DB가 비어 있어 승인한 카드는 평가 입력에 들어가지 않습니다.</td></tr>
-<tr><td nowrap valign="top">리턴제로<br>전사 · 화자 구분</td><td nowrap valign="top">선택 설정</td><td valign="top">코드 기본값에서는 꺼져 있습니다. 시연 서버는 녹음 파일 분석·통화 후 재전사·통화 중 전사 보정에 켜 두었고, 이때 해당 음성이 리턴제로 API로 전송됩니다. 무료 사용량이 소진되면 서버가 즉시 자체 Whisper로 전환하며, 백엔드를 다시 시작할 때까지 리턴제로를 호출하지 않고 통화 중 보정도 끕니다.</td></tr>
-<tr><td nowrap valign="top">보호자 알림 요청<br>(n8n)</td><td nowrap valign="top">선택 설정</td><td valign="top"><code>N8N_WEBHOOK_URL</code>을 설정하면 위험 통화 이벤트를 n8n으로 보냅니다. 시연 서버의 n8n은 2026-11-17부터 이 알림을 Slack 채널에 올립니다. 앱은 전송을 요청하는 데까지만 하며, 보호자 등록과 수신 확인 기능은 없습니다.</td></tr>
-<tr><td nowrap valign="top">수사관 자연어 질의<br>(n8n 채팅)</td><td nowrap valign="top">선택 설정</td><td valign="top">n8n에 채팅 워크플로를 가져와 서버에 연결하면 사용할 수 있습니다(<code>POST /investigation/assistant</code>, 관리 코드 필요). 시연 서버에는 2026-11-18에 연결해 동작을 확인했습니다.</td></tr>
-<tr><td nowrap valign="top">신종 수법 정기 수집<br>(n8n)</td><td nowrap valign="top">템플릿 제공</td><td valign="top">정기 수집 워크플로는 템플릿만 제공합니다. 수집은 수동으로 실행합니다.</td></tr>
-<tr><td nowrap valign="top">로컬 화자 분리 (3D-Speaker)<br>Whisper 추가 학습 모델</td><td nowrap valign="top">실험 완료</td><td valign="top">로컬 화자 분리는 앱 코드로 옮겨 시험만 했고 앱 흐름에는 연결하지 않았습니다. 추가 학습한 Whisper는 실제 통화의 전화번호를 지우는 문제가 있어 서비스에 쓰지 않습니다.</td></tr>
+<tr><th align="left">기능</th><th align="left" nowrap>구현 상태</th><th align="left">검증 수준</th></tr>
+<tr><td nowrap valign="top">실시간 통화 분석<br>대응 안내 · 후속 확인</td><td nowrap valign="top">동작</td><td valign="top">글로 입력한 통화로 평가했습니다(대본 12개, test 28통). 대본 시연 1회를 기록했고, 실제 음성으로 전체 경로를 잰 대규모 평가는 없습니다.</td></tr>
+<tr><td nowrap valign="top">문자 검사 · 문서 점검</td><td nowrap valign="top">동작</td><td valign="top">문자 분류기 3,600건, 문자 검사 16건, 문서 점검 test 23장으로 평가했습니다.</td></tr>
+<tr><td nowrap valign="top">녹음 파일 분석</td><td nowrap valign="top">동작</td><td valign="top">분류기를 녹음 전사로 평가했습니다(정상 상담 1,400건, 사기 녹취 258건).</td></tr>
+<tr><td nowrap valign="top">수사관 대시보드<br><sub>단서 연결 · 우선순위 · 신고용 요약</sub></td><td nowrap valign="top">동작</td><td valign="top">시험 통화로 동작을 확인했습니다. 수사기관의 검증은 받지 않았습니다.</td></tr>
+<tr><td nowrap valign="top">신종 수법<br>수집 · 검토 · 반영</td><td nowrap valign="top">동작<br><sub>수동 수집</sub></td><td valign="top">승인한 카드는 상태 추적기 프롬프트에 추가하며, 모델을 다시 학습하지 않습니다. 카드의 반영 효과는 검증하지 않았습니다.</td></tr>
+<tr><td nowrap valign="top">리턴제로<br>전사 · 화자 구분</td><td nowrap valign="top">선택 설정<br><sub>시연 서버는 켬</sub></td><td valign="top">파일 전사의 화자 분리는 문장 단위로 98.8%를 맞혔습니다(녹음 100개). 무료 사용량이 소진되면 서버가 자체 Whisper로 전환합니다.</td></tr>
+<tr><td nowrap valign="top">보호자 알림 요청<br>(n8n → Slack)</td><td nowrap valign="top">선택 설정</td><td valign="top">시연 서버에서 2026-11-17부터 Slack 채널에 알림이 올라옵니다. 앱은 전송을 요청하는 데까지만 하며, 보호자 등록과 수신 확인 기능은 없습니다.</td></tr>
+<tr><td nowrap valign="top">수사관 자연어 질의<br>(n8n 채팅)</td><td nowrap valign="top">선택 설정</td><td valign="top">2026-11-18에 시연 서버에 연결해 동작을 확인했습니다. 답의 정확도는 평가하지 않았습니다.</td></tr>
+<tr><td nowrap valign="top">신종 수법 정기 수집<br>(n8n)</td><td nowrap valign="top">템플릿 제공</td><td valign="top">워크플로 템플릿만 제공합니다. 시연 서버에는 연결하지 않았고, 수집은 수동으로 실행합니다.</td></tr>
+<tr><td nowrap valign="top">로컬 화자 분리 (3D-Speaker)<br>Whisper 추가 학습 모델</td><td nowrap valign="top">실험 완료<br><sub>앱에 연결하지 않음</sub></td><td valign="top">녹음으로 따로 평가했습니다. 추가 학습한 Whisper는 실제 통화의 전화번호를 지우는 문제가 있어 서비스에 쓰지 않습니다.</td></tr>
 </table>
 
-### 기술 스택
+<details>
+<summary><b>기술 스택</b></summary>
+
+<br>
 
 | 영역 | 기술 |
 | --- | --- |
@@ -217,6 +278,8 @@ flowchart TB
 
 모델별 성능과 실행 위치, 보관만 하는 실험 모델은 [모델 구성](docs/tech/models.md)에 있습니다.
 
+</details>
+
 <details>
 <summary><b>전체 구조도</b> · 사용자 화면, 연결, FastAPI 백엔드, 저장·연동</summary>
 
@@ -225,9 +288,12 @@ flowchart TB
 
 </details>
 
-## 체험과 실행
+## 실행
 
-시연 주소와 접속 코드는 행사 현장에서 QR 코드로 안내합니다. 휴대폰으로 QR 코드를 열고 홈 화면에 추가하면 앱처럼 쓸 수 있습니다(PWA). 넓은 화면에서 열면 앱 옆에 'AI 분석 과정' 패널이 함께 보이며, 수사관 화면은 PC 브라우저에서 `/dashboard`로 엽니다.
+시연 주소와 접속 코드는 행사 현장에서 QR 코드로 안내합니다. 휴대폰으로 QR 코드를 열고 홈 화면에 추가하면 앱처럼 쓸 수 있습니다(PWA). 넓은 화면에서 열면 앱 옆에 'AI 분석 과정' 패널이 함께 보이고, 수사관 화면은 PC 브라우저에서 `/dashboard`로 엽니다.
+
+> [!NOTE]
+> 학습된 모델과 데이터 원본은 이용 조건 때문에 저장소에 없습니다. 코드만 내려받아 실행하면 통화 분류기 대신 사례 검색 기반 탐지로 동작합니다. 이 문서의 수치를 재현하려면 데이터를 직접 받아 모델을 학습해야 합니다([데이터와 전처리](docs/tech/detection.md#데이터와-전처리), [재현 방법](docs/tech/detection.md#재현-방법)).
 
 ### 입력 방식
 
@@ -235,15 +301,20 @@ flowchart TB
 <tr><th align="left" nowrap>방식</th><th align="left">입력</th><th align="left">처리</th><th align="left" nowrap>시작하는 곳</th></tr>
 <tr><td nowrap valign="top">마이크 입력</td><td valign="top">기기 마이크로 들어온 소리를 무음 기준으로 자른 음성 조각</td><td valign="top">실시간 전사 → 분류기 + 상태 추적기 → 대응 카드. 통화가 끝나면 전체 녹음을 다시 전사하고 상태를 다시 추적합니다.</td><td nowrap valign="top">홈의<br>'실시간 분석 시작'</td></tr>
 <tr><td nowrap valign="top">녹음 업로드</td><td valign="top">지난 통화 녹음 파일 (mp3 · wav · m4a)</td><td valign="top">파일 전체 전사 → 상태 추적기가 통화 전체를 한 번에 분석 → 지난 통화에 맞는 대응 안내</td><td nowrap valign="top">홈의<br>'음성 파일 분석'</td></tr>
-<tr><td nowrap valign="top">대본 시연</td><td valign="top">미리 적어 둔 대본 문장</td><td valign="top">마이크와 전사를 거치지 않고 문장을 정해진 간격으로 서버에 보냅니다. 그 뒤의 분류기·상태 추적기·대응 에이전트는 실제 서비스와 같은 코드입니다.</td><td nowrap valign="top">시연 모드 주소<br><code>/realtime?scenario=prosecutor</code><br><sub>대본: prosecutor · loan · normal</sub></td></tr>
+<tr><td nowrap valign="top">대본 시연</td><td valign="top">미리 적어 둔 대본 문장</td><td valign="top">마이크와 전사를 거치지 않고 문장을 정해진 간격으로 서버에 보냅니다. 그 뒤의 분류기, 상태 추적기, 대응 에이전트는 실제 서비스와 같은 코드입니다.</td><td nowrap valign="top">시연 모드 주소<br><code>/realtime?scenario=prosecutor</code><br><sub>대본: prosecutor · loan · normal</sub></td></tr>
 </table>
 
-### 지원 환경
+<details>
+<summary><b>지원 환경</b> · 사용자 앱, 마이크, 화면 꺼짐 방지, 서버</summary>
+
+<br>
 
 - **사용자 앱** — 휴대폰·PC 브라우저에서 여는 웹 앱(PWA)입니다. Expo 프로젝트라 iOS·Android 빌드 설정도 있지만, 서버의 Whisper로 전사하는 실시간 분석은 웹 앱에만 연결했습니다.
-- **마이크와 통화 음성** — 실시간 분석에는 브라우저의 마이크 권한이 필요하며, 브라우저는 HTTPS 주소(개발 중에는 localhost)에서만 마이크를 허용합니다. 웹 앱은 휴대폰 통화 음성을 직접 가져오지 않고, 기기 마이크로 들어오는 소리를 전사합니다.
+- **마이크와 통화 음성** — 실시간 분석에는 브라우저의 마이크 권한이 필요하며, 브라우저는 HTTPS 주소(개발 중에는 localhost)에서만 마이크를 허용합니다. 웹 앱은 휴대폰의 통화 음성을 직접 가져오지 못하고, 기기 마이크로 들어온 소리를 전사합니다.
 - **화면 꺼짐 방지** — 실시간 분석 중에는 휴대폰 화면이 꺼지지 않게 합니다. Screen Wake Lock API를 지원하는 브라우저에서만 동작하며, 지원하지 않는 브라우저에서는 화면이 꺼지면 마이크 입력이 멈출 수 있습니다.
-- **서버** — 운영 서버는 Python 3.11과 CUDA GPU 환경에서 실행했습니다. Whisper large-v3에는 GPU가 필요합니다. GPU가 없으면 CPU에서 small(int8) 모델로 전사하지만, 측정한 노트북 환경에서는 실시간 처리에 필요한 속도를 충족하지 못했습니다.
+- **서버** — 운영 서버는 Python 3.11과 CUDA GPU 환경에서 실행했습니다. Whisper large-v3에는 GPU가 필요합니다. GPU가 없으면 CPU에서 small(int8) 모델로 전사하지만, 측정한 노트북 환경에서는 실시간 처리에 필요한 속도가 나오지 않았습니다.
+
+</details>
 
 <details>
 <summary><b>실행 방법</b> · 백엔드, 환경 변수, 프론트엔드, 배포 구조, 코드 위치</summary>
@@ -256,7 +327,7 @@ pip install -r requirements.txt
 uvicorn backend.app.main:app --host 0.0.0.0 --port 8000
 ```
 
-학습된 모델은 저장소에 없습니다([데이터와 이용 조건](#핵심-성과)). 통화 분류기는 `models/koelectra`(또는 `KOELECTRA_MODEL_DIR`)에서 가중치를 읽습니다. 아래는 프로젝트 루트의 `.env`입니다. 값은 예시이며, 키는 저장소에 올리지 않습니다.
+통화 분류기는 `models/koelectra`(또는 `KOELECTRA_MODEL_DIR`)에서 가중치를 읽습니다. 이 폴더가 없으면 사례 검색 기반 탐지로 대신 동작합니다. 아래는 프로젝트 루트의 `.env`입니다. 값은 예시이며, 키는 저장소에 올리지 않습니다.
 
 ```env
 ANTHROPIC_API_KEY=sk-ant-...
@@ -295,13 +366,17 @@ EXPO_PUBLIC_API_BASE=same-origin npm run build:web  # 배포용 웹 빌드 (백�
 
 ## 문서
 
-- **안내 페이지** — [전화 흐름으로 기능 보기](docs/one-call.md) · [수사관 지원용 능동 AI 에이전트 기능](docs/investigator.md) · [보이스피싱 탐지 성능](docs/tech/detection.md) · [음성 인식·화자 분리 성능](docs/tech/transcription.md) · [모델 구성](docs/tech/models.md)
-- [docs/API_SPEC_V2.md](docs/API_SPEC_V2.md) — v2 API 명세 (WebSocket 이벤트, 상태·대응·수사 API, 문자·문서 분석)
-- [docs/MODEL_TRAINING_LOG.md](docs/MODEL_TRAINING_LOG.md) — 모델 학습·평가 기록 (데이터, 설정·가중치, 결과, 한계, 실시간 전사 비교)
-- [stt_lab/README.md](stt_lab/README.md) — 전사 모델 추가 학습·평가 스크립트
-- [docs/DEPLOY_RUNPOD.md](docs/DEPLOY_RUNPOD.md) — 시연 서버를 RunPod GPU pod로 옮기는 순서와 운영 메모
-- [docs/BACKLOG.md](docs/BACKLOG.md) — 추후 구현 사항 · [docs/API_SPEC.md](docs/API_SPEC.md) — v1 API 명세
-- `docs/diagrams/` — 구조도 원본 (HTML) · `docs/design/` — README 그림 원본 (SVG)과 다시 굽는 방법
+| 문서 | 내용 |
+| --- | --- |
+| [전화 흐름으로 기능 보기](docs/one-call.md) | 검찰 사칭 시연 통화 한 건을 처음부터 끝까지 따라가며 본 화면과 판단 근거 |
+| [수사관 지원용 능동 AI 에이전트 기능](docs/investigator.md) | AI가 처리하는 범위, 담당자가 결정하는 일, 수사 지원 결과와 한계 |
+| [보이스피싱 탐지 성능](docs/tech/detection.md) | 모델별 평가 방법과 결과, 버전별 비교, 한계, 재현 방법 |
+| [음성 인식·화자 분리 성능](docs/tech/transcription.md) | 전사와 화자 분리 비교, 현재 구성과 채택 이유 |
+| [모델 구성](docs/tech/models.md) | 모델별 역할과 실행 위치, 외부로 전송하는 데이터 |
+| [API 명세 v2](docs/API_SPEC_V2.md) | WebSocket 이벤트, 상태·대응·수사 API, 문자·문서 분석 |
+| [학습 기록](docs/MODEL_TRAINING_LOG.md) | 모델 학습과 평가의 원본 기록(데이터, 설정, 결과) |
+
+그 밖에 [전사 모델 추가 학습 스크립트](stt_lab/README.md), [RunPod 배포 메모](docs/DEPLOY_RUNPOD.md), [추후 구현 사항](docs/BACKLOG.md), [v1 API 명세](docs/API_SPEC.md)가 있습니다. 구조도 원본(HTML)은 `docs/diagrams/`, README 그림 원본(SVG)과 굽는 방법은 [`docs/design/`](docs/design/README.md)에 있습니다.
 
 ## 팀
 
