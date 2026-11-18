@@ -23,32 +23,35 @@
 
 ## 시연
 
-<img src="docs/images/readme/demo_phone.gif" align="right" width="34%" hspace="16" alt="휴대폰 화면 시연. 첫 문장 뒤 전체 화면 경고가 뜨고, 위험도가 72% 주의에서 86% 위험, 99%로 오르면서 '상대에게 이렇게 되물어 보세요', '지금 바로 전화를 끊으세요', '보호자 알림을 요청했습니다' 카드가 차례로 쌓인다">
-
-**통화 중 · 단계에 맞는 대응 안내**<br>
+<table>
+<tr>
+<td width="38%" valign="top"><img src="docs/images/readme/demo_phone.gif" width="100%" alt="휴대폰 화면 시연. 첫 문장 뒤 전체 화면 경고가 뜨고, 위험도가 72% 주의에서 86% 위험, 99%로 오르면서 '상대에게 이렇게 되물어 보세요', '지금 바로 전화를 끊으세요', '보호자 알림을 요청했습니다' 카드가 차례로 쌓인다"></td>
+<td valign="top">
+<b>통화 중 · 단계에 맞는 대응 안내</b><br>
 전화를 끊으라는 경고, 공식 대표번호, 상대에게 되물어 볼 질문, 피해 차단 순서를 화면에 띄웁니다.
-
-**통화가 끝난 뒤 · 피해 확인**<br>
+<br><br>
+<b>통화가 끝난 뒤 · 피해 확인</b><br>
 피해 여부를 묻고, 고른 답(돈을 보냈어요, 앱을 설치했어요 등)에 맞춰 지급정지와 신고 순서를 안내합니다.
-
-**수사 지원 · 공통 단서 연결**<br>
+<br><br>
+<b>수사 지원 · 공통 단서 연결</b><br>
 같은 계좌나 전화번호가 나온 통화를 연결해 보여 주고, 먼저 검토할 통화와 그 근거를 대시보드에 정리합니다.
-
-**시연 조건**<br>
-오른쪽은 검찰 사칭 대본으로 진행한 시연입니다(2026-11-18, 통화 분류기 v5). 대본 문장을 글로 서버에 보냈으며, 마이크 입력과 음성 전사는 거치지 않았습니다. 이후의 분류기, 상태 추적기, 대응 에이전트는 실제 앱과 같은 코드로 실행했습니다.
-
+<br><br>
+<b>시연 조건</b><br>
+왼쪽은 검찰 사칭 대본으로 진행한 시연입니다(2026-11-18, 통화 분류기 v5). 대본 문장을 글로 서버에 보냈으며, 마이크 입력과 음성 전사는 거치지 않았습니다. 이후의 분류기, 상태 추적기, 대응 에이전트는 실제 앱과 같은 코드로 실행했습니다.
+<br><br>
 마이크 입력과 녹음 파일 분석도 지원합니다. 다만 웹 앱은 휴대폰의 통화 음성을 직접 가져오지 못하고, 기기 마이크로 들어온 소리를 전사합니다.
-
+<br><br>
 <sub>발화 사이의 대기 시간은 잘라 냈으며, 재생 속도는 실제와 같습니다. 화면의 이름과 번호는 가상 정보입니다. 'AI 분석 과정' 패널이 함께 보이는 <a href="docs/images/readme/demo_wide.gif">넓은 화면 시연</a>과 통화가 끝난 뒤의 <a href="docs/images/v2/web_result.png">분석 결과 화면</a>도 볼 수 있습니다.</sub>
-
-<br clear="both">
+</td>
+</tr>
+</table>
 
 ## 검증 결과와 한계
 
 현재 구성(통화 분류기 v5, 2026-11-16 적용)의 결과입니다. 점수가 0.70 이상이면 경보로 판정합니다. 분류기 단독 결과와 전체 시스템(분류기 + Claude 상태 추적기 + 대응 에이전트) 결과를 나누어 적었으며, 전체 시스템은 음성이 아니라 통화 대본을 글로 입력해 평가했습니다.
 
 <table>
-<tr><th align="left">지표</th><th align="left">평가 데이터 · 판정 기준</th><th align="right" nowrap>결과</th></tr>
+<tr><th align="left" width="26%">지표</th><th align="left">평가 데이터 · 판정 기준</th><th align="right" nowrap>결과</th></tr>
 <tr><td colspan="3"><b>분류기 단독</b></td></tr>
 <tr><td valign="top">사기 통화 탐지율</td><td valign="top">학습에 쓰지 않은 사기 통화 307통 · 통화 끝 판정</td><td nowrap valign="top" align="right">99.7%</td></tr>
 <tr><td valign="top">정상 상담 오경보율</td><td valign="top">AI Hub 일반 상담(금융·민원) 5,041건 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">0.9%</td></tr>
@@ -203,11 +206,11 @@
 <sub><b>수사관 대시보드의 사건 상세 위쪽</b> — 우선순위 점수는 AI의 확신도가 아니라, 팀이 정한 규칙(위험도, 피해 확인, 공통 단서, 사기 단계, 최근성)으로 매긴 검토 순서 점수입니다. 통화 후 확인 질문의 답("앱을 설치했어요")도 반영됩니다. 화면의 통화는 실제 사건이 아니며, 이름과 번호는 가상 정보입니다.</sub></p>
 
 <table>
-<tr><th align="left" nowrap>기능</th><th align="left">AI가 처리하는 일</th></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#단서-수집">단서 수집 · 연결</a></td><td valign="top">계좌번호, 전화번호, 웹 주소, 사건번호 등 단서 8종을 발화 번호와 함께 저장하고, 공통 단서가 있는 통화를 관련 후보로 표시합니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#수사-검토-우선순위-제안">검토 우선순위 제안</a></td><td valign="top">먼저 검토할 통화를 점수순으로 정렬하고, 점수의 근거를 함께 보여 줍니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#신고용-요약">신고용 요약</a> · <a href="docs/investigator.md#음성전사-기록의-무결성-확인">무결성 확인</a></td><td valign="top">저장된 기록으로 신고용 요약을 조립하고(사건 개요 3~5문장만 Claude가 작성), 음성과 전사문의 SHA-256 해시로 기록이 바뀌었는지 확인합니다.</td></tr>
-<tr><td nowrap valign="top"><a href="docs/investigator.md#신종-수법-수집검토반영">신종 수법 반영</a> · <a href="docs/investigator.md#품질-점검">품질 점검</a></td><td valign="top">공식 게시판의 새 글을 수법 카드 초안으로 정리하고, 사용자의 확인 응답과 AI 판정을 비교해 오경보·미탐지 의심 사례를 모읍니다. 반영 여부는 담당자가 승인합니다.</td></tr>
+<tr><th align="left" width="30%">기능</th><th align="left">AI가 처리하는 일</th></tr>
+<tr><td valign="top"><a href="docs/investigator.md#단서-수집">단서 수집 · 연결</a></td><td valign="top">계좌번호, 전화번호, 웹 주소, 사건번호 등 단서 8종을 발화 번호와 함께 저장하고, 공통 단서가 있는 통화를 관련 후보로 표시합니다.</td></tr>
+<tr><td valign="top"><a href="docs/investigator.md#수사-검토-우선순위-제안">검토 우선순위 제안</a></td><td valign="top">먼저 검토할 통화를 점수순으로 정렬하고, 점수의 근거를 함께 보여 줍니다.</td></tr>
+<tr><td valign="top"><a href="docs/investigator.md#신고용-요약">신고용 요약</a> · <a href="docs/investigator.md#음성전사-기록의-무결성-확인">무결성 확인</a></td><td valign="top">저장된 기록으로 신고용 요약을 조립하고(사건 개요 3~5문장만 Claude가 작성), 음성과 전사문의 SHA-256 해시로 기록이 바뀌었는지 확인합니다.</td></tr>
+<tr><td valign="top"><a href="docs/investigator.md#신종-수법-수집검토반영">신종 수법 반영</a> · <a href="docs/investigator.md#품질-점검">품질 점검</a></td><td valign="top">공식 게시판의 새 글을 수법 카드 초안으로 정리하고, 사용자의 확인 응답과 AI 판정을 비교해 오경보·미탐지 의심 사례를 모읍니다. 반영 여부는 담당자가 승인합니다.</td></tr>
 </table>
 
 수사관은 n8n 채팅으로 수사 데이터를 자연어로 물을 수도 있습니다(선택 설정). AI가 쓴 사건 개요는 초안이므로 통화 전문과 대조해야 하며, 같은 계좌나 번호가 나왔다는 사실만으로 같은 범죄 조직이라고 확정할 수 없습니다. 해시는 기록이 바뀌었는지 확인하는 수단이며, 외부 시각 인증이나 별도 보관이 없어 법적 증거의 무결성을 보증하지는 않습니다. 기능별 처리 범위와 한계는 [수사관 지원용 능동 AI 에이전트 기능](docs/investigator.md)에 있습니다.
@@ -246,11 +249,11 @@
 '동작'은 시연 서버에서 동작한다는 뜻이며, 실제 사용자나 기관이 쓰고 있다는 뜻은 아닙니다.
 
 <table>
-<tr><th align="left">기능</th><th align="left" nowrap>구현 상태</th><th align="left">검증 수준</th></tr>
-<tr><td nowrap valign="top">실시간 통화 분석<br>대응 안내 · 후속 확인</td><td nowrap valign="top">동작</td><td valign="top">글로 입력한 통화로 평가했습니다(대본 12개, 시험 통화 28통). 대본 시연 1회를 기록했고, 실제 음성으로 전체 경로를 잰 대규모 평가는 없습니다.</td></tr>
-<tr><td nowrap valign="top">문자 검사 · 문서 점검</td><td nowrap valign="top">동작</td><td valign="top">문자 분류기 3,600건, 문자 검사 16건, 문서 점검 test 23장으로 평가했습니다.</td></tr>
-<tr><td nowrap valign="top">녹음 파일 분석</td><td nowrap valign="top">동작</td><td valign="top">분류기를 녹음 전사로 평가했습니다(정상 상담 1,400건, 사기 녹취 258건).</td></tr>
-<tr><td nowrap valign="top">수사관 대시보드<br><sub>단서 연결 · 우선순위 · 신고용 요약</sub></td><td nowrap valign="top">동작</td><td valign="top">시험 통화로 동작을 확인했습니다. 수사기관의 검증은 받지 않았습니다.</td></tr>
+<tr><th align="left" width="30%">기능</th><th align="left" nowrap>구현 상태</th><th align="left">검증 수준</th></tr>
+<tr><td valign="top">실시간 통화 분석<br>대응 안내 · 후속 확인</td><td nowrap valign="top">동작</td><td valign="top">글로 입력한 통화로 평가했습니다(대본 12개, 시험 통화 28통). 대본 시연 1회를 기록했고, 실제 음성으로 전체 경로를 잰 대규모 평가는 없습니다.</td></tr>
+<tr><td valign="top">문자 검사 · 문서 점검</td><td nowrap valign="top">동작</td><td valign="top">문자 분류기 3,600건, 문자 검사 16건, 문서 점검 test 23장으로 평가했습니다.</td></tr>
+<tr><td valign="top">녹음 파일 분석</td><td nowrap valign="top">동작</td><td valign="top">분류기를 녹음 전사로 평가했습니다(정상 상담 1,400건, 사기 녹취 258건).</td></tr>
+<tr><td valign="top">수사관 대시보드<br><sub>단서 연결 · 우선순위 · 신고용 요약</sub></td><td nowrap valign="top">동작</td><td valign="top">시험 통화로 동작을 확인했습니다. 수사기관의 검증은 받지 않았습니다.</td></tr>
 </table>
 
 <details>
@@ -259,13 +262,13 @@
 <br>
 
 <table>
-<tr><th align="left">기능</th><th align="left" nowrap>구현 상태</th><th align="left">검증 수준</th></tr>
-<tr><td nowrap valign="top">신종 수법<br>수집 · 검토 · 반영</td><td nowrap valign="top">동작<br><sub>수동 수집</sub></td><td valign="top">승인한 카드는 상태 추적기 프롬프트에 추가하며, 모델을 다시 학습하지 않습니다. 카드의 반영 효과는 검증하지 않았습니다. 승인 뒤 실행하는 회귀 평가에 승인한 카드가 들어가지 않기 때문입니다.</td></tr>
-<tr><td nowrap valign="top">리턴제로<br>전사 · 화자 구분</td><td nowrap valign="top">선택 설정<br><sub>시연 서버는 켬</sub></td><td valign="top">파일 전사의 화자 분리는 문장 단위로 98.8%를 맞혔습니다(녹음 100개). 무료 사용량이 소진되면 서버가 자체 Whisper로 전환합니다.</td></tr>
-<tr><td nowrap valign="top">보호자 알림 요청<br>(n8n → Slack)</td><td nowrap valign="top">선택 설정</td><td valign="top">시연 서버에서 2026-11-17부터 Slack 채널에 알림이 올라옵니다. 앱은 전송을 요청하는 데까지만 하며, 보호자 등록과 수신 확인 기능은 없습니다.</td></tr>
-<tr><td nowrap valign="top">수사관 자연어 질의<br>(n8n 채팅)</td><td nowrap valign="top">선택 설정</td><td valign="top">2026-11-18에 시연 서버에 연결해 질문 한 건에 약 9초 만에 답하는 것을 확인했습니다. 답의 정확도는 평가하지 않았습니다.</td></tr>
-<tr><td nowrap valign="top">신종 수법 정기 수집<br>(n8n)</td><td nowrap valign="top">템플릿 제공</td><td valign="top">워크플로 템플릿만 제공합니다. 시연 서버에는 연결하지 않았고, 수집은 수동으로 실행합니다.</td></tr>
-<tr><td nowrap valign="top">로컬 화자 분리 (3D-Speaker)<br>Whisper 추가 학습 모델</td><td nowrap valign="top">실험 완료<br><sub>앱에 연결하지 않음</sub></td><td valign="top">녹음으로 따로 평가했습니다. 추가 학습한 Whisper는 실제 통화의 전화번호를 지우는 문제가 있어 쓰지 않습니다.</td></tr>
+<tr><th align="left" width="30%">기능</th><th align="left" nowrap>구현 상태</th><th align="left">검증 수준</th></tr>
+<tr><td valign="top">신종 수법<br>수집 · 검토 · 반영</td><td nowrap valign="top">동작<br><sub>수동 수집</sub></td><td valign="top">승인한 카드는 상태 추적기 프롬프트에 추가하며, 모델을 다시 학습하지 않습니다. 카드의 반영 효과는 검증하지 않았습니다. 승인 뒤 실행하는 회귀 평가에 승인한 카드가 들어가지 않기 때문입니다.</td></tr>
+<tr><td valign="top">리턴제로<br>전사 · 화자 구분</td><td nowrap valign="top">선택 설정<br><sub>시연 서버는 켬</sub></td><td valign="top">파일 전사의 화자 분리는 문장 단위로 98.8%를 맞혔습니다(녹음 100개). 무료 사용량이 소진되면 서버가 자체 Whisper로 전환합니다.</td></tr>
+<tr><td valign="top">보호자 알림 요청<br>(n8n → Slack)</td><td nowrap valign="top">선택 설정</td><td valign="top">시연 서버에서 2026-11-17부터 Slack 채널에 알림이 올라옵니다. 앱은 전송을 요청하는 데까지만 하며, 보호자 등록과 수신 확인 기능은 없습니다.</td></tr>
+<tr><td valign="top">수사관 자연어 질의<br>(n8n 채팅)</td><td nowrap valign="top">선택 설정</td><td valign="top">2026-11-18에 시연 서버에 연결해 질문 한 건에 약 9초 만에 답하는 것을 확인했습니다. 답의 정확도는 평가하지 않았습니다.</td></tr>
+<tr><td valign="top">신종 수법 정기 수집<br>(n8n)</td><td nowrap valign="top">템플릿 제공</td><td valign="top">워크플로 템플릿만 제공합니다. 시연 서버에는 연결하지 않았고, 수집은 수동으로 실행합니다.</td></tr>
+<tr><td valign="top">로컬 화자 분리 (3D-Speaker)<br>Whisper 추가 학습 모델</td><td nowrap valign="top">실험 완료<br><sub>앱에 연결하지 않음</sub></td><td valign="top">녹음으로 따로 평가했습니다. 추가 학습한 Whisper는 실제 통화의 전화번호를 지우는 문제가 있어 쓰지 않습니다.</td></tr>
 </table>
 
 </details>
