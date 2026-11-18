@@ -1,5 +1,5 @@
 <?xml-stylesheet href="theme.css" type="text/css"?>
-<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="278" viewBox="0 0 1280 278">
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="284" viewBox="0 0 1280 284">
   <!-- 핵심 숫자 카드. 세 칸 모두 현재 모델(통화 분류기 v5) 결과이고, 칸마다 무엇을 어떤 데이터로 잰 값인지 함께 적는다.
        1: 분류기 단독 사기 통화 탐지율(v2 평가 분할 사기 307통, 통화 끝 0.70 이상)
        2: 분류기 단독 정상 상담 오경보율(AI Hub 상담 Validation 5,041건, 한 번이라도 0.70 이상)
@@ -7,30 +7,30 @@
        분류기 단독(1·2)과 전체 시스템(3)은 평가 대상이 다르므로 위쪽 이름표의 색을 다르게 한다.
        출처: docs/tech/detection.md '현재 모델 성능'. 숫자가 바뀌면 README의 표와 대체 문구도 함께 고친다.
        결과: ../images/readme/numbers.png, numbers-dark.png -->
-  <rect class="card" x="1" y="1" width="1278" height="276" rx="24"/>
+  <rect class="card" x="1" y="1" width="1278" height="282" rx="24"/>
   <g class="s-line" stroke-width="2">
-    <path d="M426.5 40 V238"/>
-    <path d="M853.5 40 V238"/>
+    <path d="M426.5 40 V244"/>
+    <path d="M853.5 40 V244"/>
   </g>
 
   <!-- 1 -->
   <rect class="f-accent-soft" x="58" y="40" width="188" height="40" rx="20"/>
   <text class="kr f-accent-ink" x="74" y="69" font-size="24" font-weight="700">통화 분류기 v5</text>
   <text class="f-ink" x="56" y="172"><tspan class="en" font-size="92" font-weight="800" letter-spacing="-3">99.7</tspan><tspan class="en f-accent" font-size="44" font-weight="700" dx="7">%</tspan></text>
-  <text class="kr f-ink2" x="60" y="212" font-size="28" font-weight="700">사기 통화 탐지율</text>
-  <text class="kr f-muted" x="60" y="246" font-size="24" font-weight="500">학습에 쓰지 않은 307통</text>
+  <text class="kr f-ink2" x="60" y="214" font-size="30" font-weight="700">사기 통화 탐지율</text>
+  <text class="kr f-muted" x="60" y="250" font-size="26" font-weight="500">학습에 쓰지 않은 307통</text>
 
   <!-- 2 -->
   <rect class="f-accent-soft" x="476" y="40" width="188" height="40" rx="20"/>
   <text class="kr f-accent-ink" x="492" y="69" font-size="24" font-weight="700">통화 분류기 v5</text>
   <text class="f-ink" x="474" y="172"><tspan class="en" font-size="92" font-weight="800" letter-spacing="-3">0.9</tspan><tspan class="en f-accent" font-size="44" font-weight="700" dx="7">%</tspan></text>
-  <text class="kr f-ink2" x="478" y="212" font-size="28" font-weight="700">정상 상담 오경보율</text>
-  <text class="kr f-muted" x="478" y="246" font-size="24" font-weight="500">AI Hub 일반 상담 5,041건</text>
+  <text class="kr f-ink2" x="478" y="214" font-size="30" font-weight="700">정상 상담 오경보율</text>
+  <text class="kr f-muted" x="478" y="250" font-size="26" font-weight="500">AI Hub 일반 상담 5,041건</text>
 
   <!-- 3 -->
   <rect class="f-line" x="903" y="40" width="154" height="40" rx="20"/>
   <text class="kr f-ink2" x="919" y="69" font-size="24" font-weight="700">전체 시스템</text>
   <text class="f-ink" x="901" y="172"><tspan class="en" font-size="92" font-weight="800" letter-spacing="-3">13</tspan><tspan class="en f-muted" font-size="44" font-weight="700" dx="10">/ 14</tspan><tspan class="kr f-muted" font-size="40" font-weight="700" dx="4">통</tspan></text>
-  <text class="kr f-ink2" x="905" y="212" font-size="28" font-weight="700">사기 통화 탐지</text>
-  <text class="kr f-muted" x="905" y="246" font-size="24" font-weight="500">시험 통화 · 글로 입력</text>
+  <text class="kr f-ink2" x="905" y="214" font-size="30" font-weight="700">사기 통화 탐지</text>
+  <text class="kr f-muted" x="905" y="250" font-size="26" font-weight="500">시험 통화 · 글로 입력</text>
 </svg>
