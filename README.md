@@ -42,6 +42,19 @@
 
 <br clear="both">
 
+**전체 시연 영상** — 그림을 누르면 영상이 열립니다. 네 편 모두 소리가 없고 자막으로 설명합니다. 위와 같은 조건(2026-11-18, 대본 시연)으로 기록했으며, 통화 영상은 대기 시간을 자르지 않은 실제 속도입니다.
+
+<table>
+<tr>
+<td width="50%" valign="top"><a href="docs/videos/01_live_call_wide.mp4"><img src="docs/images/readme/video_01_live_call_wide.jpg" width="100%" alt="실시간 통화 분석 영상의 미리보기. 왼쪽 사용자 화면은 위험도 86% 위험과 '지금 바로 전화를 끊으세요' 카드, 오른쪽은 AI 분석 과정 패널"></a><br><b>실시간 통화 분석 · 판단 과정</b> · 1분 7초<br><sub>사용자 화면과 'AI 분석 과정' 패널을 함께 보여 줍니다. 첫 문장 직후의 경고부터 금전 요구 단계까지 이어집니다.</sub></td>
+<td width="50%" valign="top"><a href="docs/videos/02_live_call_phone.mp4"><img src="docs/images/readme/video_02_live_call_phone.jpg" width="100%" alt="휴대폰 화면 영상의 미리보기. 위험도 86% 위험, 위기 조성 단계, 전화를 끊으라는 카드와 검찰청 공식 번호 안내"></a><br><b>휴대폰 화면 · 통화 중과 통화 후</b> · 1분 19초<br><sub>같은 통화를 휴대폰 화면으로 보여 줍니다. 통화가 끝난 뒤 '돈을 보냈어요'라고 답했을 때의 지급정지 안내까지 이어집니다.</sub></td>
+</tr>
+<tr>
+<td width="50%" valign="top"><a href="docs/videos/03_message_document.mp4"><img src="docs/images/readme/video_03_message_document.jpg" width="100%" alt="문자 검사와 문서 점검 영상의 미리보기. 위조 검찰 공문 사진에 '사기 가능성이 높아요', 위험도 96%"></a><br><b>문자 검사 · 문서 점검</b> · 42초<br><sub>스미싱 예시 문자와 위조 공문 사진을 한 건씩 검사합니다.</sub></td>
+<td width="50%" valign="top"><a href="docs/videos/04_investigator_dashboard.mp4"><img src="docs/images/readme/video_04_investigator_dashboard.jpg" width="100%" alt="수사 지원 대시보드 영상의 미리보기. 왼쪽 통화 목록과 오른쪽 사건 상세(위험도 99%, 사건 개요, 단계 경과)"></a><br><b>수사 지원 대시보드</b> · 1분 36초<br><sub>사건 상세, 다른 통화와 겹치는 단서, 관계 그래프, 신종 수법 검토, 모델 품질, 신고용 요약을 차례로 보여 줍니다.</sub></td>
+</tr>
+</table>
+
 ## 검증 결과와 한계
 
 현재 구성(통화 분류기 v5, 2026-11-16 적용)의 결과입니다. 점수가 0.70 이상이면 경보로 판정합니다. 분류기 단독 결과와 전체 시스템(분류기 + Claude 상태 추적기 + 대응 에이전트) 결과를 나누어 적었으며, 전체 시스템은 음성이 아니라 통화 대본을 글로 입력해 평가했습니다.
