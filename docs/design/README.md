@@ -1,13 +1,14 @@
 # README 그림 원본
 
-[README](../../README.md)의 맨 위 배너, 핵심 숫자 띠, 다섯 단계 그림과 대시보드 확대 조각 두 장을 만드는 원본입니다. 구운 결과는 `docs/images/readme/`에 있습니다. 확대 조각 두 장은 지금 README에서 쓰지 않고 보관만 합니다(대시보드 화면은 [수사관 지원용 능동 AI 에이전트 기능](../investigator.md)에 있습니다).
+[README](../../README.md)에 쓰는 배너, 핵심 숫자 카드, 다섯 단계 그림의 원본입니다. 결과 파일은 `docs/images/readme/`에 있습니다.
 
-| 원본 | 결과 | 다시 만들 때 |
-| --- | --- | --- |
-| `hero.svg` | `hero.webp` | 실시간 분석 화면(`app_realtime_agent.png`)이나 대시보드(`web_priority.png`)를 다시 찍었을 때 |
-| `numbers.svg` | `numbers.png` | 카드 숫자(99.7% · 30.2% → 0.7% · 4 → 0통)나 기준 모델이 바뀔 때. 카드마다 첫 줄은 이전 값 → 현재 값, 둘째 줄은 이름입니다. 99.7%는 통화 분류기 v5, 나머지 둘은 v2 → v3 결과이므로 README의 카드 아래 설명·각주와 대체 문구도 함께 고칩니다 |
-| `loop.svg` | `loop.png` | 다섯 단계 이름이 바뀔 때 |
-| `zoom.py` | `zoom_clues.png`, `zoom_priority.png` | `web_case_detail.png`나 `web_priority.png`를 다시 찍었을 때. 잘리는 위치(`CROPS`)도 확인합니다 |
+| 원본 | 결과 | README에서 쓰는 곳 | 다시 구울 때 |
+| --- | --- | --- | --- |
+| `hero.svg` | `hero.webp` | 맨 위 배너 | 휴대폰 화면(`app_realtime_agent.png`)이나 대시보드 화면(`web_priority.png`)을 교체했을 때 다시 굽습니다. 두 화면은 README 본문과 같은 현재 빌드에서 가상 데이터로 촬영한 것을 쓰고, 배너의 대체 문구가 화면과 맞는지 확인합니다. |
+| `numbers.svg` | `numbers.png` | 첫 화면의 핵심 숫자 카드 | 카드 숫자(99.7% · 30.2% → 0.7% · 4 → 0통)나 기준 모델이 바뀔 때 다시 굽습니다. 99.7%는 통화 분류기 v5, 나머지 둘은 v2 → v3 결과입니다. README의 카드 아래 문장, 기준 각주, 대체 문구도 함께 고칩니다. |
+| `loop.svg` | `loop.png` | '통화 대응 흐름'의 다섯 단계 그림 | 단계 이름이나 단계 아래 설명(전사·사기 확률, 단계 추적, 대응 방법 안내, 피해 여부 확인, 검토·반영·재평가)이 바뀔 때 다시 굽습니다. README의 다섯 단계 목록과 뜻이 같아야 합니다. |
+
+숫자 카드는 카드마다 첫 줄에 이전 값 → 현재 값, 둘째 줄에 이름을 둡니다. 대시보드 화면과 조각 그림은 [수사관 지원용 능동 AI 에이전트 기능](../investigator.md)에 있습니다.
 
 ## 굽기
 
@@ -16,8 +17,9 @@ GitHub는 `<img>` 속 SVG에서 웹 글꼴을 쓰지 못합니다. 그래서 `fo
 ```bash
 npm i --prefix ~/.cache/voiceguard-bake puppeteer-core     # 저장소 밖에 한 번만 설치
 NODE_PATH=~/.cache/voiceguard-bake/node_modules CHROME="<Chrome 또는 Edge 실행 파일>" node docs/design/bake.js
-python docs/design/zoom.py                                   # Pillow 필요
 ```
+
+`bake.js`는 이 폴더의 SVG 세 개를 모두 다시 굽습니다. 원본을 고치지 않은 그림은 결과 파일이 달라져도 커밋하지 않습니다.
 
 ## 색
 

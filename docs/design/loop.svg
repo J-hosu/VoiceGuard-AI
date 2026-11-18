@@ -5,48 +5,48 @@
 
   <!-- connectors -->
   <g fill="none" stroke="#AEBACB" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M238 108 H346 M336 99 L346 108 L336 117"/>
-    <path d="M470 108 H578 M568 99 L578 108 L568 117"/>
-    <path d="M702 108 H810 M800 99 L810 108 L800 117"/>
-    <path d="M934 108 H1042 M1032 99 L1042 108 L1032 117"/>
+    <path d="M222 108 H338 M328 99 L338 108 L328 117"/>
+    <path d="M462 108 H578 M568 99 L578 108 L568 117"/>
+    <path d="M702 108 H818 M808 99 L818 108 L808 117"/>
+    <path d="M942 108 H1058 M1048 99 L1058 108 L1048 117"/>
   </g>
 
   <!-- nodes -->
   <g fill="#0B1424">
-    <circle cx="176" cy="108" r="46"/>
-    <circle cx="408" cy="108" r="46"/>
+    <circle cx="160" cy="108" r="46"/>
+    <circle cx="400" cy="108" r="46"/>
     <circle cx="640" cy="108" r="46"/>
-    <circle cx="872" cy="108" r="46"/>
-    <circle cx="1104" cy="108" r="46"/>
+    <circle cx="880" cy="108" r="46"/>
+    <circle cx="1120" cy="108" r="46"/>
   </g>
   <g font-family="Inter, sans-serif" font-size="34" font-weight="700" fill="#5EEAD4" text-anchor="middle">
-    <text x="176" y="120">01</text>
-    <text x="408" y="120">02</text>
+    <text x="160" y="120">01</text>
+    <text x="400" y="120">02</text>
     <text x="640" y="120">03</text>
-    <text x="872" y="120">04</text>
-    <text x="1104" y="120">05</text>
+    <text x="880" y="120">04</text>
+    <text x="1120" y="120">05</text>
   </g>
 
   <!-- step names -->
   <g font-family="'Noto Sans KR', sans-serif" font-size="46" font-weight="800" fill="#0B1424" text-anchor="middle" letter-spacing="-0.5">
-    <text x="176" y="226">감지</text>
-    <text x="408" y="226">판단</text>
+    <text x="160" y="226">감지</text>
+    <text x="400" y="226">판단</text>
     <text x="640" y="226">개입</text>
-    <text x="872" y="226">후속 확인</text>
-    <text x="1104" y="226">개선</text>
+    <text x="880" y="226">후속 확인</text>
+    <text x="1120" y="226">개선</text>
   </g>
-  <g font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="500" fill="#56657E" text-anchor="middle">
-    <text x="176" y="280">전사 · 사기 확률</text>
-    <text x="408" y="280">단계 추적</text>
-    <text x="640" y="280">할 일 안내</text>
-    <text x="872" y="280">다시 묻기</text>
-    <text x="1104" y="280">배우고 다시 측정</text>
+  <g font-family="'Noto Sans KR', sans-serif" font-size="30" font-weight="500" fill="#56657E" text-anchor="middle">
+    <text x="160" y="280">전사·사기 확률</text>
+    <text x="400" y="280">단계 추적</text>
+    <text x="640" y="280">대응 방법 안내</text>
+    <text x="880" y="280">피해 여부 확인</text>
+    <text x="1120" y="280">검토·반영·재평가</text>
   </g>
 
   <!-- feedback loop -->
   <g fill="none" stroke="#0D9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
-    <path d="M1104 308 V350 Q1104 378 1076 378 H204 Q176 378 176 350 V312" stroke-dasharray="10 9"/>
-    <path d="M165 322 L176 309 L187 322"/>
+    <path d="M1120 308 V350 Q1120 378 1092 378 H188 Q160 378 160 350 V312" stroke-dasharray="10 9"/>
+    <path d="M149 322 L160 309 L171 322"/>
   </g>
   <rect x="400" y="352" width="480" height="52" fill="#F7F9FC"/>
   <text x="640" y="390" font-family="'Noto Sans KR', sans-serif" font-size="34" font-weight="600" fill="#0F766E" text-anchor="middle">다음 통화의 감지·판단에 반영</text>

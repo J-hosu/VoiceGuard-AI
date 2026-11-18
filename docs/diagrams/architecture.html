@@ -53,7 +53,7 @@
 </head>
 <body>
   <h1>VoiceGuard AI 시스템 구조</h1>
-  <div class="sub">휴대폰 앱(웹 PWA)은 QR로 접속한다. 분석은 RunPod에서 빌려 직접 운영하는 GPU 서버의 FastAPI 백엔드가 맡고, 받아 적은 글은 Claude API로 보내 판단한다.</div>
+  <div class="sub">휴대폰 앱(웹 PWA)은 QR로 접속합니다. 분석은 RunPod에서 빌려 직접 운영하는 GPU 서버의 FastAPI 백엔드가 맡고, 전사한 통화 내용은 Claude API로 보내 판단합니다.</div>
   <div class="grid">
     <div class="col">
       <div class="label">사용자</div>
@@ -73,11 +73,11 @@
       </div>
       <div class="card inv">
         <h3>🕵️ 수사관 대시보드</h3>
-        <p>사건 목록·통계, 사건 상세, 다른 통화와 겹치는 단서, 유사 공식 사례, 신고용 요약 문서</p>
+        <p>사건 목록·관계 그래프·신종 수법·모델 품질<br>사건 상세: 단서, 유사 공식 사례, 신고용 요약</p>
       </div>
       <div class="card user" style="background:#fff">
-        <h3>👪 보호자</h3>
-        <p>위험 통화 알림을 Slack(또는 Telegram)으로 받는다</p>
+        <h3>👪 보호자 알림 채널</h3>
+        <p>n8n이 위험 통화 알림을 Slack 채널에 올립니다. 보호자 등록과 수신 확인 기능은 없습니다</p>
       </div>
     </div>
     <div class="arrow">⇄</div>
@@ -85,15 +85,15 @@
       <div class="label">연결</div>
       <div class="card net">
         <h3>🔒 Cloudflare 터널</h3>
-        <p>HTTPS 공개 주소 → 서버. 포트를 열지 않는다</p>
+        <p>HTTPS 공개 주소 → 서버. 포트를 열지 않습니다</p>
       </div>
       <div class="card net">
         <h3>🎟️ 접속 코드</h3>
-        <p>QR 링크의 코드가 있어야 들어온다</p>
+        <p>QR 링크의 접속 코드가 있어야 접속됩니다</p>
       </div>
       <div class="card net">
         <h3>⚡ WebSocket</h3>
-        <p>음성 조각·분석 결과·AI 대응을 실시간으로 주고받는다</p>
+        <p>음성 조각·분석 결과·AI 대응을 실시간으로 주고받습니다</p>
       </div>
     </div>
     <div class="arrow">⇄</div>
@@ -103,35 +103,35 @@
         <div class="tag t-in">① 입력</div>
         <div class="boxes">
           <div class="box"><b>음성 인식</b><small>faster-whisper large-v3<br>음성 조각 → 한국어 전사</small></div>
-          <div class="box"><b>문자·문서·녹음 파일</b><small>REST API로 받아 같은 판정 흐름에 넣는다</small></div>
+          <div class="box"><b>문자·문서·녹음 파일</b><small>REST API로 받습니다. 녹음 파일은 통화와 같은 흐름으로 분석합니다</small></div>
         </div>
       </div>
       <div class="lane">
         <div class="tag t-detect">② 감지·판단</div>
         <div class="boxes">
           <div class="box fast"><b>빠른 경로 분류기</b><small>KLUE-RoBERTa 미세조정 (v5)<br>학습 데이터 통화 7,990건 (v2: 4,091)</small></div>
-          <div class="box ai"><b>상태 추적기</b><small>Claude Haiku 5.5<br>사기 단계·유형·순응도·단서</small></div>
+          <div class="box ai"><b>상태 추적기</b><small>Claude Haiku 5.5<br>사기 단계·유형<br>사용자 반응·단서</small></div>
           <div class="box fuse"><b>위험도 융합</b><small>0.3 × 분류기 + 0.7 × 추적기<br>주의 0.70 / 강한 경고 0.85</small></div>
         </div>
       </div>
       <div class="lane">
         <div class="tag t-act">③ 개입</div>
         <div class="boxes">
-          <div class="box ai"><b>대응 에이전트</b><small>규칙이 고르고 Claude가 쓴다<br>강한 경고 · 공식번호 확인 · 되물을 질문 · 차단 안내 · 보호자 알림</small></div>
+          <div class="box ai"><b>대응 에이전트</b><small>규칙 선택 + Claude 작성<br>강한 경고 · 공식 번호 확인 · 되물을 질문 · 피해 차단 안내 · 보호자 알림 요청</small></div>
         </div>
       </div>
       <div class="lane">
         <div class="tag t-check">④ 후속 확인</div>
         <div class="boxes">
-          <div class="box"><b>통화 중·통화 후 질문</b><small>"아직 통화 중인가요?" "돈을 보냈나요?" → 지급정지·신고 안내, 사용자 확인 저장</small></div>
+          <div class="box"><b>통화 중·통화 후 질문</b><small>"통화를 끊으셨나요?" · "통화 이후 상황을 알려주세요" → 답에 맞춰 지급정지·신고 순서 안내, 답은 확인 응답으로 저장</small></div>
         </div>
       </div>
       <div class="lane">
         <div class="tag t-inv">⑤ 수사 지원</div>
         <div class="boxes">
-          <div class="box"><b>단서 연관</b><small>계좌·번호·URL·사건번호가<br>겹치는 통화 찾기</small></div>
+          <div class="box"><b>단서 연결</b><small>계좌·번호·URL·사건번호가<br>겹치는 통화 찾기</small></div>
           <div class="box ai"><b>사건 개요</b><small>Claude Opus 5.5가<br>3~5문장으로 정리</small></div>
-          <div class="box"><b>유사 공식 사례</b><small>금감원·경찰청 사례 121건<br>문자 n-gram 검색</small></div>
+          <div class="box"><b>유사 공식 사례</b><small>금감원·경찰청 사례 121건<br>글자 n-gram 검색</small></div>
         </div>
       </div>
       <div class="lane">
@@ -152,16 +152,16 @@
           <li>대화 상태(버전별)</li>
           <li>AI 대응·후속 답변</li>
           <li>수사 단서·사건 개요</li>
-          <li>사용자 확인(피드백)</li>
+          <li>확인 응답(피드백)</li>
         </ul>
       </div>
       <div class="card store">
         <h3>🔁 n8n 워크플로</h3>
-        <p>위험 통화·통화 종료·후속 답변 이벤트를 받아 보호자에게 알림</p>
+        <p>위험 통화·통화 종료·후속 확인 답 이벤트를 받아 Slack 채널에 알립니다. 수사관 자연어 질의(채팅)도 n8n으로 연결합니다. 신종 수법 정기 수집 워크플로는 템플릿만 제공합니다</p>
       </div>
       <div class="card store">
         <h3>🧠 학습 (H100)</h3>
-        <p>AI Hub 상담 데이터·KISA 118·금감원 녹취·공식 사례 기반 생성 통화로 재학습, 평가 통과 시 교체</p>
+        <p>AI Hub 상담 데이터·KISA 118·금감원 녹취·공식 사례 기반 생성 통화로 분류기를 학습합니다. 재학습은 담당자가 실행하고, 모델 교체는 평가 결과를 보고 담당자가 결정합니다</p>
       </div>
     </div>
   </div>
