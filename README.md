@@ -23,41 +23,40 @@
 
 ## 시연
 
-<table>
-<tr>
-<td width="38%" align="center" valign="top"><img src="docs/images/readme/demo_phone.gif" width="300" alt="휴대폰 화면 시연. 첫 문장 뒤 전체 화면 경고가 뜨고, 위험도가 72% 주의에서 86% 위험, 99%로 오르면서 '상대에게 이렇게 되물어 보세요', '지금 바로 전화를 끊으세요', '보호자 알림을 요청했습니다' 카드가 차례로 쌓인다"></td>
-<td valign="top">
-<b>통화 중 · 단계에 맞는 대응 안내</b><br>
+<img src="docs/images/readme/demo_phone.gif" align="right" width="34%" hspace="16" alt="휴대폰 화면 시연. 첫 문장 뒤 전체 화면 경고가 뜨고, 위험도가 72% 주의에서 86% 위험, 99%로 오르면서 '상대에게 이렇게 되물어 보세요', '지금 바로 전화를 끊으세요', '보호자 알림을 요청했습니다' 카드가 차례로 쌓인다">
+
+**통화 중 · 단계에 맞는 대응 안내**<br>
 전화를 끊으라는 경고, 공식 대표번호, 상대에게 되물어 볼 질문, 피해 차단 순서를 화면에 띄웁니다.
-<br><br>
-<b>통화가 끝난 뒤 · 피해 확인</b><br>
+
+**통화가 끝난 뒤 · 피해 확인**<br>
 피해 여부를 묻고, 고른 답(돈을 보냈어요, 앱을 설치했어요 등)에 맞춰 지급정지와 신고 순서를 안내합니다.
-<br><br>
-<b>수사 지원 · 공통 단서 연결</b><br>
+
+**수사 지원 · 공통 단서 연결**<br>
 같은 계좌나 전화번호가 나온 통화를 연결해 보여 주고, 먼저 검토할 통화와 그 근거를 대시보드에 정리합니다.
-<br><br>
-<b>시연 조건</b><br>
-왼쪽은 검찰 사칭 대본으로 진행한 시연입니다(2026-11-18, 통화 분류기 v5). 대본 문장을 글로 서버에 보냈으며, 마이크 입력과 음성 전사는 거치지 않았습니다. 이후의 분류기, 상태 추적기, 대응 에이전트는 실제 앱과 같은 코드로 실행했습니다.
-<br><br>
+
+**시연 조건**<br>
+오른쪽은 검찰 사칭 대본으로 진행한 시연입니다(2026-11-18, 통화 분류기 v5). 대본 문장을 글로 서버에 보냈으며, 마이크 입력과 음성 전사는 거치지 않았습니다. 이후의 분류기, 상태 추적기, 대응 에이전트는 실제 앱과 같은 코드로 실행했습니다.
+
 마이크 입력과 녹음 파일 분석도 지원합니다. 다만 웹 앱은 휴대폰의 통화 음성을 직접 가져오지 못하고, 기기 마이크로 들어온 소리를 전사합니다.
-<br><br>
+
 <sub>발화 사이의 대기 시간은 잘라 냈으며, 재생 속도는 실제와 같습니다. 화면의 이름과 번호는 가상 정보입니다. 'AI 분석 과정' 패널이 함께 보이는 <a href="docs/images/readme/demo_wide.gif">넓은 화면 시연</a>과 통화가 끝난 뒤의 <a href="docs/images/v2/web_result.png">분석 결과 화면</a>도 볼 수 있습니다.</sub>
-</td>
-</tr>
-</table>
+
+<br clear="both">
 
 ## 검증 결과와 한계
 
 현재 구성(통화 분류기 v5, 2026-11-16 적용)의 결과입니다. 점수가 0.70 이상이면 경보로 판정합니다. 분류기 단독 결과와 전체 시스템(분류기 + Claude 상태 추적기 + 대응 에이전트) 결과를 나누어 적었으며, 전체 시스템은 음성이 아니라 통화 대본을 글로 입력해 평가했습니다.
 
 <table>
-<tr><th align="left" nowrap>구분</th><th align="left" nowrap>지표</th><th align="left">평가 데이터 · 판정 기준</th><th align="right" nowrap>결과</th></tr>
-<tr><td nowrap valign="top" rowspan="3">분류기 단독</td><td nowrap valign="top">사기 통화 탐지율</td><td valign="top">학습에 쓰지 않은 사기 통화 307통 · 통화 끝 판정</td><td nowrap valign="top" align="right">99.7%</td></tr>
-<tr><td nowrap valign="top">정상 상담 오경보율</td><td valign="top">AI Hub 일반 상담(금융·민원) 5,041건 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">0.9%</td></tr>
-<tr><td nowrap valign="top">정상 통화 오경보율</td><td valign="top">피싱 상담(KISA 118)이 섞인 정상 통화 530통 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">5.5%</td></tr>
-<tr><td nowrap valign="top" rowspan="3">전체 시스템<br><sub>글로 입력</sub></td><td nowrap valign="top">사기 통화 탐지</td><td valign="top">조정에 쓰지 않은 시험 통화 중 사기 14통</td><td nowrap valign="top" align="right">13/14</td></tr>
-<tr><td nowrap valign="top">정상 상담 경고</td><td valign="top">같은 시험 통화 중 정상 상담 14통 · 분류기가 경보를 낸 어려운 상담만 고름</td><td nowrap valign="top" align="right">4/14</td></tr>
-<tr><td nowrap valign="top">시험 통화 통과</td><td valign="top">위 28통 · 판정, 유형, 단계가 모두 맞아야 통과</td><td nowrap valign="top" align="right">20/28</td></tr>
+<tr><th align="left">지표</th><th align="left">평가 데이터 · 판정 기준</th><th align="right" nowrap>결과</th></tr>
+<tr><td colspan="3"><b>분류기 단독</b></td></tr>
+<tr><td valign="top">사기 통화 탐지율</td><td valign="top">학습에 쓰지 않은 사기 통화 307통 · 통화 끝 판정</td><td nowrap valign="top" align="right">99.7%</td></tr>
+<tr><td valign="top">정상 상담 오경보율</td><td valign="top">AI Hub 일반 상담(금융·민원) 5,041건 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">0.9%</td></tr>
+<tr><td valign="top">정상 통화 오경보율</td><td valign="top">피싱 상담(KISA 118)이 섞인 정상 통화 530통 · 통화 중 한 번이라도 경보</td><td nowrap valign="top" align="right">5.5%</td></tr>
+<tr><td colspan="3"><b>전체 시스템</b> · 통화 대본을 글로 입력해 평가</td></tr>
+<tr><td valign="top">사기 통화 탐지</td><td valign="top">조정에 쓰지 않은 시험 통화 중 사기 14통</td><td nowrap valign="top" align="right">13/14</td></tr>
+<tr><td valign="top">정상 상담 경고</td><td valign="top">같은 시험 통화 중 정상 상담 14통 · 분류기가 경보를 낸 어려운 상담만 고름</td><td nowrap valign="top" align="right">4/14</td></tr>
+<tr><td valign="top">시험 통화 통과</td><td valign="top">위 28통 · 판정, 유형, 단계가 모두 맞아야 통과</td><td nowrap valign="top" align="right">20/28</td></tr>
 </table>
 
 **현재 한계**
@@ -304,12 +303,9 @@
 
 ### 입력 방식
 
-<table>
-<tr><th align="left" nowrap>방식</th><th align="left">입력</th><th align="left">처리</th><th align="left" nowrap>시작하는 곳</th></tr>
-<tr><td nowrap valign="top">마이크 입력</td><td valign="top">기기 마이크로 들어온 소리를 무음 기준으로 자른 음성 조각</td><td valign="top">실시간 전사 → 분류기 + 상태 추적기 → 대응 카드. 통화가 끝나면 전체 녹음을 다시 전사하고 상태를 다시 추적합니다.</td><td nowrap valign="top">홈의<br>'실시간 분석 시작'</td></tr>
-<tr><td nowrap valign="top">녹음 업로드</td><td valign="top">지난 통화 녹음 파일 (mp3 · wav · m4a)</td><td valign="top">파일 전체 전사 → 상태 추적기가 통화 전체를 한 번에 분석 → 지난 통화에 맞는 대응 안내</td><td nowrap valign="top">홈의<br>'음성 파일 분석'</td></tr>
-<tr><td nowrap valign="top">대본 시연</td><td valign="top">미리 적어 둔 대본 문장</td><td valign="top">마이크와 전사를 거치지 않고 문장을 정해진 간격으로 서버에 보냅니다. 이후의 분류기, 상태 추적기, 대응 에이전트는 실제 앱과 같은 코드입니다.</td><td nowrap valign="top">시연 모드 주소<br><code>/realtime?scenario=prosecutor</code><br><sub>대본: prosecutor · loan · normal</sub></td></tr>
-</table>
+- **마이크 입력** — 홈의 '실시간 분석 시작'으로 시작합니다. 기기 마이크로 들어온 소리를 무음 기준으로 잘라 실시간으로 전사하고, 분류기와 상태 추적기가 판단해 대응 카드를 보여 줍니다. 통화가 끝나면 전체 녹음을 다시 전사하고 상태를 다시 추적합니다.
+- **녹음 업로드** — 홈의 '음성 파일 분석'으로 시작합니다. 지난 통화 녹음(mp3 · wav · m4a) 전체를 전사한 뒤 상태 추적기가 통화 전체를 한 번에 분석하고, 지난 통화에 맞는 대응을 안내합니다.
+- **대본 시연** — 주소 뒤에 `/realtime?scenario=prosecutor`를 붙여 엽니다(대본은 `prosecutor`, `loan`, `normal`). 마이크와 전사를 거치지 않고 미리 적어 둔 문장을 정해진 간격으로 서버에 보냅니다. 이후의 분류기, 상태 추적기, 대응 에이전트는 실제 앱과 같은 코드입니다.
 
 <details>
 <summary><b>지원 환경</b> · 사용자 앱, 마이크, 화면 꺼짐 방지, 서버</summary>
