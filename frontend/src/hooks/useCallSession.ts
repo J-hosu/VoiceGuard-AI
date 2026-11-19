@@ -12,6 +12,7 @@ import type {
   ScamStage,
   SpeakerSide,
   TranscriptTurn,
+  UtteranceTag,
 } from '@/data/models/types';
 import type { Scenario } from '@/data/mock/mockScenarios';
 import { createSttService, type SttService } from '@/data/services/sttService';
@@ -25,6 +26,9 @@ import { useSettingsStore } from '@/state/settingsStore';
  * connect_failed: 서버에 한 번도 연결하지 못함 · disconnected: 연결됐다가 끊김 · mic: 마이크·오디오 캡처 실패
  */
 export type HaltReason = 'connect_failed' | 'disconnected' | 'mic';
+
+/** 상태 추적기가 발화 하나에 붙인 역할과 수법 태그(state_update.utterance_tags). */
+export type TurnTag = Pick<UtteranceTag, 'role' | 'tactics'>;
 
 /** 브라우저 Screen Wake Lock API(타입 정의가 없는 환경도 있어 쓰는 부분만 적는다). */
 type WakeSentinel = { released: boolean; release: () => Promise<void> };
@@ -53,6 +57,9 @@ export interface CallSessionState {
   predictedNext: ScamStage | null; // 다음 예상 단계
   summary: string; // AI가 요약한 현재 상황
   actions: AgentAction[]; // 에이전트가 결정한 행동(받은 순서)
+  // 서버 발화 번호(turn_index) → 추적기가 붙인 역할·수법 태그. state_update는 바뀐 태그만 보내므로 받은 것을 쌓는다.
+  // 대본(텍스트) 통화는 앱의 turnIndex가 곧 서버 번호이고, 마이크 통화는 말풍선마다 sourceTurns로 서버 번호를 남긴다.
+  tags: Record<number, TurnTag>;
   // ── 정리본 (transcript_refined) ──
   refined: RefinedTranscript | null; // 한 번도 안 왔으면 null(STT_REFINE=off): 화면은 기존 '방금 들린 말' 그대로
   liveChunks: LiveChunk[]; // 실시간 조각 원본. 정리본이 덮은 구간의 조각은 정리본이 올 때 지운다.
@@ -78,6 +85,7 @@ const INITIAL_STATE: CallSessionState = {
   predictedNext: null,
   summary: '',
   actions: [],
+  tags: {},
   refined: null,
   liveChunks: [],
 };
@@ -126,6 +134,17 @@ const REFINED_EDGE_S = 1e-6;
 /** 정리본이 아직 닿지 않은 실시간 조각인지(정리본 뒤에 '받아 적는 중'으로 보일 조각) */
 export function isProvisional(chunk: LiveChunk, refinedUntil: number): boolean {
   return chunk.tStart >= refinedUntil - REFINED_EDGE_S;
+}
+
+/** state_update가 보낸 바뀐 태그를 지금까지 받은 태그에 덮어쓴다. */
+function mergeTags(prev: Record<number, TurnTag>, incoming: UtteranceTag[] | undefined): Record<number, TurnTag> {
+  if (!incoming || incoming.length === 0) return prev;
+  const next = { ...prev };
+  for (const tag of incoming) {
+    if (!Number.isInteger(tag.turn_index)) continue;
+    next[tag.turn_index] = { role: tag.role, tactics: Array.isArray(tag.tactics) ? tag.tactics : [] };
+  }
+  return next;
 }
 
 /** speaker_sides 정리: 약속한 값(other/me) 말고는 모두 '아직 모름'으로 본다. */
@@ -275,6 +294,7 @@ export function useCallSession(
             predictedNext: e.predicted_next,
             summary: e.summary,
             coreEvidence: e.summary || prev.coreEvidence,
+            tags: mergeTags(prev.tags, e.utterance_tags),
           };
           if (!warned.current && level === 'danger') {
             warned.current = true;
@@ -370,6 +390,7 @@ export function useCallSession(
             return {
               role: (tr.role ?? 'unknown').trim() || 'unknown',
               content: (tr.content ?? '').trim(),
+              serverTurn: Number.isInteger(tr.turn_index) ? (tr.turn_index as number) : null,
               atSec: Math.round(tr.start_time ?? 0),
               tStart,
               tEnd,
@@ -399,6 +420,7 @@ export function useCallSession(
                 content: mergedContent,
                 riskScore: score,
                 keywords: extractKeywords(mergedContent, 4),
+                sourceTurns: inc.serverTurn === null ? last.sourceTurns : [...(last.sourceTurns ?? []), inc.serverTurn],
               };
             } else {
               turnCounter.current += 1;
@@ -410,6 +432,7 @@ export function useCallSession(
                 atSec: inc.atSec,
                 riskScore: score,
                 keywords: extractKeywords(inc.content, 4),
+                sourceTurns: inc.serverTurn === null ? undefined : [inc.serverTurn],
               });
             }
           }
@@ -632,6 +655,8 @@ export function useCallSession(
             level: riskLevelFromScore(result.riskScore, dangerThreshold),
             matchedPatterns: result.matchedPatterns.length ? result.matchedPatterns : latestRef.current.matchedPatterns,
             coreEvidence: result.coreEvidence || latestRef.current.coreEvidence,
+            // 재전사로 발화 번호가 새로 매겨졌으니 실시간 통화에서 받은 태그는 맞지 않는다.
+            tags: {},
             running: false,
           };
           connRef.current?.close();

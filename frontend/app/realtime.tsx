@@ -1,9 +1,23 @@
 import { useEffect, useRef, useState } from 'react';
-import { ActivityIndicator, Pressable, ScrollView, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Pressable,
+  ScrollView,
+  View,
+  type NativeScrollEvent,
+  type NativeSyntheticEvent,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
-import { ActionCard, DARK_AGENT_PALETTE, FollowupCard, StageStepper, stageLabel } from '@/components/agentCards';
+import {
+  ActionCard,
+  DARK_AGENT_PALETTE,
+  FollowupCard,
+  StageStepper,
+  TACTIC_LABELS,
+  stageLabel,
+} from '@/components/agentCards';
 import { AppText, balanced, keepAll } from '@/components/AppText';
 import { HighlightedText } from '@/components/HighlightedText';
 import { Icon, type IconName } from '@/components/Icon';
@@ -22,14 +36,14 @@ import {
 } from '@/components/realtimeAnalysis';
 import { alertFeedback, strongerAlert, type AlertStrength } from '@/core/utils/alertFeedback';
 import { formatDuration } from '@/core/utils/format';
-import { categorizeType } from '@/core/utils/keywords';
+import { categorizeType, extractKeywords } from '@/core/utils/keywords';
 import { type RiskLevel } from '@/core/utils/riskLevel';
 import { USE_MOCK_STT } from '@/core/config/env';
 import { PRIVACY_NOTICE_SHORT } from '@/core/config/privacy';
 import { evidenceBullets } from '@/data/mock/infoContent';
 import { getScenario, type Scenario } from '@/data/mock/mockScenarios';
-import type { AgentAction, LiveChunk, RefinedTranscript, SpeakerSide } from '@/data/models/types';
-import { isProvisional, useCallSession, type HaltReason } from '@/hooks/useCallSession';
+import type { AgentAction, LiveChunk, RefinedTranscript, SpeakerSide, TranscriptTurn } from '@/data/models/types';
+import { isProvisional, useCallSession, type HaltReason, type TurnTag } from '@/hooks/useCallSession';
 import { useCallStore } from '@/state/callStore';
 import { useDemoStore } from '@/state/demoStore';
 import { useSettingsStore } from '@/state/settingsStore';
@@ -136,6 +150,8 @@ export default function Realtime() {
   const finishingRef = useRef(false);
   // 사용자가 "분석 시작"을 누르기 전까지는 마이크/WS를 열지 않는다.
   const [started, setStarted] = useState(false);
+  // 화면 위쪽 탭: 위험 분석(기존 화면) / 대화 내용(지금까지 들린 말 전체)
+  const [view, setView] = useState<ScreenTab>('analysis');
 
   const vibration = useSettingsStore((s) => s.vibration);
   // 여러 행동이 한꺼번에 도착해도 가장 센 세기로 한 번만 울린다.
@@ -278,6 +294,11 @@ export default function Realtime() {
     restart();
   };
 
+  // 분석이 멈추면 멈춘 이유와 '다시 시작' 버튼이 위험 분석 탭에 있으므로 그 탭으로 돌아간다.
+  useEffect(() => {
+    if (state.halt) setView('analysis');
+  }, [state.halt]);
+
   const hasActions = Boolean(activeFollowup) || actionCards.length > 0;
   const calm = state.level === 'safe' && !blocked;
   // 마이크 오브는 듣고 있는데 아직 아무 일도 없을 때만 보인다. 위험 신호가 나오면 위험도·대응 카드에,
@@ -332,8 +353,83 @@ export default function Realtime() {
           </View>
         </View>
 
+        {/* 등급이 바뀔 때만 화면낭독기가 읽도록 등급 문구만 담은 숨은 live 영역(점수는 넣지 않는다).
+            분석이 멈추거나 전사가 멈추면 그 사실도 함께 읽는다. 대화 내용 탭을 보고 있어도 읽히게 탭 바깥에 둔다. */}
+        <AppText aria-live="polite" style={SR_ONLY}>
+          {`${ui.text}. ${ui.desc}${haltUi ? ` ${haltUi.title}.` : stalled && state.error ? ` ${state.error}` : ''}`}
+        </AppText>
+
+        {/* 탭: 위험 분석 / 대화 내용. 대화 내용을 보는 동안 위험 신호가 있으면 위험 분석 탭에 등급 색 점을 단다 */}
+        <View
+          accessibilityRole="tablist"
+          style={{
+            flexDirection: 'row',
+            gap: 4,
+            marginHorizontal: 16,
+            marginBottom: 4,
+            padding: 4,
+            borderRadius: 12,
+            backgroundColor: 'rgba(255,255,255,0.05)',
+          }}
+        >
+          {SCREEN_TABS.map(({ key, label }) => {
+            const active = view === key;
+            const dot = key === 'analysis' && !active && !calm;
+            return (
+              <Pressable
+                key={key}
+                onPress={() => setView(key)}
+                accessibilityRole="tab"
+                accessibilityState={{ selected: active }}
+                aria-selected={active}
+                focusable={started}
+                tabIndex={started ? 0 : -1}
+                style={({ pressed }) => ({
+                  flex: 1,
+                  minHeight: 40,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 6,
+                  borderRadius: 9,
+                  backgroundColor: active ? 'rgba(91,155,255,0.18)' : 'transparent',
+                  opacity: pressed ? 0.85 : 1,
+                })}
+              >
+                <AppText weight={active ? '700' : '600'} color={active ? TEXT_TITLE : TEXT_DIM} style={{ fontSize: 14 }}>
+                  {label}
+                </AppText>
+                {dot ? <View style={{ width: 7, height: 7, borderRadius: 4, backgroundColor: ui.color }} /> : null}
+              </Pressable>
+            );
+          })}
+        </View>
+
+        {view === 'chat' ? (
+          <TranscriptView
+            turns={state.turns}
+            tags={state.tags}
+            speakerKnown={scenario.turns.length > 0}
+            refined={state.refined}
+            live={state.liveChunks}
+            blocked={blocked}
+            waitingText={waitingText}
+            riskNotice={
+              calm
+                ? null
+                : {
+                    color: ui.color,
+                    icon: ui.icon,
+                    text: unknownRisk ? ui.text : `${ui.text} · 위험도 ${score100}%`,
+                  }
+            }
+            onShowAnalysis={() => setView('analysis')}
+          />
+        ) : null}
+
+        {/* 위험 분석 탭. 대화 내용 탭을 보는 동안에도 내려 두지 않고 숨기기만 해서 스크롤 위치·펼친 대화가 그대로 남는다 */}
         <ScrollView
-          style={{ flex: 1 }}
+          style={{ flex: 1, display: view === 'analysis' ? 'flex' : 'none' }}
           contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 }}
           showsVerticalScrollIndicator={false}
         >
@@ -386,11 +482,6 @@ export default function Realtime() {
           {/* 위험도 카드: 정상일 땐 차분한 중립 카드, 주의·위험이면 등급 색 테두리.
               가장 진한 칸은 아래의 "지금 할 일" 카드에 양보한다. 등급이 바뀌면 화면낭독기가 읽어 준다. */}
           <PulseOnChange trigger={unknownRisk ? 'halted' : analyzing ? 'analyzing' : state.level}>
-            {/* 등급이 바뀔 때만 화면낭독기가 읽도록 등급 문구만 담은 숨은 live 영역(점수는 넣지 않는다).
-                분석이 멈추거나 전사가 멈추면 그 사실도 함께 읽는다. */}
-            <AppText aria-live="polite" style={SR_ONLY}>
-              {`${ui.text}. ${ui.desc}${haltUi ? ` ${haltUi.title}.` : stalled && state.error ? ` ${state.error}` : ''}`}
-            </AppText>
             <View
               accessible
               accessibilityLabel={`보이스피싱 위험도 ${unknownRisk ? '알 수 없음' : `${score100}%`}, ${ui.text}. ${ui.desc}${errorNotice ? `\n${errorNotice}` : ''}`}
@@ -759,6 +850,12 @@ export default function Realtime() {
   );
 }
 
+type ScreenTab = 'analysis' | 'chat';
+const SCREEN_TABS: { key: ScreenTab; label: string }[] = [
+  { key: 'analysis', label: '위험 분석' },
+  { key: 'chat', label: '대화 내용' },
+];
+
 function ActionButton({
   children,
   onPress,
@@ -930,6 +1027,313 @@ function Conversation({
             style={{ fontSize: 15, lineHeight: 23, ...keepAll }}
           />
         </View>
+      ) : null}
+    </View>
+  );
+}
+
+// ── 대화 내용 탭 ──
+// 지금까지 들린 말을 처음부터 모두 말풍선으로 보이고, 새 말이 오면 맨 아래로 따라 내려간다(위로 올려 읽는 중이면 따라가지 않고
+// '새 대화 보기' 버튼을 띄운다). 위험 단어는 '방금 들린 말'·'주요 단어'와 같은 앱 키워드 사전(extractKeywords)으로 찾되 말풍선
+// 하나의 단어를 모두 강조하고, 상태 추적기가 그 발화에 붙인 수법 태그(state_update.utterance_tags)를 말풍선 아래에 단다.
+// 강조 형식: 빨간 글씨(#f87171, 이 어두운 화면이 글자에 쓰는 빨강) + 가장 굵게(800) + 2px 크게.
+// 빨간 바탕 칸은 네이티브의 중첩 Text에서 여백·둥근 모서리가 먹지 않아 웹과 다르게 보이므로 쓰지 않는다.
+const EVIDENCE_COLOR = '#f87171';
+const EVIDENCE_GROW = 2;
+const FOLLOW_SLACK = 80; // 맨 아래에서 이만큼(px) 안쪽이면 '맨 아래를 보고 있다'로 본다
+
+type ChatItem = {
+  key: string;
+  side: SpeakerSide;
+  speakerKey: string; // 같은 사람이 이어 말하는지 가릴 값
+  label: string;
+  text: string;
+  tactics: string[];
+};
+
+/** 말풍선 하나에 합쳐진 서버 발화들의 태그를 모은다(역할은 처음 정해진 것, 수법은 합집합). */
+function tagFor(turn: TranscriptTurn, tags: Record<number, TurnTag>): TurnTag | null {
+  const keys = turn.sourceTurns ?? [turn.turnIndex];
+  let role: TurnTag['role'] = 'unknown';
+  const tactics: string[] = [];
+  let found = false;
+  for (const k of keys) {
+    const tag = tags[k];
+    if (!tag) continue;
+    found = true;
+    if (role === 'unknown' && tag.role !== 'unknown') role = tag.role;
+    for (const t of tag.tactics) if (!tactics.includes(t)) tactics.push(t);
+  }
+  return found ? { role, tactics } : null;
+}
+
+function TranscriptView({
+  turns,
+  tags,
+  speakerKnown,
+  refined,
+  live,
+  blocked,
+  waitingText,
+  riskNotice,
+  onShowAnalysis,
+}: {
+  turns: TranscriptTurn[];
+  tags: Record<number, TurnTag>;
+  speakerKnown: boolean; // 대본 통화: 발화마다 누가 한 말인지 이미 안다(isMine)
+  refined: RefinedTranscript | null;
+  live: LiveChunk[];
+  blocked: boolean;
+  waitingText: string;
+  riskNotice: { color: string; icon: IconName; text: string } | null; // 위험 신호가 있을 때 위쪽 한 줄 안내
+  onShowAnalysis: () => void;
+}) {
+  const scrollRef = useRef<ScrollView>(null);
+  const atBottom = useRef(true);
+  const [unseen, setUnseen] = useState(false);
+
+  // 정리본(화자 구분 전사)이 오기 시작했으면 그것을, 아니면 실시간 발화를 그린다.
+  const items: ChatItem[] = refined
+    ? refined.turns.map((t) => {
+        const side = refined.sides[String(t.speaker)] ?? 'unknown';
+        return {
+          key: t.id,
+          side,
+          speakerKey: `s${t.speaker}`,
+          label: side === 'me' ? '나' : side === 'other' ? '상대방' : `화자 ${t.speaker + 1} · 확인 중`,
+          text: t.text,
+          tactics: [],
+        };
+      })
+    : turns.map((t) => {
+        const tag = tagFor(t, tags);
+        // 대본 통화는 isMine으로, 마이크 통화는 추적기가 정한 역할로 쪽을 정한다(아직 없으면 가운데).
+        const side: SpeakerSide = speakerKnown
+          ? t.isMine
+            ? 'me'
+            : 'other'
+          : tag?.role === 'user'
+            ? 'me'
+            : tag?.role === 'suspect'
+              ? 'other'
+              : 'unknown';
+        return {
+          key: String(t.turnIndex),
+          side,
+          speakerKey: side === 'unknown' ? `u${t.turnIndex}` : side,
+          label: side === 'me' ? '나' : side === 'other' ? '상대방' : '화자 확인 중',
+          text: t.content,
+          tactics: tag?.tactics.filter((x) => TACTIC_LABELS[x]) ?? [],
+        };
+      });
+  const provisional = refined ? live.filter((c) => isProvisional(c, refined.until)) : [];
+  const provisionalText = provisional.map((c) => c.text).join(' ');
+  const provisionalLabel = blocked ? '정리되지 않은 말' : '받아 적는 중';
+
+  const onScroll = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const { contentOffset, contentSize, layoutMeasurement } = e.nativeEvent;
+    atBottom.current = contentOffset.y + layoutMeasurement.height >= contentSize.height - FOLLOW_SLACK;
+    if (atBottom.current && unseen) setUnseen(false);
+  };
+  // 내용이 늘면(새 말풍선·태그) 맨 아래를 보고 있을 때만 따라 내려간다. 탭을 처음 열 때도 여기서 맨 아래로 간다.
+  // 부드럽게 내려가면 내려가는 도중의 스크롤 이벤트가 '맨 아래가 아님'으로 읽혀, 그 사이 태그가 붙으면 따라가기를 놓친다.
+  // 그래서 따라갈 때는 바로 맨 아래로 옮긴다.
+  const onContentSizeChange = () => {
+    if (atBottom.current) scrollRef.current?.scrollToEnd({ animated: false });
+    else setUnseen(true);
+  };
+  const jumpToEnd = () => {
+    atBottom.current = true;
+    setUnseen(false);
+    scrollRef.current?.scrollToEnd({ animated: false });
+  };
+
+  return (
+    <View style={{ flex: 1 }}>
+      <ScrollView
+        ref={scrollRef}
+        style={{ flex: 1 }}
+        contentContainerStyle={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+        onScroll={onScroll}
+        scrollEventThrottle={100}
+        onContentSizeChange={onContentSizeChange}
+      >
+        {/* 대화를 보는 동안에도 위험 신호를 놓치지 않게 등급을 한 줄로 알리고, 누르면 위험 분석 탭(지금 할 일)으로 간다 */}
+        {riskNotice ? (
+          <Pressable
+            onPress={onShowAnalysis}
+            accessibilityRole="button"
+            accessibilityLabel={`${riskNotice.text}. 위험 분석 보기`}
+            style={({ pressed }) => ({
+              flexDirection: 'row',
+              alignItems: 'center',
+              gap: 8,
+              minHeight: 44,
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+              marginBottom: 12,
+              borderRadius: 12,
+              borderWidth: 1,
+              borderColor: rgba(riskNotice.color, 0.4),
+              backgroundColor: rgba(riskNotice.color, 0.08),
+              opacity: pressed ? 0.85 : 1,
+            })}
+          >
+            <Icon name={riskNotice.icon} size={18} color={riskNotice.color} />
+            <AppText weight="800" style={{ flex: 1, fontSize: 14, lineHeight: 20, color: riskNotice.color }}>
+              {riskNotice.text}
+            </AppText>
+            <AppText weight="600" color={TEXT_BODY} style={{ fontSize: 13 }}>
+              위험 분석 보기
+            </AppText>
+            <Icon name="chevron-right" size={16} color={TEXT_BODY} />
+          </Pressable>
+        ) : null}
+
+        <AppText color={TEXT_DIM} style={[{ fontSize: 13, lineHeight: 19, marginBottom: 12, paddingHorizontal: 4 }, keepAll]}>
+          빨간 굵은 글씨는 보이스피싱에 자주 쓰이는 말이에요.
+        </AppText>
+
+        {items.length === 0 && !provisionalText ? (
+          <AppText color={TEXT_DIM} style={{ fontSize: 14, lineHeight: 22, paddingHorizontal: 4 }}>
+            {waitingText}
+          </AppText>
+        ) : null}
+
+        {items.map((item, i) => {
+          const ui = BUBBLE_UI[item.side];
+          const first = i === 0 || items[i - 1].speakerKey !== item.speakerKey;
+          const risky = item.tactics.some((t) => !TACTIC_LABELS[t].safe);
+          // 내가 한 말은 근거가 아니므로 강조하지 않는다(대본 통화의 '방금 들린 말'과 같은 규칙).
+          // 다만 추적기가 위험한 수법으로 본 발화는 화자가 '나'로 잘못 나뉘었을 수 있으므로 강조한다.
+          const words = item.side === 'me' && !risky ? [] : extractKeywords(item.text, 12);
+          const tacticText = item.tactics.map((t) => TACTIC_LABELS[t].label).join(', ');
+          return (
+            <View key={item.key} style={{ alignItems: ui.align, marginTop: i === 0 ? 0 : first ? 12 : 4 }}>
+              {first ? (
+                <AppText weight="600" color={TEXT_DIM} style={{ fontSize: 12, lineHeight: 16, marginBottom: 4 }}>
+                  {item.label}
+                </AppText>
+              ) : null}
+              <View
+                accessible
+                accessibilityLabel={`${item.label}: ${item.text}${words.length ? `. 위험 단어: ${words.join(', ')}` : ''}${tacticText ? `. 수법: ${tacticText}` : ''}`}
+                style={{
+                  maxWidth: item.side === 'unknown' ? '92%' : '84%',
+                  paddingHorizontal: 12,
+                  paddingVertical: 8,
+                  borderRadius: 14,
+                  borderTopLeftRadius: first && item.side === 'other' ? 4 : 14,
+                  borderTopRightRadius: first && item.side === 'me' ? 4 : 14,
+                  borderWidth: 1,
+                  borderColor: risky ? rgba('#ef4444', 0.55) : ui.border,
+                  backgroundColor: ui.bg,
+                }}
+              >
+                <HighlightedText
+                  text={item.text}
+                  keywords={words}
+                  baseColor={ui.text}
+                  highlightColor={EVIDENCE_COLOR}
+                  weightHighlight="800"
+                  highlightGrow={EVIDENCE_GROW}
+                  style={{ fontSize: 15, lineHeight: 24, ...keepAll }}
+                />
+              </View>
+              {item.tactics.length > 0 ? (
+                <View
+                  style={{
+                    flexDirection: 'row',
+                    flexWrap: 'wrap',
+                    gap: 6,
+                    marginTop: 6,
+                    maxWidth: '84%',
+                    justifyContent: item.side === 'me' ? 'flex-end' : 'flex-start',
+                  }}
+                >
+                  {item.tactics.map((t) => {
+                    const safe = TACTIC_LABELS[t].safe;
+                    return (
+                      <View
+                        key={t}
+                        style={{
+                          paddingHorizontal: 8,
+                          paddingVertical: 3,
+                          borderRadius: 7,
+                          backgroundColor: rgba(safe ? '#34d399' : '#ef4444', 0.14),
+                        }}
+                      >
+                        <AppText weight="700" color={safe ? '#34d399' : EVIDENCE_COLOR} style={{ fontSize: 12, lineHeight: 16 }}>
+                          {TACTIC_LABELS[t].label}
+                        </AppText>
+                      </View>
+                    );
+                  })}
+                </View>
+              ) : null}
+            </View>
+          );
+        })}
+
+        {/* 정리본이 아직 닿지 않은 실시간 조각: 누가 한 말인지 모르므로 흐린 점선 칸에 이어 붙인다 */}
+        {provisionalText ? (
+          <View
+            accessible
+            accessibilityLabel={`${provisionalLabel}: ${provisionalText}`}
+            style={{
+              marginTop: items.length > 0 ? 12 : 0,
+              paddingHorizontal: 12,
+              paddingVertical: 10,
+              borderRadius: 14,
+              borderWidth: 1,
+              borderStyle: 'dashed',
+              borderColor: 'rgba(255,255,255,0.16)',
+            }}
+          >
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+              {blocked ? null : <BlinkDot size={6} color="#8ab4ff" period={1300} />}
+              <AppText weight="700" color={TEXT_DIM} style={{ fontSize: 12, lineHeight: 16 }}>
+                {provisionalLabel}
+              </AppText>
+            </View>
+            <HighlightedText
+              text={provisionalText}
+              keywords={extractKeywords(provisionalText, 12)}
+              baseColor="#a3adbd"
+              highlightColor={EVIDENCE_COLOR}
+              weightHighlight="800"
+              highlightGrow={EVIDENCE_GROW}
+              style={{ fontSize: 15, lineHeight: 24, ...keepAll }}
+            />
+          </View>
+        ) : null}
+      </ScrollView>
+
+      {/* 위로 올려 읽는 중에 새 말이 오면 따라 내려가지 않고 이 버튼만 띄운다 */}
+      {unseen ? (
+        <Pressable
+          onPress={jumpToEnd}
+          accessibilityRole="button"
+          style={({ pressed }) => ({
+            position: 'absolute',
+            bottom: 12,
+            alignSelf: 'center',
+            flexDirection: 'row',
+            alignItems: 'center',
+            gap: 6,
+            minHeight: 40,
+            paddingHorizontal: 16,
+            borderRadius: 20,
+            backgroundColor: '#2563EB',
+            opacity: pressed ? 0.85 : 1,
+          })}
+        >
+          <Icon name="chevron-down" size={16} color="#FFFFFF" />
+          <AppText weight="700" color="#FFFFFF" style={{ fontSize: 13 }}>
+            새 대화 보기
+          </AppText>
+        </Pressable>
       ) : null}
     </View>
   );

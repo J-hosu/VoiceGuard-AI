@@ -32,6 +32,9 @@ export interface TranscriptTurn {
   atSec: number;
   riskScore?: number;
   keywords?: string[];
+  // 마이크 통화: 이 말풍선에 합쳐진 서버 발화 번호(turn_index). 추적기의 발화별 태그를 찾을 때 쓴다.
+  // 대본(텍스트) 통화는 turnIndex가 곧 서버 번호라 비워 둔다.
+  sourceTurns?: number[];
 }
 
 /**

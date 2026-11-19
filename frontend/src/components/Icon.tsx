@@ -16,6 +16,7 @@ export type IconName =
   | 'upload'
   | 'chevron-right'
   | 'chevron-left'
+  | 'chevron-down'
   | 'share'
   | 'file'
   | 'alert-triangle'
@@ -52,6 +53,7 @@ const MAP: Record<IconName, [Family, string]> = {
   upload: ['feather', 'upload-cloud'],
   'chevron-right': ['feather', 'chevron-right'],
   'chevron-left': ['feather', 'chevron-left'],
+  'chevron-down': ['feather', 'chevron-down'],
   share: ['feather', 'share-2'],
   file: ['feather', 'file-text'],
   'alert-triangle': ['feather', 'alert-triangle'],
