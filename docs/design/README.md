@@ -7,7 +7,8 @@
 | `hero.svg` | `hero.webp`<br>`hero-dark.webp` | 맨 위 배너 | 휴대폰 화면(`app_realtime_agent.png`)이나 대시보드 화면(`web_priority.png`)을 교체했을 때 다시 굽습니다. 두 화면은 README 본문과 같은 현재 빌드에서 가상 데이터로 촬영한 것을 씁니다. |
 | `numbers.svg` | `numbers.png`<br>`numbers-dark.png` | 소개 바로 아래의 숫자 카드 | 숫자나 기준 모델이 바뀔 때 다시 굽습니다. 세 칸 모두 현재 모델(통화 분류기 v5)의 결과이며, 칸마다 무엇을 어떤 데이터로 잰 값인지 함께 적습니다. 분류기 단독(1·2번 칸)과 전체 시스템(3번 칸)은 이름표 색을 다르게 합니다. README의 표와 대체 문구도 함께 고칩니다. |
 | `loop.svg` | `loop.png`<br>`loop-dark.png` | '통화 한 건의 흐름'의 다섯 단계 | 단계 이름, 하는 일, 맡는 구성 요소가 바뀔 때 다시 굽습니다. README의 다섯 단계 목록과 뜻이 같아야 합니다. |
-| `timeline.svg` | `timeline.png`<br>`timeline-dark.png` | '통화 한 건의 흐름'의 위험도 추이 | 기준 시연 기록([전화 흐름으로 기능 보기](../one-call.md))을 다시 만들었을 때 다시 굽습니다. 시각과 위험도, 좌표 계산식은 원본의 주석에 있습니다. |
+| `timeline.svg` | `timeline.png`<br>`timeline-dark.png` | '통화 한 건의 흐름'의 위험도 추이 | 기준 시연 기록([전화 흐름으로 기능 보기](../one-call.md))을 다시 만들었을 때 다시 굽습니다. 상태 추적기의 판단이 반영된 위험도만 그리며, 추적기의 첫 판단이 도착하기 전은 0%로 둡니다. 시각과 위험도, 좌표 계산식은 원본의 주석에 있습니다. |
+| `timeline_record.svg` | `timeline_record.png`<br>`timeline_record-dark.png` | [전화 흐름으로 기능 보기](../one-call.md)의 화면 위험도 | 같은 시연 기록의 화면 위험도 전체입니다. 추적기의 첫 판단 전에 분류기 단독 점수로 표시된 전체 화면 경고(100%)까지 그립니다. |
 | `architecture.svg` | `architecture.png`<br>`architecture-dark.png` | '시스템 구조'의 요약 구조도 | 구성 요소나 외부로 보내는 데이터가 바뀔 때 다시 굽습니다. 자세한 구조도는 `../diagrams/architecture.html`에 따로 있습니다. |
 
 `docs/images/readme/demo_phone.gif`(휴대폰 화면)와 `demo_wide.gif`(넓은 화면)는 대본 시연을 녹화한 것으로, 이 폴더의 원본에서 만들지 않습니다. 대시보드 화면과 조각 그림은 [수사관 지원용 능동 AI 에이전트 기능](../investigator.md)에 있습니다.

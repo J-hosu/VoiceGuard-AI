@@ -1,0 +1,141 @@
+<?xml-stylesheet href="theme.css" type="text/css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="572" viewBox="0 0 1280 572">
+  <!-- 검찰 사칭 대본 시연(2026-11-18, 분류기 v5, 1회 실행) 한 통화의 화면 위험도 전체 기록. docs/one-call.md 에서 쓴다.
+       (README에는 추적기 판단이 반영된 값만 그린 timeline.svg 를 쓴다.)
+       화면 위험도는 다음 판단이 올 때까지 그대로이므로 계단선으로 그린다. 세로축은 0%부터 100%까지 그대로 둔다.
+       시각(초) → 위험도: 3.1 → 100(분류기 단독, 전체 화면 경고) · 5.7 → 65(추적기 첫 판단) · 13.6 → 72 · 19.0 → 79 · 26.5 → 86 · 30.9 → 97 · 39.4 → 98 · 45.5 → 99
+       단계: 사칭 5.7~ · 위기 조성 19.0~ · 고립 30.9~ · 금전 요구 45.5~. 발화 보낸 시각: 2 · 8 · 14 · 22 · 28 · 37 · 43초(홀수 번째가 상대방).
+       좌표: x = 150 + 18.077 × 초, y = 140 + (100 - 위험도) × 2. 결과: ../images/readme/timeline_record.png, timeline_record-dark.png -->
+  <rect class="card" x="1" y="1" width="1278" height="570" rx="24"/>
+
+  <!-- 머리말 -->
+  <text class="kr f-ink" x="58" y="68" font-size="28" font-weight="700">검찰 사칭 대본 시연 · 통화 한 건의 화면 위험도</text>
+  <circle class="f-ink" cx="914" cy="59" r="7"/>
+  <text class="kr f-muted" x="930" y="68" font-size="24" font-weight="500">상대방 발화</text>
+  <circle class="f-card s-ink" cx="1081" cy="59" r="6" stroke-width="2.5"/>
+  <text class="kr f-muted" x="1097" y="68" font-size="24" font-weight="500">사용자 발화</text>
+
+  <!-- 세로축: 0%부터 100%까지 -->
+  <g class="f-none s-line" stroke-width="2">
+    <path d="M150 140 H1090 M150 240 H1090"/>
+  </g>
+  <g class="en f-faint" font-size="24" font-weight="500" text-anchor="end">
+    <text x="136" y="148">100%</text>
+    <text x="136" y="248">50%</text>
+    <text x="136" y="348">0%</text>
+  </g>
+
+  <!-- 경고 기준 -->
+  <g class="f-none" stroke-width="2" stroke-dasharray="7 7">
+    <path class="s-danger" d="M150 170 H1090"/>
+    <path class="s-warn" d="M150 200 H1090"/>
+  </g>
+  <text class="kr f-danger-ink" x="1104" y="178" font-size="24" font-weight="600">위험 85%</text>
+  <text class="kr f-warn-ink" x="1104" y="208" font-size="24" font-weight="600">주의 70%</text>
+
+  <!-- 가로축 -->
+  <path class="f-none s-wire" d="M150 340 H1090" stroke-width="2"/>
+  <path class="f-none s-wire" d="M150 340 V350 M330.8 340 V350 M511.5 340 V350 M692.3 340 V350 M873.1 340 V350 M1053.9 340 V350" stroke-width="2"/>
+  <g class="kr f-faint" font-size="24" font-weight="500" text-anchor="middle">
+    <text x="150" y="378">0초</text>
+    <text x="330.8" y="378">10초</text>
+    <text x="511.5" y="378">20초</text>
+    <text x="692.3" y="378">30초</text>
+    <text x="873.1" y="378">40초</text>
+    <text x="1053.9" y="378">50초</text>
+  </g>
+  <!-- 발화 -->
+  <g class="f-ink">
+    <circle cx="186" cy="340" r="7"/>
+    <circle cx="402.9" cy="340" r="7"/>
+    <circle cx="656" cy="340" r="7"/>
+    <circle cx="927.1" cy="340" r="7"/>
+  </g>
+  <g class="f-card s-ink" stroke-width="2.5">
+    <circle cx="294.4" cy="340" r="6"/>
+    <circle cx="547.5" cy="340" r="6"/>
+    <circle cx="818.7" cy="340" r="6"/>
+  </g>
+
+  <!-- 위험도 계단선 -->
+  <path class="f-none s-ink" d="M253.4 210 H395.7 V196 H493.3 V182 H628.9 V168 H708.6 V146 H863 V144 H971.6 V142 H1090" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <path class="f-none s-danger" d="M206.4 140 H253.4 V210" stroke-width="5" stroke-linejoin="round" stroke-linecap="round"/>
+  <g class="f-ink s-card" stroke-width="3">
+    <circle cx="493.3" cy="182" r="8"/>
+    <circle cx="708.6" cy="146" r="8"/>
+    <circle cx="863" cy="144" r="8"/>
+  </g>
+
+  <!-- 값 -->
+  <g class="en halo" font-size="26" font-weight="700" text-anchor="middle">
+    <text class="f-danger-ink" x="262" y="124">100%</text>
+    <text class="f-ink" x="330" y="242">65%</text>
+    <text class="f-ink" x="452" y="228">72%</text>
+    <text class="f-ink" x="566" y="214">79%</text>
+    <text class="f-ink" x="680" y="156">86%</text>
+    <text class="f-ink" x="786" y="126">97%</text>
+    <text class="f-ink" x="906" y="126">98%</text>
+    <text class="f-ink" x="1040" y="126">99%</text>
+  </g>
+
+  <!-- 번호 표시 -->
+  <g class="s-card" stroke-width="3">
+    <circle class="f-danger" cx="206.4" cy="140" r="19"/>
+    <circle class="f-ink" cx="253.4" cy="210" r="19"/>
+    <circle class="f-warn" cx="395.7" cy="196" r="19"/>
+    <circle class="f-danger" cx="628.9" cy="168" r="19"/>
+    <circle class="f-danger" cx="971.6" cy="142" r="19"/>
+  </g>
+  <g class="en f-on-solid" font-size="24" font-weight="800" text-anchor="middle">
+    <text x="206.4" y="148.5">1</text>
+    <text x="253.4" y="218.5">2</text>
+    <text x="395.7" y="204.5">3</text>
+    <text x="628.9" y="176.5">4</text>
+    <text x="971.6" y="150.5">5</text>
+  </g>
+
+  <!-- 사기 단계 -->
+  <text class="kr f-muted" x="136" y="431" font-size="24" font-weight="700" text-anchor="end">단계</text>
+  <rect class="f-line" x="150" y="400" width="99.4" height="44" rx="8"/>
+  <rect class="f-accent-soft" x="253.4" y="400" width="235.9" height="44" rx="8"/>
+  <rect class="f-warn-soft" x="493.3" y="400" width="211.3" height="44" rx="8"/>
+  <rect class="f-danger-soft" x="708.6" y="400" width="259" height="44" rx="8"/>
+  <rect class="f-danger" x="971.6" y="400" width="118.4" height="44" rx="8"/>
+  <g class="kr" font-size="24" font-weight="700" text-anchor="middle">
+    <text class="f-muted" x="199.7" y="431">판단 전</text>
+    <text class="f-accent-ink" x="371.4" y="431">사칭</text>
+    <text class="f-warn-ink" x="599" y="431">위기 조성</text>
+    <text class="f-danger-ink" x="838.1" y="431">고립</text>
+    <text class="f-on-solid" x="1030.8" y="431">금전 요구</text>
+  </g>
+
+  <!-- 다섯 장면 -->
+  <g>
+    <circle class="f-danger" cx="75" cy="496" r="17"/>
+    <circle class="f-ink" cx="307.8" cy="496" r="17"/>
+    <circle class="f-warn" cx="540.6" cy="496" r="17"/>
+    <circle class="f-danger" cx="773.4" cy="496" r="17"/>
+    <circle class="f-danger" cx="1006.2" cy="496" r="17"/>
+  </g>
+  <g class="en f-on-solid" font-size="24" font-weight="800" text-anchor="middle">
+    <text x="75" y="504.5">1</text>
+    <text x="307.8" y="504.5">2</text>
+    <text x="540.6" y="504.5">3</text>
+    <text x="773.4" y="504.5">4</text>
+    <text x="1006.2" y="504.5">5</text>
+  </g>
+  <g class="kr f-ink" font-size="26" font-weight="700">
+    <text x="102" y="505">전체 화면 경고</text>
+    <text x="334.8" y="505">65%로 재평가</text>
+    <text x="567.6" y="505">공식 번호 안내</text>
+    <text x="800.4" y="505">전화 끊기 안내</text>
+    <text x="1033.2" y="505">보호자 알림</text>
+  </g>
+  <g class="kr f-muted" font-size="24" font-weight="400">
+    <text x="102" y="538">3초 · 분류기 단독</text>
+    <text x="334.8" y="538">6초 · 추적기 판단</text>
+    <text x="567.6" y="538">14초 · 주의 72%</text>
+    <text x="800.4" y="538">26초 · 위험 86%</text>
+    <text x="1033.2" y="538">45초 · 금전 요구</text>
+  </g>
+</svg>
