@@ -1,0 +1,66 @@
+<?xml-stylesheet href="theme.css" type="text/css"?>
+<svg xmlns="http://www.w3.org/2000/svg" width="1280" height="522" viewBox="0 0 1280 522">
+  <!-- 절차 안내의 구조: 받아 둔 조문과 사건 사실이 규칙표로 들어가 절차 안내가 되고, 대시보드와 도우미가 보여 준다.
+       판정은 규칙표가 하고 AI는 설명만 한다는 점이 그림에서 읽혀야 한다.
+       docs/guidance.md '어떻게 동작하나'의 설명과 뜻이 같아야 한다. 결과: ../images/readme/guidance.png, guidance-dark.png -->
+  <rect class="card" x="1" y="1" width="1278" height="520" rx="24"/>
+
+  <!-- 연결선 -->
+  <g class="f-none s-wire" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M416 128 H446 Q466 128 466 148 V196 Q466 216 486 216 H500 M490 207 L500 216 L490 225"/>
+    <path d="M416 332 H446 Q466 332 466 312 V264 Q466 244 486 244 H500 M490 235 L500 244 L490 253"/>
+    <path d="M800 230 H862 M852 221 L862 230 L852 239"/>
+    <path d="M1054 344 V398 M1045 388 L1054 398 L1063 388"/>
+  </g>
+  <!-- 근거 조문이 붙는 길(점선) -->
+  <g class="f-none s-accent" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="9 8">
+    <path d="M226 58 V40 Q226 26 240 26 H1040 Q1054 26 1054 40 V104"/>
+  </g>
+  <g class="f-none s-accent" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M1045 94 L1054 104 L1063 94"/>
+  </g>
+  <g class="halo">
+    <text class="kr f-accent-ink" x="640" y="34" font-size="20" font-weight="600" text-anchor="middle">안내마다 근거 조문을 붙임</text>
+  </g>
+
+  <!-- 왼쪽: 들어가는 것 두 가지 -->
+  <rect class="panel" x="36" y="58" width="380" height="140" rx="18"/>
+  <text class="kr f-ink" x="62" y="104" font-size="30" font-weight="800" letter-spacing="-0.5">조문 저장소</text>
+  <text class="kr f-muted" x="62" y="140" font-size="21" font-weight="500">법제처 Open API에서 미리 받음</text>
+  <text class="kr f-accent-ink" x="62" y="174" font-size="20" font-weight="600">법령 19개 · 조약 2개 · 조문 1,834개</text>
+
+  <rect class="panel" x="36" y="262" width="380" height="140" rx="18"/>
+  <text class="kr f-ink" x="62" y="308" font-size="30" font-weight="800" letter-spacing="-0.5">사건 사실</text>
+  <text class="kr f-muted" x="62" y="344" font-size="21" font-weight="500">통화 기록에서 자동 추정</text>
+  <text class="kr f-accent-ink" x="62" y="378" font-size="20" font-weight="600">수사관이 확인한 값이 우선</text>
+
+  <!-- 가운데: 규칙표 -->
+  <rect class="f-node" x="500" y="116" width="300" height="228" rx="18"/>
+  <text class="kr f-node-ink" x="650" y="166" font-size="30" font-weight="800" text-anchor="middle" letter-spacing="-0.5">규칙표</text>
+  <g class="kr" font-size="21" font-weight="500" text-anchor="middle">
+    <text class="f-node-ink" x="650" y="208">수사 배분 22줄</text>
+    <text class="f-node-ink" x="650" y="240">해외 연계 13줄</text>
+  </g>
+  <rect class="f-accent-soft" x="532" y="266" width="236" height="50" rx="25"/>
+  <text class="kr f-accent-ink" x="650" y="299" font-size="20" font-weight="700" text-anchor="middle">조건 비교 · 기한 계산</text>
+
+  <!-- 오른쪽: 절차 안내 -->
+  <rect class="panel" x="866" y="116" width="378" height="228" rx="18"/>
+  <text class="kr f-ink" x="892" y="166" font-size="30" font-weight="800" letter-spacing="-0.5">절차 안내</text>
+  <text class="kr f-muted" x="892" y="206" font-size="21" font-weight="500">해야 할 일 · 안내 · 주의</text>
+  <text class="kr f-muted" x="892" y="238" font-size="21" font-weight="500">근거 조문과 남은 기한</text>
+  <text class="kr f-accent-ink" x="892" y="302" font-size="20" font-weight="600">판정은 규칙표, 설명만 AI</text>
+
+  <!-- 아래: 보여 주는 곳 -->
+  <text class="kr f-faint" x="62" y="466" font-size="20" font-weight="600">보여 주는 곳</text>
+  <g>
+    <rect class="panel" x="196" y="430" width="300" height="60" rx="30"/>
+    <rect class="panel" x="520" y="430" width="250" height="60" rx="30"/>
+    <rect class="panel" x="794" y="430" width="450" height="60" rx="30"/>
+  </g>
+  <g class="kr f-ink2" font-size="21" font-weight="600" text-anchor="middle">
+    <text x="346" y="468">사건 상세의 ‘절차 안내’ 칸</text>
+    <text x="645" y="468">‘법령·절차’ 탭</text>
+    <text x="1019" y="468">수사 지원 도우미(저장된 조문만 인용)</text>
+  </g>
+</svg>

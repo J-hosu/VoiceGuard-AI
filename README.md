@@ -217,7 +217,7 @@
 <tr><td valign="top"><a href="docs/investigator.md#수사-검토-우선순위-제안">검토 우선순위 제안</a></td><td valign="top">먼저 검토할 통화를 점수순으로 정렬하고, 점수의 근거를 함께 보여 줍니다.</td></tr>
 <tr><td valign="top"><a href="docs/investigator.md#신고용-요약">신고용 요약</a> · <a href="docs/investigator.md#음성전사-기록의-무결성-확인">무결성 확인</a></td><td valign="top">저장된 기록으로 신고용 요약을 조립하고(사건 개요 3~5문장만 Claude가 작성), 음성과 전사문의 SHA-256 해시로 기록이 바뀌었는지 확인합니다.</td></tr>
 <tr><td valign="top"><a href="docs/investigator.md#신종-수법-수집검토반영">신종 수법 반영</a> · <a href="docs/investigator.md#품질-점검">품질 점검</a></td><td valign="top">공식 게시판의 새 글을 수법 카드 초안으로 정리하고, 사용자의 확인 응답과 AI 판정을 비교해 오경보·미탐지 의심 사례를 모읍니다. 반영 여부는 담당자가 승인합니다.</td></tr>
-<tr><td valign="top"><a href="docs/investigator.md#절차-안내와-법령-찾기">절차 안내 · 법령 찾기</a></td><td valign="top">미리 받아 둔 조문과 규칙표로 중대범죄수사청 통보 여부와 기한, 해외 연계 절차를 근거 조문과 함께 보여 줍니다. 판정은 규칙표가 하고, AI는 조문을 인용해 설명만 합니다.</td></tr>
+<tr><td valign="top"><a href="docs/guidance.md">절차 안내 · 법령 찾기</a></td><td valign="top">미리 받아 둔 조문과 규칙표로 중대범죄수사청 통보 여부와 기한, 해외 연계 절차를 근거 조문과 함께 보여 줍니다. 판정은 규칙표가 하고, AI는 조문을 인용해 설명만 합니다.</td></tr>
 </table>
 
 수사관은 n8n 채팅으로 수사 데이터를 자연어로 물을 수도 있습니다(선택 설정). AI가 쓴 사건 개요는 초안이므로 통화 전문과 대조해야 하며, 같은 계좌나 번호가 나왔다는 사실만으로 같은 범죄 조직이라고 확정할 수 없습니다. 해시는 기록이 바뀌었는지 확인하는 수단이며, 외부 시각 인증이나 별도 보관이 없어 법적 증거의 무결성을 보증하지는 않습니다. 기능별 처리 범위와 한계는 [수사관 지원용 능동 AI 에이전트 기능](docs/investigator.md)에 있습니다.
@@ -391,6 +391,7 @@ EXPO_PUBLIC_API_BASE=same-origin npm run build:web  # 배포용 웹 빌드 (백�
 | [시연 영상](docs/demo.md) | 통화 분석, 문자·문서 점검, 수사 지원 대시보드를 처음부터 끝까지 보여 주는 영상 네 편 |
 | [전화 흐름으로 기능 보기](docs/one-call.md) | 검찰 사칭 시연 통화 한 건을 처음부터 끝까지 따라가며 본 화면과 판단 근거 |
 | [수사관 지원용 능동 AI 에이전트 기능](docs/investigator.md) | AI가 처리하는 범위, 담당자가 결정하는 일, 수사 지원 결과와 한계 |
+| [절차 안내](docs/guidance.md) | 수사 배분·법 안내와 해외 연계 사건 기능을 화면과 함께 한 페이지로 설명 |
 | [수사 지원 고도화 설계](docs/investigation-guidance-design.md) | 수사 배분·법 안내와 해외 연계 사건 기능의 데이터, 구조, 구현 범위, 검증과 한계 |
 | [보이스피싱 탐지 성능](docs/tech/detection.md) | 모델별 평가 방법과 결과, 버전별 비교, 한계, 재현 방법 |
 | [음성 인식·화자 분리 성능](docs/tech/transcription.md) | 전사와 화자 분리 비교, 현재 구성과 채택 이유 |
