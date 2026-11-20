@@ -21,6 +21,7 @@ from backend.app import access_gate
 from backend.app.access_gate import AccessGateMiddleware
 from backend.app.api.agent_routes import router as agent_router
 from backend.app.api.analyze_routes import router as analyze_router
+from backend.app.api.guidance_routes import router as guidance_router
 from backend.app.api.investigation_routes import router as investigation_router
 from backend.app.api.quality_routes import router as quality_router
 from backend.app.api.routes import router as rest_router
@@ -108,6 +109,7 @@ app.add_middleware(
 app.include_router(rest_router)
 app.include_router(agent_router)
 app.include_router(investigation_router)
+app.include_router(guidance_router)
 app.include_router(quality_router)
 app.include_router(analyze_router)
 app.include_router(websocket_router)

@@ -569,6 +569,60 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
   .graph-svg { height: 480px; }
 }
 @media print { .tabs, .sorts { display: none !important; } }
+
+/* ───────── 절차 안내 · 법령 ───────── */
+.guide-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 0 0 6px; }
+.guide-headline { font-weight: 700; font-size: 15px; color: var(--ink); }
+.guide-signals { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; font-size: 13px; color: var(--ink-3); }
+.guide-group { margin-top: 16px; }
+.guide-group > h3 { font-size: 12.5px; font-weight: 700; color: var(--ink-3); margin: 0 0 2px; }
+.guide-item { border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-top: 8px; background: var(--surface); }
+.guide-item.duty { border-color: var(--accent-line); background: var(--accent-soft); }
+.guide-item.caution { border-color: var(--medium-line); background: var(--medium-soft); }
+.guide-item.need { border-style: dashed; border-color: #CBD5E1; }
+.guide-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.guide-title { font-weight: 700; font-size: 13.5px; color: var(--ink); }
+.guide-text { margin: 6px 0 0; font-size: 13.5px; line-height: 1.65; color: var(--ink-2); }
+.guide-basis { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.law-ref {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 9px; border: 1px solid var(--line); border-radius: 999px;
+  font-size: 12px; line-height: 1.7; color: var(--accent-ink); background: var(--surface); text-decoration: none;
+}
+.law-ref:hover { border-color: var(--accent-line); background: var(--accent-soft); }
+.law-ref .ic { width: 11px; height: 11px; }
+.due { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 999px; line-height: 1.7; background: #EEF2F7; color: var(--ink-2); }
+.due.soon { background: var(--high-soft); color: var(--high-ink); }
+.guide-more { margin-top: 14px; }
+.guide-more > summary { cursor: pointer; font-size: 13px; font-weight: 600; color: var(--ink-2); }
+.facts-form {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 12px 16px;
+  margin-top: 10px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: #F8FAFC;
+}
+.facts-form fieldset { border: 0; margin: 0; padding: 0; min-width: 0; grid-column: 1 / -1; }
+.facts-form .opts { display: flex; flex-wrap: wrap; gap: 2px 20px; }
+.facts-form legend, .facts-form .fl { display: block; font-size: 12px; font-weight: 700; color: var(--ink-3); margin-bottom: 4px; padding: 0; }
+.facts-form .opt { display: flex; align-items: flex-start; gap: 6px; font-size: 13px; line-height: 1.45; color: var(--ink-2); margin: 3px 0; }
+.facts-form .opt input { margin-top: 3px; flex: none; }
+.facts-form input[type="number"], .facts-form input[type="date"], .facts-form select {
+  width: 100%; box-sizing: border-box; min-height: 34px; padding: 5px 8px; border: 1px solid #CBD5E1; border-radius: 8px;
+  font: inherit; font-size: 13px; background: var(--surface); color: var(--ink);
+}
+.facts-form .hint { font-size: 12px; color: var(--ink-3); margin-top: 4px; line-height: 1.5; }
+.facts-actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.guide-foot { margin-top: 14px; font-size: 12.5px; color: var(--ink-3); line-height: 1.6; }
+.legal-search { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 8px; }
+.legal-search input[type="search"] { flex: 1 1 260px; min-height: 40px; padding: 8px 12px; border: 1px solid #CBD5E1; border-radius: 10px; font: inherit; }
+.legal-search select { min-height: 40px; padding: 8px 10px; border: 1px solid #CBD5E1; border-radius: 10px; font: inherit; background: var(--surface); max-width: 100%; }
+.legal-examples { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 6px; }
+.law-card { border: 1px solid var(--line); border-radius: 10px; padding: 12px 14px; margin-top: 10px; background: var(--surface); }
+.law-card h3 { margin: 0; font-size: 14.5px; color: var(--ink); }
+.law-meta { font-size: 12px; color: var(--ink-3); margin-top: 2px; }
+.law-text { white-space: pre-wrap; font-size: 13.5px; line-height: 1.7; color: var(--ink-2); margin: 8px 0 0; }
+.law-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.law-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 8px; }
+.law-table th, .law-table td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--line-2); vertical-align: top; }
+.law-table th { color: var(--ink-3); font-weight: 700; font-size: 12px; white-space: nowrap; }
+.table-scroll { overflow-x: auto; }
 </style>
 </head>
 <body>
@@ -583,6 +637,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     <button type="button" class="tab-btn" role="tab" data-tab="cases" aria-selected="true">사건 목록</button>
     <button type="button" class="tab-btn" role="tab" data-tab="graph" aria-selected="false">관계 그래프</button>
     <button type="button" class="tab-btn" role="tab" data-tab="knowledge" aria-selected="false">신종 수법 <span class="tab-badge" id="kBadge" hidden></span></button>
+    <button type="button" class="tab-btn" role="tab" data-tab="legal" aria-selected="false">법령·절차</button>
     <button type="button" class="tab-btn" role="tab" data-tab="quality" aria-selected="false">모델 품질</button>
   </nav>
   <dl class="stats" aria-label="통화 요약">
@@ -629,6 +684,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
 
 <main class="view" id="viewGraph" hidden><div class="view-inner" id="graphInner"></div></main>
 <main class="view" id="viewKnowledge" hidden><div class="view-inner" id="knowledgeInner"></div></main>
+<main class="view" id="viewLegal" hidden><div class="view-inner" id="legalInner"></div></main>
 <main class="view" id="viewQuality" hidden><div class="view-inner" id="qualityInner"></div></main>
 
 <div class="sr-only" id="announce" role="status" aria-live="polite"></div>
@@ -1121,7 +1177,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     arr(d.transcript).forEach(function (m) { if (m && m.turn_index != null) state.turnSet[m.turn_index] = true; });
     renderHead(d, id);
     var body = clear($('detailBody'));
-    var parts = [secOverview(d), secStages(d), secEntities(d), secLinks(d), secOfficial(d), secKey(d), secActions(d), secFollowups(d), secEvidence(d), secTranscript(d)];
+    var parts = [secOverview(d), secStages(d), secEntities(d), secGuidance(), secLinks(d), secOfficial(d), secKey(d), secActions(d), secFollowups(d), secEvidence(d), secTranscript(d)];
     var shown = 0;
     parts.forEach(function (p) { if (p) { body.appendChild(p); shown++; } });
     if (!shown) {
@@ -1452,8 +1508,221 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     });
   }
 
+
+  /* ───────── 절차 안내(담당 기관, 통보·기한, 해외 연계) ───────── */
+  var GUIDE_LEVEL = { duty: ['해야 할 일', 'linked'], caution: ['주의', 'warm'], need: ['입력 필요', ''], info: ['안내', ''] };
+  var GUIDE_GROUPS = ['담당 기관', '통보와 이첩', '해외 연계', '피의자가 국외에 있을 때'];
+  function won(n) { return Number(n).toLocaleString('ko-KR') + '원'; }
+  function loadGuidance(id) {
+    getJSON('/guidance/cases/' + encodeURIComponent(id), 20000).then(function (g) {
+      if (state.selectedId !== id) return;
+      state.guide = { id: id, data: g };
+      fillGuidance();
+    }).catch(function (e) {
+      if (state.selectedId !== id) return;
+      state.guide = { id: id, error: errorText(e) };
+      fillGuidance();
+    });
+  }
+  function secGuidance() {
+    var id = state.selectedId;
+    var el = card('절차 안내', '', h('p', { class: 'caption', text: '어느 기관이 맡고 무엇을 언제까지 해야 하는지, 받아 둔 조문과 규칙표로 계산한 참고 자료입니다.' }), h('div', { id: 'guideBody' }));
+    el.id = 'guideCard';
+    if (!state.guide || state.guide.id !== id) { state.guide = { id: id }; loadGuidance(id); }
+    fillGuidance(el.querySelector('#guideBody'));
+    return el;
+  }
+  function lawRef(b) {
+    var url = safeUrl(b.url);
+    var label = b.ref + (b.heading ? ' ' + b.heading : '');
+    return url ? h('a', { class: 'law-ref', href: url, target: '_blank', rel: 'noopener noreferrer', title: '국가법령정보센터에서 열기' }, label, icon('external'))
+               : h('span', { class: 'law-ref', text: label });
+  }
+  function dueTag(dl) {
+    if (!dl) return null;
+    if (!dl.due) return h('span', { class: 'due', text: '기한: ‘' + dl.from_label + '’을 넣으면 계산' });
+    var left = Number(dl.days_left);
+    var when = left < 0 ? '지남(' + (-left) + '일)' : left === 0 ? '오늘까지' : left + '일 남음';
+    return h('span', { class: 'due' + (left <= 1 ? ' soon' : ''), text: dl.due + ' · ' + when });
+  }
+  function guideItem(it) {
+    var lv = GUIDE_LEVEL[it.level] || GUIDE_LEVEL.info;
+    return h('div', { class: 'guide-item ' + it.level },
+      h('div', { class: 'guide-top' },
+        h('span', { class: 'tag ' + lv[1], text: lv[0] }),
+        h('span', { class: 'guide-title', text: it.title }),
+        dueTag(it.deadline)),
+      h('p', { class: 'guide-text', text: it.text }),
+      arr(it.basis).length ? h('div', { class: 'guide-basis' }, arr(it.basis).map(lawRef)) : null);
+  }
+  function fillGuidance(box) {
+    box = box || $('guideBody');
+    if (!box) return;
+    clear(box);
+    var gs = state.guide || {};
+    if (gs.error) {
+      box.appendChild(h('div', { class: 'state-box is-error' }, h('p', { class: 'state-line', text: '절차 안내를 불러오지 못했습니다. ' + gs.error }),
+        h('button', { type: 'button', class: 'btn small', onclick: function () { state.guide = { id: gs.id }; fillGuidance(); loadGuidance(gs.id); } }, icon('refresh'), '다시 시도')));
+      return;
+    }
+    var g = gs.data;
+    if (!g) { box.appendChild(h('p', { class: 'caption', text: '절차 안내를 계산하는 중입니다.' })); return; }
+
+    var hinted = arr(g.from_hints).map(function (x) { return x.label; });
+    box.appendChild(h('div', { class: 'guide-head' },
+      h('span', { class: 'guide-headline', text: g.headline }),
+      hinted.length ? h('span', { class: 'tag warm', text: '자동 추정: ' + hinted.join(', ') }) : null));
+    if (hinted.length) box.appendChild(h('p', { class: 'caption', text: '통화 기록에서 짐작한 값으로 계산했습니다. 아래 ‘사건 사실’에서 확인해 저장하면 다시 계산합니다.' }));
+
+    var signals = arr(g.hints && g.hints.signals);
+    if (signals.length) {
+      box.appendChild(h('div', { class: 'guide-signals' }, '해외 연계 단서',
+        signals.map(function (sg) {
+          return turnLink(sg.turn_index, sg.word) || h('span', { class: 'tag', text: sg.word });
+        })));
+    }
+
+    var items = arr(g.items), basics = [];
+    GUIDE_GROUPS.forEach(function (name) {
+      var mine = items.filter(function (it) { return it.group === name; });
+      if (!mine.length) return;
+      box.appendChild(h('div', { class: 'guide-group' }, h('h3', { text: name }), mine.map(guideItem)));
+    });
+    items.forEach(function (it) { if (GUIDE_GROUPS.indexOf(it.group) < 0) basics.push(it); });
+    if (basics.length) {
+      var open = basics.some(function (it) { return it.level !== 'info'; });
+      box.appendChild(h('details', { class: 'guide-more', open: open }, h('summary', { text: '기본 절차 ' + basics.length + '개 (영장, 보완수사, 송치)' }), basics.map(guideItem)));
+    }
+    box.appendChild(factsForm(g));
+    var ld = g.legal_data || {};
+    box.appendChild(h('p', { class: 'guide-foot' },
+      g.pending, ' ', g.deadline_note, ' ', g.notice,
+      ld.latest_fetch ? ' 조문은 ' + ld.fetched_from + '에서 ' + String(ld.latest_fetch).slice(0, 10) + '에 받은 것입니다.' : ''));
+  }
+  function factsForm(g) {
+    var opts = g.options || {}, help = opts.help || {}, eff = g.effective || {}, form = h('form', { class: 'facts-form', id: 'factsForm' });
+    var charges = arr(eff.charges);
+    form.appendChild(h('fieldset', null, h('legend', { text: '죄명 후보' }), h('div', { class: 'opts' }, arr(opts.charges).map(function (c) {
+      return h('label', { class: 'opt' }, h('input', { type: 'checkbox', name: 'charge', value: c.code, checked: charges.indexOf(c.code) >= 0 }), c.label);
+    })), help.charges ? h('p', { class: 'hint', text: help.charges }) : null));
+    var mentioned = g.hints && g.hints.amount_mentioned;
+    form.appendChild(h('div', null, h('label', { class: 'fl', for: 'factGain', text: '이득액(원)' }),
+      h('input', { type: 'number', id: 'factGain', min: '0', step: '1', inputmode: 'numeric', value: eff.gain_amount != null ? String(eff.gain_amount) : null, placeholder: '예: 500000000' }),
+      help.gain_amount ? h('p', { class: 'hint', text: help.gain_amount }) : null,
+      mentioned ? h('p', { class: 'hint', text: '통화에서 요구한 금액은 ' + won(mentioned) + '입니다. 이득액과 다를 수 있어 자동으로 넣지 않습니다.' }) : null));
+    arr(opts.dates).forEach(function (d) {
+      form.appendChild(h('div', null, h('label', { class: 'fl', for: 'fact_' + d.fact, text: d.label }),
+        h('input', { type: 'date', id: 'fact_' + d.fact, 'data-date': d.fact, value: eff[d.fact] || null }),
+        d.help ? h('p', { class: 'hint', text: d.help }) : null));
+    });
+    arr(opts.bools).forEach(function (b) {
+      var cur = eff[b.fact];
+      form.appendChild(h('div', null, h('label', { class: 'fl', for: 'fact_' + b.fact, text: b.label }),
+        h('select', { id: 'fact_' + b.fact, 'data-bool': b.fact },
+          h('option', { value: '', selected: cur == null, text: '모름' }),
+          h('option', { value: 'true', selected: cur === true, text: '예' }),
+          h('option', { value: 'false', selected: cur === false, text: '아니오' })),
+        b.help ? h('p', { class: 'hint', text: b.help }) : null));
+    });
+    form.appendChild(h('div', { class: 'facts-actions' },
+      h('button', { type: 'submit', class: 'btn small primary', text: '확인해 저장하고 다시 계산' }),
+      h('span', { class: 'caption', id: 'factsStatus', role: 'status', 'aria-live': 'polite' })));
+    form.addEventListener('submit', function (ev) { ev.preventDefault(); saveFacts(g.log_id, form); });
+    var needs = arr(g.items).some(function (it) { return it.level === 'need'; });
+    return h('details', { class: 'guide-more', open: needs || !Object.keys(g.facts || {}).length },
+      h('summary', { text: '사건 사실 (확인해 넣으면 다시 계산합니다)' }), form);
+  }
+  function saveFacts(id, form) {
+    var facts = { charges: [] }, status = $('factsStatus');
+    Array.prototype.forEach.call(form.querySelectorAll('input[name="charge"]'), function (i) { if (i.checked) facts.charges.push(i.value); });
+    var gain = form.querySelector('#factGain').value.trim();
+    facts.gain_amount = gain === '' ? null : Number(gain);
+    Array.prototype.forEach.call(form.querySelectorAll('[data-date]'), function (i) { facts[i.getAttribute('data-date')] = i.value || null; });
+    Array.prototype.forEach.call(form.querySelectorAll('[data-bool]'), function (i) { facts[i.getAttribute('data-bool')] = i.value === '' ? null : i.value === 'true'; });
+    status.textContent = '저장하는 중입니다.';
+    fetch('/guidance/cases/' + encodeURIComponent(id) + '/facts', {
+      method: 'POST', credentials: 'same-origin', cache: 'no-store',
+      headers: { 'Content-Type': 'application/json', Accept: 'application/json' }, body: JSON.stringify({ facts: facts })
+    }).then(function (res) {
+      return res.json().then(function (body) { return { ok: res.ok, status: res.status, body: body }; });
+    }).then(function (r) {
+      if (!r.ok) { status.textContent = '저장하지 못했습니다. ' + (r.body && typeof r.body.detail === 'string' ? r.body.detail : '(오류 ' + r.status + ')'); return; }
+      if (state.selectedId !== id) return;
+      state.guide = { id: id, data: r.body };
+      fillGuidance();
+      alertText('사건 사실을 저장하고 절차 안내를 다시 계산했습니다.');
+    }).catch(function () { status.textContent = '저장하지 못했습니다. 네트워크 상태를 확인해 주세요.'; });
+  }
+
+  /* ───────── 법령·절차 탭 ───────── */
+  var LEGAL_EXAMPLES = ['중수청법 43조', '보완수사 요구 기한', '통보는 언제까지 서면으로', '구속영장 신청', '범죄인 인도 청구', '외국에 수사 공조 요청', '여권 무효', '보이스피싱 처벌'];
+  function loadLegal() {
+    var inner = $('legalInner');
+    if (state.legalStatus) { if (!inner.firstChild) renderLegal(); return; }
+    viewMessage(inner, '받아 둔 법령을 불러오는 중입니다.');
+    getJSON('/legal/status', 15000).then(function (st) { state.legalStatus = st; renderLegal(); })
+      .catch(function (e) { viewMessage(inner, '법령 목록을 불러오지 못했습니다. ' + errorText(e), true, loadLegal); });
+  }
+  function renderLegal() {
+    var st = state.legalStatus, inner = clear($('legalInner'));
+    var fetched = String(st.latest_fetch || '').slice(0, 10);
+    inner.appendChild(viewHead('법령·절차',
+      st.fetched_from + '에서 미리 받아 둔 조문 ' + st.provision_count + '개(법령 ' + st.law_count + '개)에서 찾습니다. 마지막으로 받은 날은 ' + (fetched || '알 수 없음') + '입니다. AI가 만든 글이 아니라 받은 조문 그대로입니다.'));
+    var input = h('input', { type: 'search', id: 'legalQ', placeholder: '찾을 말 (예: 보완수사 요구 기한, 중수청법 43조)', autocomplete: 'off', spellcheck: 'false', 'aria-label': '조문 찾기' });
+    var select = h('select', { id: 'legalLaw', 'aria-label': '법령 고르기' }, h('option', { value: '', text: '모든 법령' }),
+      arr(st.laws).map(function (l) { return h('option', { value: l.name, text: l.short }); }));
+    var form = h('form', { class: 'legal-search', role: 'search' }, input, select, h('button', { type: 'submit', class: 'btn primary' }, icon('search'), '찾기'));
+    form.addEventListener('submit', function (ev) { ev.preventDefault(); searchLegal(input.value, select.value); });
+    inner.appendChild(form);
+    inner.appendChild(h('div', { class: 'legal-examples' }, LEGAL_EXAMPLES.map(function (q) {
+      return h('button', { type: 'button', class: 'chip-btn', onclick: function () { input.value = q; select.value = ''; searchLegal(q, ''); } }, q);
+    })));
+    inner.appendChild(h('div', { id: 'legalResults', role: 'region', 'aria-live': 'polite', 'aria-label': '찾은 조문' }));
+    inner.appendChild(h('section', { class: 'card', style: 'margin-top:18px' }, h('h2', null, '받아 둔 법령', h('span', { class: 'cnt', text: String(st.law_count) })),
+      h('div', { class: 'table-scroll' }, h('table', { class: 'law-table' },
+        h('thead', null, h('tr', null, ['법령', '시행일', '공포', '조문', '받은 날'].map(function (t) { return h('th', { scope: 'col', text: t }); }))),
+        h('tbody', null, arr(st.laws).map(function (l) {
+          var url = safeUrl(l.source_url);
+          return h('tr', null,
+            h('td', null, url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: l.name }) : l.name),
+            h('td', { text: l.effective_date }), h('td', { text: l.promulgation }), h('td', { class: 'num', text: String(l.provision_count) }),
+            h('td', { text: String(l.fetched_at || '').slice(0, 10) }));
+        }))))));
+    if (state.legalQuery) { input.value = state.legalQuery.q; select.value = state.legalQuery.law; showLegalResults(state.legalQuery.results); }
+  }
+  function searchLegal(q, law) {
+    q = str(q);
+    var box = $('legalResults');
+    if (!q) { clear(box).appendChild(h('p', { class: 'caption', text: '찾을 말을 넣어 주세요.' })); return; }
+    clear(box).appendChild(h('p', { class: 'caption', text: '찾는 중입니다.' }));
+    getJSON('/legal/search?q=' + encodeURIComponent(q) + (law ? '&law=' + encodeURIComponent(law) : '') + '&limit=8', 15000)
+      .then(function (r) { state.legalQuery = { q: q, law: law || '', results: arr(r.results) }; showLegalResults(arr(r.results)); })
+      .catch(function (e) { clear(box).appendChild(h('p', { class: 'caption', text: '찾지 못했습니다. ' + errorText(e) })); });
+  }
+  function showLegalResults(results) {
+    var box = clear($('legalResults'));
+    if (!results.length) { box.appendChild(h('p', { class: 'caption', text: '받아 둔 조문에서 찾지 못했습니다. 다른 말로 찾아 보세요.' })); return; }
+    results.forEach(function (r) {
+      var text = h('p', { class: 'law-text', text: r.text });
+      var more = h('button', { type: 'button', class: 'btn small' }, '전문 보기');
+      more.addEventListener('click', function () {
+        more.disabled = true;
+        getJSON('/legal/provisions?law=' + encodeURIComponent(r.law) + '&article=' + encodeURIComponent(r.article), 15000)
+          .then(function (full) { text.textContent = full.text; more.hidden = true; })
+          .catch(function () { more.disabled = false; });
+      });
+      var url = safeUrl(r.url);
+      box.appendChild(h('article', { class: 'law-card' },
+        h('h3', { text: r.ref + (r.heading ? ' (' + r.heading + ')' : '') }),
+        h('p', { class: 'law-meta', text: r.law + ' · 시행 ' + r.effective_date }),
+        text,
+        h('div', { class: 'law-actions' }, /…$/.test(r.text) ? more : null,
+          url ? h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '국가법령정보센터에서 열기') : null)));
+    });
+  }
+
   /* ───────── 탭 ───────── */
-  var VIEWS = { cases: 'viewCases', graph: 'viewGraph', knowledge: 'viewKnowledge', quality: 'viewQuality' };
+  var VIEWS = { cases: 'viewCases', graph: 'viewGraph', knowledge: 'viewKnowledge', legal: 'viewLegal', quality: 'viewQuality' };
   function tabFromHash() {
     var m = /^#tab=(\w+)/.exec(location.hash || '');
     return m && VIEWS[m[1]] ? m[1] : null;
@@ -1471,8 +1740,9 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     }
     if (name === 'graph') loadGraph();
     if (name === 'knowledge') loadKnowledge();
+    if (name === 'legal') loadLegal();
     if (name === 'quality') loadQuality();
-    document.title = { cases: 'VoiceGuard AI · 수사 지원 대시보드', graph: '관계 그래프 · VoiceGuard AI', knowledge: '신종 수법 · VoiceGuard AI', quality: '모델 품질 · VoiceGuard AI' }[name];
+    document.title = { cases: 'VoiceGuard AI · 수사 지원 대시보드', graph: '관계 그래프 · VoiceGuard AI', knowledge: '신종 수법 · VoiceGuard AI', legal: '법령·절차 · VoiceGuard AI', quality: '모델 품질 · VoiceGuard AI' }[name];
   }
   function viewMessage(inner, text, isError, retry) {
     clear(inner).appendChild(h('div', { class: 'card empty' + (isError ? ' error' : '') },

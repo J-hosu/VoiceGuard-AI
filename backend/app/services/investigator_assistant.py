@@ -27,7 +27,7 @@ from typing import Any, Callable, Iterable, Optional
 from backend.app.codes import DAMAGE_ANSWERS, ENTITY_TYPES, FOLLOWUP_ANSWERS, STAGE_LABELS, TACTIC_LABELS
 from backend.app.database import get_connection
 from backend.app.repository import get_call_log
-from backend.app.services import claude_client, investigation, report_builder, scam_knowledge
+from backend.app.services import case_guidance, claude_client, investigation, legal_kb, report_builder, scam_knowledge
 from backend.app.state_repository import normalize_entity
 
 
@@ -52,6 +52,9 @@ STATS_POOL = 5000  # 집계에 쓰는 최근 통화 수
 SEARCH_LIMIT = 15  # 단서 검색으로 돌려주는 통화 수
 SESSION_LIMIT = 200  # 대화를 기억해 두는 채팅 창 수
 SESSION_TTL_SEC = 2 * 3600
+LEGAL_LIMIT = 5  # 조문 찾기로 돌려주는 조문 수
+LEGAL_TEXT_CHARS = 1200  # 조문 하나를 Claude에 넘길 때의 글자 수
+GUIDE_TEXT_CHARS = 1200  # 절차 안내 항목 하나의 글자 수(가장 긴 규칙 글이 1,000자에 조금 못 미친다)
 _clock = time.monotonic  # 시험에서 시간을 바꿔 끼울 수 있게 한 자리
 
 RISK_LABELS = report_builder.RISK_LABELS
@@ -81,6 +84,12 @@ SYSTEM_PROMPT = """너는 VoiceGuard AI의 수사 지원 도우미다. 보이스
 - 우선순위 점수는 팀이 정한 배점(위험도 40, 피해 확인 25, 공통 단서 15, 도달 단계 10, 최근성 10)으로 계산한 값이며 실제 수사관과 검증하지 않았다. 점수를 근거로 답할 때 이 점을 한 줄로 덧붙인다.
 - 같은 계좌·전화번호·사건번호가 여러 통화에 나왔다는 사실은 같은 사람이나 같은 조직이라는 증거가 아니다. 연결은 "같은 값이 나왔다"고만 쓰고 단정하지 않는다.
 - 요약과 전사는 음성 인식·AI 분석 결과라 틀릴 수 있다. 판단에 쓸 내용은 대시보드의 통화 전문으로 확인하라고 안내한다.
+
+[법령과 절차 안내]
+- 법령, 절차, 담당 기관, 기한에 관한 질문은 search_legal(받아 둔 조문 찾기)과 get_case_guidance(통화별 절차 안내)의 결과로만 답한다. 기억으로 답하지 않는다. 2026년 10월에 검찰청이 폐지되고 공소청과 중대범죄수사청이 생겨 예전 지식은 틀릴 수 있다.
+- 근거 조문은 도구가 돌려준 표기(ref) 그대로 '중수청법 제43조'처럼 붙인다. 도구 결과에 없는 조문 번호, 기한, 기관 이름, 금액 기준은 쓰지 않는다.
+- 찾는 조문이 없으면 "받아 둔 조문에서 찾지 못했다"고 답한다. 상대국(캄보디아 등)의 법령과 조약은 아직 자료가 없다고 말한다.
+- 절차 안내는 조문과 규칙표로 계산한 참고 자료다. 자동 추정(from_hints)으로 나온 판단은 추정이라고 밝히고, 답 끝에 "실제 통보·청구는 소속 기관 지침과 담당 부서 확인이 필요하다"는 한 줄을 붙인다.
 
 [할 수 없는 일]
 - 수법 카드 승인·반려, 사건 판단·종결, 데이터 수정, 신고·연락·메시지 발송은 할 수 없다. 요청받으면 대시보드에서 담당자가 직접 해야 한다고 답한다.
@@ -179,6 +188,31 @@ TOOLS: list[dict] = [
             "수사관이 새 수법 수집을 요청했을 때만 쓴다. 만든 카드는 검토 대기로만 저장되며 승인은 담당자가 한다. 끝나기를 기다리지 않는다."
         ),
         "input_schema": {"type": "object", "properties": {}},
+    },
+    {
+        "name": "search_legal",
+        "description": (
+            "국가법령정보센터에서 미리 받아 둔 조문에서 찾는다. 수사 배분(경찰·중대범죄수사청·공수처), 통보와 이첩, 영장, 보완수사, "
+            "범죄인 인도, 국제형사사법공조, 여권, 범죄수익 같은 법령·절차 질문에 쓴다. '중수청법 43조'처럼 법령과 조문을 적으면 그 조문을 준다. "
+            "결과의 글만 근거로 쓴다."
+        ),
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "query": {"type": "string", "description": "찾을 말(예: 보완수사 요구 기한, 중수청법 43조, 범죄인 인도 청구)"},
+                "law": {"type": "string", "description": "법령을 좁힐 때 이름이나 줄임말(예: 형사소송법, 중수청법, 범죄인 인도법)"},
+            },
+            "required": ["query"],
+        },
+    },
+    {
+        "name": "get_case_guidance",
+        "description": (
+            "통화 한 건의 절차 안내를 돌려준다: 중대범죄수사청 통보 대상인지, 통보·회신·보완수사 기한, 영장 신청 경로, "
+            "해외와 이어진 사건이면 범죄인 인도·공조·여권 절차, 그리고 각 안내의 근거 조문. 규칙표로 계산한 결과다. "
+            "'이 사건 누가 맡나', '통보해야 하나', '언제까지'를 물으면 쓴다."
+        ),
+        "input_schema": {"type": "object", "properties": {"log_id": _LOG_ID}, "required": ["log_id"]},
     },
 ]
 
@@ -534,6 +568,72 @@ def tool_start_scam_collection(args: dict, run: _Run) -> dict:
     }
 
 
+def tool_search_legal(args: dict, run: _Run) -> dict:
+    query = str(args.get("query") or "").strip()[:200]
+    if not query:
+        raise ToolError("찾을 말(query)이 비어 있습니다.")
+    law = str(args.get("law") or "").strip()[:60]
+    if law and legal_kb.resolve_law(law) is None:
+        names = ", ".join(item["short"] for item in legal_kb.laws())
+        raise ToolError(f"받아 둔 법령 가운데 '{law}'가 없습니다. 있는 법령: {names}")
+    found = legal_kb.search(query, law=law or None, limit=LEGAL_LIMIT)
+    status = legal_kb.status()
+    results = []
+    for item in found:
+        full = legal_kb.get(item["law_id"], item["article"]) or item
+        results.append(
+            {
+                "ref": item["ref"],
+                "heading": item["heading"],
+                "text": _clip(full["text"], LEGAL_TEXT_CHARS),
+                "effective_date": item["effective_date"],
+                "url": item["url"],
+            }
+        )
+    return {
+        "query": query,
+        "results": results,
+        "source": f"{status['fetched_from']}에서 {status['latest_fetch'][:10]}에 받은 조문",
+        "note": (
+            "결과의 글만 근거로 쓴다. 상대국(캄보디아 등)의 법령과 조약은 아직 자료가 없다."
+            if results
+            else "받아 둔 조문에서 찾지 못했다. 다른 말로 다시 찾거나, 자료가 없다고 답한다."
+        ),
+    }
+
+
+def tool_get_case_guidance(args: dict, run: _Run) -> dict:
+    log_id = _log_id(args)
+    run.focus(log_id)
+    guide = case_guidance.guidance(log_id)
+    return {
+        "log_id": log_id,
+        "headline": guide["headline"],
+        "from_hints": [item["label"] for item in guide["from_hints"]],
+        "confirmed_facts": {case_guidance.FACT_LABELS[key]: value for key, value in guide["facts"].items()},
+        "items": [
+            {
+                "title": item["title"],
+                "kind": {"duty": "해야 할 일", "need": "입력 필요", "caution": "주의"}.get(item["level"], "안내"),
+                "text": _clip(item["text"], GUIDE_TEXT_CHARS),
+                "basis": [basis["ref"] for basis in item["basis"]],
+                "deadline": (
+                    {"label": item["deadline"]["label"], "due": item["deadline"]["due"], "needs": None if item["deadline"]["due"] else item["deadline"]["from_label"]}
+                    if item.get("deadline")
+                    else None
+                ),
+            }
+            for item in guide["items"]
+            # 누구에게나 같은 기본 절차 안내는 빼고, 이 사건에 해당하는 것만 준다(기본 절차는 search_legal로 찾는다).
+            if item["group"] != "기본 절차" or item["level"] != "info"
+        ],
+        "overseas_signals": [signal["word"] for signal in guide["hints"].get("signals", [])][:8],
+        "pending": guide["pending"],
+        "notice": guide["notice"],
+        "dashboard_path": f"/dashboard#case={log_id}",
+    }
+
+
 _HANDLERS: dict[str, Callable[[dict, _Run], dict]] = {
     "list_priority_cases": tool_list_priority_cases,
     "get_case": tool_get_case,
@@ -543,6 +643,8 @@ _HANDLERS: dict[str, Callable[[dict, _Run], dict]] = {
     "get_report_link": tool_get_report_link,
     "list_scam_cards": tool_list_scam_cards,
     "start_scam_collection": tool_start_scam_collection,
+    "search_legal": tool_search_legal,
+    "get_case_guidance": tool_get_case_guidance,
 }
 # 데이터를 바꾸지 않는 도구. 나머지(start_scam_collection)는 검토 대기 카드만 만든다.
 READ_ONLY_TOOLS = frozenset(_HANDLERS) - {"start_scam_collection"}

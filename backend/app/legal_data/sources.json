@@ -1,0 +1,24 @@
+{
+ "note": "수사 지원의 법령 안내에 쓰는 법령 목록. backend/app/fetch_legal.py가 국가법령정보센터에서 받아 kr/<id>.json으로 저장한다. group: common(두 기능이 함께 씀), allocation(수사 배분·법 안내), crossborder(해외 연계 사건).",
+ "laws": [
+  {"id": "cpa", "name": "형사소송법", "kind": "법률", "aliases": ["형소법"], "group": "common"},
+  {"id": "criminal", "name": "형법", "kind": "법률", "aliases": [], "group": "common"},
+  {"id": "telefraud", "name": "전기통신금융사기 피해 방지 및 피해자산 환급에 관한 특별법", "kind": "법률", "aliases": ["통신사기피해환급법", "전기통신금융사기 피해 방지 및 피해금 환급에 관한 특별법", "보이스피싱법"], "group": "common"},
+  {"id": "econcrime", "name": "특정경제범죄 가중처벌 등에 관한 법률", "kind": "법률", "aliases": ["특정경제범죄법", "특경법"], "group": "common"},
+  {"id": "eft", "name": "전자금융거래법", "kind": "법률", "aliases": [], "group": "common"},
+  {"id": "proceeds", "name": "범죄수익은닉의 규제 및 처벌 등에 관한 법률", "kind": "법률", "aliases": ["범죄수익은닉규제법", "범죄수익은닉법"], "group": "common"},
+  {"id": "recovery", "name": "부패재산의 몰수 및 회복에 관한 특례법", "kind": "법률", "aliases": ["부패재산몰수법"], "group": "common"},
+  {"id": "sca", "name": "중대범죄수사청 조직 및 운영에 관한 법률", "kind": "법률", "aliases": ["중수청법", "중대범죄수사청법"], "group": "allocation"},
+  {"id": "sca_decree", "name": "중대범죄수사청 조직 및 운영에 관한 법률 시행령", "kind": "대통령령", "aliases": ["중수청법 시행령"], "group": "allocation"},
+  {"id": "ppo", "name": "공소청법", "kind": "법률", "aliases": [], "group": "allocation"},
+  {"id": "cio", "name": "고위공직자범죄수사처 설치 및 운영에 관한 법률", "kind": "법률", "aliases": ["공수처법"], "group": "allocation"},
+  {"id": "police_rule", "name": "경찰수사규칙", "kind": "부령", "aliases": [], "group": "allocation"},
+  {"id": "police_org", "name": "국가경찰과 자치경찰의 조직 및 운영에 관한 법률", "kind": "법률", "aliases": ["경찰법"], "group": "allocation"},
+  {"id": "extradition", "name": "범죄인 인도법", "kind": "법률", "aliases": ["인도법"], "group": "crossborder"},
+  {"id": "mla", "name": "국제형사사법 공조법", "kind": "법률", "aliases": ["공조법", "국제형사사법공조법"], "group": "crossborder"},
+  {"id": "passport", "name": "여권법", "kind": "법률", "aliases": [], "group": "crossborder"},
+  {"id": "prisoner", "name": "국제수형자이송법", "kind": "법률", "aliases": [], "group": "crossborder"},
+  {"id": "consular", "name": "재외국민보호를 위한 영사조력법", "kind": "법률", "aliases": ["영사조력법"], "group": "crossborder"},
+  {"id": "trafficking", "name": "인신매매등방지 및 피해자보호 등에 관한 법률", "kind": "법률", "aliases": ["인신매매등방지법", "인신매매방지법"], "group": "crossborder"}
+ ]
+}

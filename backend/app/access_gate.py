@@ -59,6 +59,8 @@ OPEN_PATHS = {
 ADMIN_PREFIXES = (
     "/dashboard",
     "/investigation",
+    "/guidance",
+    "/legal",
     "/quality",
     "/eval",
     "/knowledge",
