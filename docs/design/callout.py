@@ -6,6 +6,8 @@
 - 출력: docs/design/<이름>.svg. 왼쪽에 화면, 오른쪽에 설명을 두고 번호가 같은 점끼리 점선으로 잇는다.
 - 화면 위에 그리는 표시(테두리, 점, 점선)는 밝은 화면과 어두운 화면 어디서나 같은 색(theme.css의 --mark)을 쓴다.
 - 설명은 낱말과 짧은 문장만 적는다. 긴 설명은 그림 아래 문서에 번호로 적는다.
+- json에서 고를 수 있는 것: img_w(화면 폭, 기본 800), canvas_w(그림 폭, 기본 1280), header(false면 단계 표시와 제목을 빼고 화면과 설명만),
+  label_dx(화면과 설명 사이, 기본 70), title_size·sub_size(설명 글자 크기). 조각마다 폭이 달라도 된다.
 - 화면은 지어낸 통화로 찍은 것만 쓴다.
 """
 import json
@@ -27,15 +29,19 @@ TITLE_LINE, SUB_LINE = 30, 25
 def build(spec: dict) -> str:
     parts, callouts = spec["parts"], spec["callouts"]
     img_w = spec.get("img_w", 800)
-    scale = img_w / parts[0]["w"]
-    has_lead = bool(spec.get("lead"))
-    top = 104 if has_lead else 78
+    canvas_w = spec.get("canvas_w", WIDTH)
+    header = spec.get("header", True)  # False면 단계 표시와 제목 없이 화면과 설명만 그린다(슬라이드처럼 제목이 따로 있을 때)
+    title_size, sub_size = spec.get("title_size", TITLE_SIZE), spec.get("sub_size", SUB_SIZE)
+    title_line, sub_line = round(title_size * TITLE_LINE / TITLE_SIZE), round(sub_size * SUB_LINE / SUB_SIZE)
+    has_lead = header and bool(spec.get("lead"))
+    top = (104 if has_lead else 78) if header else MARGIN
 
     # 화면 조각의 자리
     placed, y = [], top
     for part in parts:
+        scale = img_w / part["w"]  # 조각마다 폭이 다를 수 있다(다른 화면에서 찍은 조각)
         height = part["h"] * scale
-        placed.append({"x": MARGIN, "y": y, "w": img_w, "h": height, "file": part["file"]})
+        placed.append({"x": MARGIN, "y": y, "w": img_w, "h": height, "file": part["file"], "scale": scale})
         y += height + GAP
     img_bottom = y - GAP
     img_right = MARGIN + img_w
@@ -44,16 +50,17 @@ def build(spec: dict) -> str:
     marks = []
     for index, item in enumerate(callouts, start=1):
         part = placed[item["part"]]
+        scale = part["scale"]
         x, y0 = part["x"] + item["x"] * scale - 6, part["y"] + item["y"] * scale - 5
         w, h = item["w"] * scale + 12, item["h"] * scale + 10
         x, w = max(x, MARGIN + 2), min(w, img_right - 2 - max(x, MARGIN + 2))
         marks.append({"n": index, "x": x, "y": y0, "w": w, "h": h, "dot_x": x + w, "dot_y": y0, "label": item["label"], "sub": item.get("sub", [])})
 
     # 오른쪽 설명의 자리: 점과 같은 높이에 두되 서로 겹치지 않게 아래로 민다
-    label_x = img_right + 70
+    label_x = img_right + spec.get("label_dx", 70)
     cursor = top + DOT_R
     for mark in sorted(marks, key=lambda m: m["dot_y"]):
-        height = TITLE_LINE + SUB_LINE * len(mark["sub"]) + 16
+        height = title_line + sub_line * len(mark["sub"]) + 16
         mark["cy"] = max(mark["dot_y"], cursor)
         cursor = mark["cy"] + height
     bottom = max(img_bottom, cursor - 16) + MARGIN
@@ -73,16 +80,17 @@ def build(spec: dict) -> str:
 
     out = [
         '<?xml-stylesheet href="theme.css" type="text/css"?>',
-        f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{WIDTH}" height="{round(bottom)}" viewBox="0 0 {WIDTH} {round(bottom)}">',
+        f'<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="{canvas_w}" height="{round(bottom)}" viewBox="0 0 {canvas_w} {round(bottom)}">',
         f'  <!-- callout.py가 callouts/{spec["name"]}.json으로 만든 그림이다. 직접 고치지 말고 json을 고친 뒤 다시 만든다. -->',
-        f'  <rect class="card" x="1" y="1" width="{WIDTH - 2}" height="{round(bottom) - 2}" rx="24"/>',
+        f'  <rect class="card" x="1" y="1" width="{canvas_w - 2}" height="{round(bottom) - 2}" rx="24"/>',
     ]
     # 머리: 단계 표시와 한 줄 설명
     step = spec.get("step", "")
     pill_w = 28 + 17 * len(step)
-    out.append(f'  <rect class="f-node" x="{MARGIN}" y="24" width="{pill_w}" height="40" rx="20"/>')
-    out.append(f'  <text class="kr f-node-ink" x="{MARGIN + pill_w / 2}" y="52" font-size="21" font-weight="700" text-anchor="middle">{escape(step)}</text>')
-    out.append(f'  <text class="kr f-ink" x="{MARGIN + pill_w + 16}" y="54" font-size="28" font-weight="800" letter-spacing="-0.5">{escape(spec.get("title", ""))}</text>')
+    if header:
+        out.append(f'  <rect class="f-node" x="{MARGIN}" y="24" width="{pill_w}" height="40" rx="20"/>')
+        out.append(f'  <text class="kr f-node-ink" x="{MARGIN + pill_w / 2}" y="52" font-size="21" font-weight="700" text-anchor="middle">{escape(step)}</text>')
+        out.append(f'  <text class="kr f-ink" x="{MARGIN + pill_w + 16}" y="54" font-size="28" font-weight="800" letter-spacing="-0.5">{escape(spec.get("title", ""))}</text>')
     if has_lead:
         out.append(f'  <text class="kr f-muted" x="{MARGIN}" y="90" font-size="19" font-weight="500">{escape(spec["lead"])}</text>')
 
@@ -110,7 +118,8 @@ def build(spec: dict) -> str:
         start_x, end_x = mark["dot_x"] + DOT_R, label_x - DOT_R - 6
         if mark["rise"]:
             high = mark["dot_y"] - mark["rise"]
-            out.append(f"    <path d=\"M{mark[chr(100) + chr(111) + chr(116) + chr(95) + chr(120)]:.1f} {mark[chr(100) + chr(111) + chr(116) + chr(95) + chr(121)] - DOT_R:.1f} V{high:.1f} H{mark[chr(108) + chr(97) + chr(110) + chr(101)]:.1f} V{mark[chr(99) + chr(121)]:.1f} H{end_x:.1f}\"/>")
+            dot_x, dot_top, lane_x, label_y = mark['dot_x'], mark['dot_y'] - DOT_R, mark['lane'], mark['cy']
+            out.append(f'    <path d="M{dot_x:.1f} {dot_top:.1f} V{high:.1f} H{lane_x:.1f} V{label_y:.1f} H{end_x:.1f}"/>')
         elif abs(mark["cy"] - mark["dot_y"]) < 1.5:
             out.append(f'    <path d="M{start_x:.1f} {mark["dot_y"]:.1f} H{end_x:.1f}"/>')
         else:
@@ -125,9 +134,9 @@ def build(spec: dict) -> str:
     # 오른쪽 설명
     for mark in marks:
         text_x, base = label_x + DOT_R + 12, mark["cy"] + 8
-        out.append(f'  <text class="kr f-ink" x="{text_x}" y="{base:.1f}" font-size="{TITLE_SIZE}" font-weight="800" letter-spacing="-0.3">{escape(mark["label"])}</text>')
+        out.append(f'  <text class="kr f-ink" x="{text_x}" y="{base:.1f}" font-size="{title_size}" font-weight="800" letter-spacing="-0.3">{escape(mark["label"])}</text>')
         for row, line in enumerate(mark["sub"], start=1):
-            out.append(f'  <text class="kr f-muted" x="{text_x}" y="{base + 4 + SUB_LINE * row:.1f}" font-size="{SUB_SIZE}" font-weight="500">{escape(line)}</text>')
+            out.append(f'  <text class="kr f-muted" x="{text_x}" y="{base + 4 + sub_line * row:.1f}" font-size="{sub_size}" font-weight="500">{escape(line)}</text>')
     out.append("</svg>")
     return "\n".join(out) + "\n"
 
