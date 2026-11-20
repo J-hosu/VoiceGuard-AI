@@ -1,0 +1,372 @@
+{
+ "checked_at": "2026-11-20T18:43:03+09:00",
+ "source": "법제처 국가법령정보 공동활용 Open API(시행일 법령 목록)",
+ "laws": {
+  "cpa": {
+   "state": "current",
+   "stored": {
+    "mst": "290189",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290189",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [
+    {
+     "effective_date": "2027-02-05",
+     "mst": "288579",
+     "promulgation": "법률 제21857호, 2026. 8. 4.",
+     "changed": [
+      "제197조의4",
+      "제260조",
+      "제261조"
+     ],
+     "added": [],
+     "removed": []
+    },
+    {
+     "effective_date": "2027-08-05",
+     "mst": "288579",
+     "promulgation": "법률 제21857호, 2026. 8. 4.",
+     "changed": [],
+     "added": [
+      "제220조의2",
+      "제244조의6"
+     ],
+     "removed": []
+    },
+    {
+     "effective_date": "2027-12-31",
+     "mst": "281865",
+     "promulgation": "법률 제21241호, 2025. 12. 30.",
+     "changed": [
+      "제59조의3"
+     ],
+     "added": [],
+     "removed": []
+    }
+   ],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "criminal": {
+   "state": "current",
+   "stored": {
+    "mst": "290185",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290185",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "telefraud": {
+   "state": "current",
+   "stored": {
+    "mst": "290245",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290245",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "econcrime": {
+   "state": "current",
+   "stored": {
+    "mst": "199773",
+    "effective_date": "2018-03-20"
+   },
+   "remote": {
+    "mst": "199773",
+    "effective_date": "2018-03-20"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "eft": {
+   "state": "current",
+   "stored": {
+    "mst": "290247",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290247",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [
+    {
+     "effective_date": "2026-12-17",
+     "mst": "280277",
+     "promulgation": "법률 제21205호, 2025. 12. 16.",
+     "changed": [
+      "제2조",
+      "제3조",
+      "제25조의2",
+      "제28조",
+      "제30조",
+      "제32조",
+      "제43조",
+      "제49조",
+      "제51조"
+     ],
+     "added": [
+      "제25조의4",
+      "제25조의5",
+      "제33조의3",
+      "제36조의3",
+      "제42조의2"
+     ],
+     "removed": []
+    }
+   ],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "proceeds": {
+   "state": "current",
+   "stored": {
+    "mst": "238751",
+    "effective_date": "2022-01-04"
+   },
+   "remote": {
+    "mst": "238751",
+    "effective_date": "2022-01-04"
+   },
+   "upcoming": [
+    {
+     "effective_date": "2027-09-09",
+     "mst": "289303",
+     "promulgation": "법률 제21886호, 2026. 9. 8.",
+     "changed": [
+      "제2조"
+     ],
+     "added": [
+      "제14조",
+      "제15조",
+      "제16조",
+      "제17조",
+      "제18조",
+      "제19조",
+      "제20조",
+      "제21조",
+      "제22조",
+      "제23조",
+      "제24조"
+     ],
+     "removed": []
+    }
+   ],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "recovery": {
+   "state": "current",
+   "stored": {
+    "mst": "285909",
+    "effective_date": "2026-11-13"
+   },
+   "remote": {
+    "mst": "285909",
+    "effective_date": "2026-11-13"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "sca": {
+   "state": "current",
+   "stored": {
+    "mst": "290127",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290127",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [
+    {
+     "effective_date": "2028-10-02",
+     "mst": "285131",
+     "promulgation": "법률 제21491호, 2026. 3. 24.",
+     "changed": [],
+     "added": [],
+     "removed": [],
+     "deferred": {
+      "articles": [
+       "제19조"
+      ],
+      "note": "제19조제4호는 2028년 10월 2일부터 시행"
+     }
+    }
+   ],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "sca_decree": {
+   "state": "current",
+   "stored": {
+    "mst": "290487",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290487",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "ppo": {
+   "state": "current",
+   "stored": {
+    "mst": "290007",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290007",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "cio": {
+   "state": "current",
+   "stored": {
+    "mst": "290231",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290231",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [
+    {
+     "effective_date": "2027-02-05",
+     "mst": "290231",
+     "promulgation": "법률 제22053호, 2026. 9. 29.",
+     "changed": [
+      "제29조"
+     ],
+     "added": [],
+     "removed": []
+    }
+   ],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "police_rule": {
+   "state": "current",
+   "stored": {
+    "mst": "290929",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290929",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "police_org": {
+   "state": "current",
+   "stored": {
+    "mst": "290137",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290137",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "extradition": {
+   "state": "current",
+   "stored": {
+    "mst": "290701",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290701",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "mla": {
+   "state": "current",
+   "stored": {
+    "mst": "290687",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290687",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "passport": {
+   "state": "current",
+   "stored": {
+    "mst": "283681",
+    "effective_date": "2026-08-28"
+   },
+   "remote": {
+    "mst": "283681",
+    "effective_date": "2026-08-28"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "prisoner": {
+   "state": "current",
+   "stored": {
+    "mst": "290685",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290685",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "consular": {
+   "state": "current",
+   "stored": {
+    "mst": "231661",
+    "effective_date": "2021-04-20"
+   },
+   "remote": {
+    "mst": "231661",
+    "effective_date": "2021-04-20"
+   },
+   "upcoming": [],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  },
+  "trafficking": {
+   "state": "current",
+   "stored": {
+    "mst": "290217",
+    "effective_date": "2026-10-02"
+   },
+   "remote": {
+    "mst": "290217",
+    "effective_date": "2026-10-02"
+   },
+   "upcoming": [
+    {
+     "effective_date": "2026-12-08",
+     "mst": "285381",
+     "promulgation": "법률 제21534호, 2026. 4. 7.",
+     "changed": [
+      "제11조"
+     ],
+     "added": [],
+     "removed": []
+    }
+   ],
+   "checked_at": "2026-11-20T18:43:03+09:00"
+  }
+ }
+}

@@ -363,6 +363,31 @@ def _deadline(spec: dict, facts: dict, today: date) -> dict:
     return result
 
 
+def basis_alerts(basis: list[dict]) -> list[str]:
+    """근거 조문에 붙일 알림. 조문이 실제로 바뀐 경우와, 법령의 새 판이 시행됐지만 그 조문은 그대로인 경우를 나눠 말한다."""
+    alerts: list[str] = []
+    for entry in basis:
+        if entry["law_changed"] and entry["article_changed"]:
+            alerts.append(f"{entry['ref']}: 새 판에서 바뀐 조문입니다. 조문을 다시 받아 규칙을 확인해야 합니다.")
+        if entry["upcoming_change"]:
+            alerts.append(f"{entry['ref']}: {entry['upcoming_change']}에 바뀔 예정입니다.")
+        if entry["pending_note"]:
+            alerts.append(f"{entry['ref']}: 시행일이 따로 정해진 부분이 있습니다. {entry['pending_note']}")
+    # 법령의 새 판이 시행됐지만 이 항목의 근거 조문은 바뀌지 않은 경우: 조문마다 되풀이하지 않고 법령 단위로 한 번만 알린다.
+    by_law: dict[str, list[dict]] = {}
+    for entry in basis:
+        if entry["law_changed"]:
+            by_law.setdefault(entry["law_short"], []).append(entry)
+    for law, entries in by_law.items():
+        if any(entry["article_changed"] for entry in entries):
+            continue
+        if any(entry["article_changed"] is None for entry in entries):
+            alerts.append(f"{law}: 새 판이 시행됐습니다. 어느 조문이 바뀌었는지는 변경 확인을 다시 실행해야 알 수 있습니다.")
+        else:
+            alerts.append(f"{law}: 새 판이 시행됐지만 이 항목의 근거 조문은 바뀌지 않았습니다(조문을 다시 받으면 이 알림이 사라집니다).")
+    return alerts
+
+
 def evaluate(facts: dict, today: Optional[date] = None) -> dict:
     """사건 사실에 규칙표를 적용한다. facts는 죄명 후보·이득액·예/아니오·날짜가 든 dict다."""
     today = today or date.today()
@@ -381,7 +406,8 @@ def evaluate(facts: dict, today: Optional[date] = None) -> dict:
                 if provision is None:
                     missing.append(f"{law} {article}")
                     continue
-                basis.append({key: provision[key] for key in ("ref", "heading", "law", "article", "url", "effective_date")})
+                basis.append({key: provision[key] for key in ("ref", "heading", "law", "law_short", "article", "url", "effective_date",
+                                                              "upcoming_change", "law_changed", "article_changed", "pending_note")})
             if missing:
                 logger.warning("규칙 %s의 근거 조문을 지식베이스에서 찾지 못했습니다: %s", rule["id"], ", ".join(missing))
             item = {
@@ -393,6 +419,8 @@ def evaluate(facts: dict, today: Optional[date] = None) -> dict:
                 "text": rule["text"],
                 "basis": basis,
                 "basis_missing": missing,
+                # 근거 조문이 바뀌었거나 바뀔 예정이면 알린다(규칙의 글은 받아 둔 조문 기준이다).
+                "alerts": basis_alerts(basis),
                 "needs": [{"fact": name, "label": FACT_LABELS.get(name, name)} for name in rule.get("needs", [])],
             }
             if "deadline" in rule:
@@ -455,7 +483,7 @@ def guidance(log_id: int, today: Optional[date] = None) -> dict:
             "help": {key: FACT_HELP[key] for key in ("charges", "gain_amount")},
         },
         "legal_data": {"fetched_from": status["fetched_from"], "latest_fetch": status["latest_fetch"], "law_count": status["law_count"]},
-        "pending": "상대국(캄보디아 등)의 법령과 조약이 정한 요건·기한은 아직 지식베이스에 없습니다.",
+        "pending": "한·캄 조약 본문은 받아 두었지만 조약 조문에 기대는 판정은 아직 없고, 캄보디아 국내 법령은 지식베이스에 없습니다.",
         "notice": NOTICE,
         "deadline_note": DEADLINE_NOTE,
     }

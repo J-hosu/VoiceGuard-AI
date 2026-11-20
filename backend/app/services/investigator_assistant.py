@@ -87,8 +87,9 @@ SYSTEM_PROMPT = """너는 VoiceGuard AI의 수사 지원 도우미다. 보이스
 
 [법령과 절차 안내]
 - 법령, 절차, 담당 기관, 기한에 관한 질문은 search_legal(받아 둔 조문 찾기)과 get_case_guidance(통화별 절차 안내)의 결과로만 답한다. 기억으로 답하지 않는다. 2026년 10월에 검찰청이 폐지되고 공소청과 중대범죄수사청이 생겨 예전 지식은 틀릴 수 있다.
+- 조문 결과에 upcoming_change가 있으면 "이 조문은 그 날짜에 바뀔 예정"이라고, law_changed가 참이면 "이 법령은 새 판이 시행됐다"고 알리고 article_changed가 참이면 "이 조문은 새 판에서 바뀌어 저장된 글이 옛 글"이라고, 거짓이면 "이 조문의 글은 그대로"라고 덧붙인다. pending_note가 있으면 그 글을 인용해 "시행일이 따로 정해진 부분이 있다"고 함께 알린다.
 - 근거 조문은 도구가 돌려준 표기(ref) 그대로 '중수청법 제43조'처럼 붙인다. 도구 결과에 없는 조문 번호, 기한, 기관 이름, 금액 기준은 쓰지 않는다.
-- 찾는 조문이 없으면 "받아 둔 조문에서 찾지 못했다"고 답한다. 상대국(캄보디아 등)의 법령과 조약은 아직 자료가 없다고 말한다.
+- 찾는 조문이 없으면 "받아 둔 조문에서 찾지 못했다"고 답한다. 한·캄 형사사법공조조약과 범죄인인도협정은 받아 둔 본문에서 찾아 답하고, 캄보디아 국내 법령은 아직 자료가 없다고 말한다.
 - 절차 안내는 조문과 규칙표로 계산한 참고 자료다. 자동 추정(from_hints)으로 나온 판단은 추정이라고 밝히고, 답 끝에 "실제 통보·청구는 소속 기관 지침과 담당 부서 확인이 필요하다"는 한 줄을 붙인다.
 
 [할 수 없는 일]
@@ -588,6 +589,15 @@ def tool_search_legal(args: dict, run: _Run) -> dict:
                 "text": _clip(full["text"], LEGAL_TEXT_CHARS),
                 "effective_date": item["effective_date"],
                 "url": item["url"],
+                # 시행 예정인 개정이 이 조문을 바꾸면 그 날짜(없으면 빈 글). 답할 때 함께 알린다.
+                "upcoming_change": item.get("upcoming_change", ""),
+                # 저장된 판이 이미 옛 판이면 참, 시행일이 따로 정해진 부분이 있으면 그 표시.
+                "law_changed": bool(item.get("law_changed")),
+                # 법령의 새 판이 시행됐을 때 이 조문의 글이 달라졌는지: true(달라짐) · false(그대로) · null(모름).
+                "article_changed": item.get("article_changed"),
+                "pending_note": item.get("pending_note", ""),
+                # 조약이면 정본 언어와 해석이 갈릴 때 우선하는 본을 적은 서명 문구.
+                "law_note": item.get("law_note", ""),
             }
         )
     return {
@@ -595,7 +605,7 @@ def tool_search_legal(args: dict, run: _Run) -> dict:
         "results": results,
         "source": f"{status['fetched_from']}에서 {status['latest_fetch'][:10]}에 받은 조문",
         "note": (
-            "결과의 글만 근거로 쓴다. 상대국(캄보디아 등)의 법령과 조약은 아직 자료가 없다."
+            "결과의 글만 근거로 쓴다. 캄보디아 국내 법령은 아직 자료가 없다(한·캄 조약 두 건의 본문은 받아 두었다)."
             if results
             else "받아 둔 조문에서 찾지 못했다. 다른 말로 다시 찾거나, 자료가 없다고 답한다."
         ),
@@ -617,6 +627,7 @@ def tool_get_case_guidance(args: dict, run: _Run) -> dict:
                 "kind": {"duty": "해야 할 일", "need": "입력 필요", "caution": "주의"}.get(item["level"], "안내"),
                 "text": _clip(item["text"], GUIDE_TEXT_CHARS),
                 "basis": [basis["ref"] for basis in item["basis"]],
+                "alerts": item.get("alerts", []),
                 "deadline": (
                     {"label": item["deadline"]["label"], "due": item["deadline"]["due"], "needs": None if item["deadline"]["due"] else item["deadline"]["from_label"]}
                     if item.get("deadline")

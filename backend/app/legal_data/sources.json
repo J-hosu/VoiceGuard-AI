@@ -1,5 +1,5 @@
 {
- "note": "수사 지원의 법령 안내에 쓰는 법령 목록. backend/app/fetch_legal.py가 국가법령정보센터에서 받아 kr/<id>.json으로 저장한다. group: common(두 기능이 함께 씀), allocation(수사 배분·법 안내), crossborder(해외 연계 사건).",
+ "note": "수사 지원의 법령 안내에 쓰는 법령·조약 목록. backend/app/fetch_legal.py가 법제처 Open API(인증키가 없으면 국가법령정보센터 웹 화면)에서 받아 kr/<id>.json으로 저장한다. group: common(두 기능이 함께 씀) · allocation(수사 배분) · crossborder(해외 연계). 조약은 target이 trty이고 treaty_id는 조약일련번호다.",
  "laws": [
   {"id": "cpa", "name": "형사소송법", "kind": "법률", "aliases": ["형소법"], "group": "common"},
   {"id": "criminal", "name": "형법", "kind": "법률", "aliases": [], "group": "common"},
@@ -19,6 +19,8 @@
   {"id": "passport", "name": "여권법", "kind": "법률", "aliases": [], "group": "crossborder"},
   {"id": "prisoner", "name": "국제수형자이송법", "kind": "법률", "aliases": [], "group": "crossborder"},
   {"id": "consular", "name": "재외국민보호를 위한 영사조력법", "kind": "법률", "aliases": ["영사조력법"], "group": "crossborder"},
-  {"id": "trafficking", "name": "인신매매등방지 및 피해자보호 등에 관한 법률", "kind": "법률", "aliases": ["인신매매등방지법", "인신매매방지법"], "group": "crossborder"}
+  {"id": "trafficking", "name": "인신매매등방지 및 피해자보호 등에 관한 법률", "kind": "법률", "aliases": ["인신매매등방지법", "인신매매방지법"], "group": "crossborder"},
+  {"id": "trty_kh_mla", "target": "trty", "treaty_id": "15641", "name": "대한민국 정부와 캄보디아왕국 정부 간의 형사 사법공조 조약", "kind": "조약", "aliases": ["한캄 형사사법공조조약", "한·캄 형사사법공조조약", "캄보디아 공조조약"], "group": "crossborder", "counterpart": "캄보디아"},
+  {"id": "trty_kh_extradition", "target": "trty", "treaty_id": "4695", "name": "대한민국 정부와 캄보디아왕국 정부 간의 범죄인인도협정", "kind": "조약", "aliases": ["한캄 범죄인인도협정", "한·캄 범죄인인도협정", "캄보디아 범죄인인도협정"], "group": "crossborder", "counterpart": "캄보디아"}
  ]
 }

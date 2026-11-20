@@ -690,7 +690,7 @@ FastAPI가 제공하는 정적 웹 페이지이며 위 API를 호출합니다. `
 | `stats(since_date)` | `investigation.list_cases`, `investigation.stats` | 위험도 단계별 건수, 주의·높음 통화의 유형별 건수, 피해 확인·단서 겹침 수 |
 | `get_report_link(log_id)` | (주소만 만듦) | 상대 주소 `/calls/{log_id}/report?format=md`, `/dashboard#case={log_id}` |
 | `list_scam_cards(status, limit≤10)` | `scam_knowledge.list_cards`, `scam_knowledge.status` | `pending`·`approved` 카드, 상태별 수, 마지막 수집 |
-| `search_legal(query, law)` | `legal_kb.search` | 미리 받아 둔 조문 5개까지: 법령과 조 번호, 제목, 본문(1,200자까지), 시행일, 국가법령정보센터 주소. 없으면 찾지 못했다고 알림 |
+| `search_legal(query, law)` | `legal_kb.search` | 미리 받아 둔 조문 5개까지: 법령과 조 번호, 제목, 본문(1,200자까지), 시행일, 국가법령정보센터 주소, 변경 확인 표시(개정 예정일, 저장된 판이 옛 판인지, 시행일이 따로 정해진 부분), 조약의 서명 문구. 없으면 찾지 못했다고 알림 |
 | `get_case_guidance(log_id)` | `case_guidance.guidance` | 통화 한 건의 절차 안내: 요약 문장, 사건 사실(확인한 값과 자동 추정), 안내 항목(근거 조문, 기한). 영장·송치 같은 기본 절차 안내는 뺌 |
 | `start_scam_collection()` | `scam_knowledge.collect_in_background` | 수동 수집 시작(`started`)·이미 수집 중(`busy`). 검토 대기 카드만 만듦. 수사관의 그 메시지에 수집을 시키는 말('수집해줘'·'수집 시작', 또는 수법·사례·새 글과 '모아줘'·'가져와')이 없으면 실행하지 않음. '위험 통화 모아서 보여줘'·'전사 가져와' 같은 읽기 요청은 수집 요청으로 보지 않음 |
 

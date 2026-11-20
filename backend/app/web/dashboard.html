@@ -1534,7 +1534,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
   }
   function lawRef(b) {
     var url = safeUrl(b.url);
-    var label = b.ref + (b.heading ? ' ' + b.heading : '');
+    var label = b.ref + (b.heading ? ' ' + b.heading : '') + (b.article_changed === true ? ' · 조문 바뀜' : b.law_changed && b.article_changed !== false ? ' · 법령 새 판 시행' : '') + (b.upcoming_change ? ' · ' + b.upcoming_change + ' 개정 예정' : '');
     return url ? h('a', { class: 'law-ref', href: url, target: '_blank', rel: 'noopener noreferrer', title: '국가법령정보센터에서 열기' }, label, icon('external'))
                : h('span', { class: 'law-ref', text: label });
   }
@@ -1553,6 +1553,7 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
         h('span', { class: 'guide-title', text: it.title }),
         dueTag(it.deadline)),
       h('p', { class: 'guide-text', text: it.text }),
+      arr(it.alerts).length ? h('p', { class: 'caption', text: '근거 조문 변경 알림: ' + arr(it.alerts).join(' ') }) : null,
       arr(it.basis).length ? h('div', { class: 'guide-basis' }, arr(it.basis).map(lawRef)) : null);
   }
   function fillGuidance(box) {
@@ -1667,7 +1668,8 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     var st = state.legalStatus, inner = clear($('legalInner'));
     var fetched = String(st.latest_fetch || '').slice(0, 10);
     inner.appendChild(viewHead('법령·절차',
-      st.fetched_from + '에서 미리 받아 둔 조문 ' + st.provision_count + '개(법령 ' + st.law_count + '개)에서 찾습니다. 마지막으로 받은 날은 ' + (fetched || '알 수 없음') + '입니다. AI가 만든 글이 아니라 받은 조문 그대로입니다.'));
+      st.fetched_from + '에서 미리 받아 둔 조문 ' + st.provision_count + '개(법령·조약 ' + st.law_count + '개)에서 찾습니다. 마지막으로 받은 날은 ' + (fetched || '알 수 없음') + '입니다. AI가 만든 글이 아니라 받은 조문 그대로입니다.'
+      + (st.updates && st.updates.checked_at ? ' 법령 변경은 ' + String(st.updates.checked_at).slice(0, 10) + '에 확인했습니다.' : '')));
     var input = h('input', { type: 'search', id: 'legalQ', placeholder: '찾을 말 (예: 보완수사 요구 기한, 중수청법 43조)', autocomplete: 'off', spellcheck: 'false', 'aria-label': '조문 찾기' });
     var select = h('select', { id: 'legalLaw', 'aria-label': '법령 고르기' }, h('option', { value: '', text: '모든 법령' }),
       arr(st.laws).map(function (l) { return h('option', { value: l.name, text: l.short }); }));
@@ -1680,13 +1682,16 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
     inner.appendChild(h('div', { id: 'legalResults', role: 'region', 'aria-live': 'polite', 'aria-label': '찾은 조문' }));
     inner.appendChild(h('section', { class: 'card', style: 'margin-top:18px' }, h('h2', null, '받아 둔 법령', h('span', { class: 'cnt', text: String(st.law_count) })),
       h('div', { class: 'table-scroll' }, h('table', { class: 'law-table' },
-        h('thead', null, h('tr', null, ['법령', '시행일', '공포', '조문', '받은 날'].map(function (t) { return h('th', { scope: 'col', text: t }); }))),
+        h('thead', null, h('tr', null, ['법령', '시행일', '공포', '조문', '받은 날', '변경 확인'].map(function (t) { return h('th', { scope: 'col', text: t }); }))),
         h('tbody', null, arr(st.laws).map(function (l) {
           var url = safeUrl(l.source_url);
           return h('tr', null,
             h('td', null, url ? h('a', { href: url, target: '_blank', rel: 'noopener noreferrer', text: l.name }) : l.name),
             h('td', { text: l.effective_date }), h('td', { text: l.promulgation }), h('td', { class: 'num', text: String(l.provision_count) }),
-            h('td', { text: String(l.fetched_at || '').slice(0, 10) }));
+            h('td', { text: String(l.fetched_at || '').slice(0, 10) }),
+            h('td', { text: l.update === 'changed' ? '새 판 시행됨(다시 받아야 함)' : l.update === 'unknown' ? '확인 실패'
+              : (arr(l.upcoming).length ? '최신 · ' + (l.upcoming_label || arr(l.upcoming).join(', ') + ' 개정 예정') : l.update === 'current' ? '최신' : l.kind === '조약' ? '해당 없음' : '확인 전')
+                + (l.update_failed ? ' (마지막 확인 실패, 앞선 결과)' : '') }));
         }))))));
     if (state.legalQuery) { input.value = state.legalQuery.q; select.value = state.legalQuery.law; showLegalResults(state.legalQuery.results); }
   }
@@ -1714,7 +1719,8 @@ span.turn-link { border-color: var(--line); background: #F8FAFC; color: var(--in
       var url = safeUrl(r.url);
       box.appendChild(h('article', { class: 'law-card' },
         h('h3', { text: r.ref + (r.heading ? ' (' + r.heading + ')' : '') }),
-        h('p', { class: 'law-meta', text: r.law + ' · 시행 ' + r.effective_date }),
+        h('p', { class: 'law-meta', text: r.law + ' · 시행 ' + r.effective_date + (r.article_changed === true ? ' · 이 조문은 새 판에서 바뀌었습니다(다시 받아야 함)' : r.law_changed ? ' · 이 법령은 새 판이 시행됐습니다(다시 받아야 함)' + (r.article_changed === false ? '. 이 조문의 글은 그대로입니다' : '') : '') + (r.upcoming_change ? ' · 이 조문은 ' + r.upcoming_change + '에 바뀔 예정입니다' : '') + (r.pending_note ? ' · 시행일이 따로 정해진 부분이 있습니다: ' + r.pending_note : '') }),
+        r.law_note ? h('p', { class: 'law-meta', text: '서명 문구: ' + r.law_note }) : null,
         text,
         h('div', { class: 'law-actions' }, /…$/.test(r.text) ? more : null,
           url ? h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener noreferrer' }, icon('external'), '국가법령정보센터에서 열기') : null)));
