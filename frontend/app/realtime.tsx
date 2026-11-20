@@ -42,7 +42,7 @@ import { USE_MOCK_STT } from '@/core/config/env';
 import { PRIVACY_NOTICE_SHORT } from '@/core/config/privacy';
 import { evidenceBullets } from '@/data/mock/infoContent';
 import { getScenario, type Scenario } from '@/data/mock/mockScenarios';
-import type { AgentAction, LiveChunk, RefinedTranscript, SpeakerSide, TranscriptTurn } from '@/data/models/types';
+import type { AgentAction, LiveChunk, RefinedTranscript, RefinedTurn, SpeakerSide, TranscriptTurn } from '@/data/models/types';
 import { isProvisional, useCallSession, type HaltReason, type TurnTag } from '@/hooks/useCallSession';
 import { useCallStore } from '@/state/callStore';
 import { useDemoStore } from '@/state/demoStore';
@@ -409,6 +409,7 @@ export default function Realtime() {
           <TranscriptView
             turns={state.turns}
             tags={state.tags}
+            turnSpans={state.turnSpans}
             speakerKnown={scenario.turns.length > 0}
             refined={state.refined}
             live={state.liveChunks}
@@ -1067,9 +1068,53 @@ function tagFor(turn: TranscriptTurn, tags: Record<number, TurnTag>): TurnTag | 
   return found ? { role, tactics } : null;
 }
 
+/**
+ * 정리본 말풍선에 추적기의 수법 태그를 붙인다. 태그는 실시간 발화(서버 발화 번호)에 달려 오는데 정리본은 그 발화를
+ * 화자별로 다시 나눈 것이라 번호가 없다. 그래서 그 발화가 들린 시각(turnSpans)과 가장 많이 겹치는 정리본 말풍선에 옮겨 단다.
+ * 태그의 역할(상대방/나)과 같은 쪽 말풍선을 먼저 찾고, 없으면 쪽을 가리지 않는다. 겹치는 말풍선이 아직 없으면
+ * (정리본이 그 구간에 닿기 전) 붙이지 않는다. 반환: 정리본 말풍선 id → 수법 목록.
+ */
+function tacticsForRefined(
+  refined: RefinedTranscript,
+  tags: Record<number, TurnTag>,
+  turnSpans: Record<number, [number, number]>,
+): Record<string, string[]> {
+  const out: Record<string, string[]> = {};
+  for (const key of Object.keys(tags)) {
+    const tag = tags[Number(key)];
+    const span = turnSpans[Number(key)];
+    if (!tag || !span) continue;
+    const tactics = tag.tactics.filter((x) => TACTIC_LABELS[x]);
+    if (tactics.length === 0) continue;
+    const wanted: SpeakerSide | null = tag.role === 'user' ? 'me' : tag.role === 'suspect' ? 'other' : null;
+    let best: RefinedTurn | null = null;
+    let bestOverlap = 0;
+    let bestSame: RefinedTurn | null = null;
+    let bestSameOverlap = 0;
+    for (const t of refined.turns) {
+      const overlap = Math.min(span[1], t.tEnd) - Math.max(span[0], t.tStart);
+      if (overlap <= 0) continue;
+      if (overlap > bestOverlap) {
+        best = t;
+        bestOverlap = overlap;
+      }
+      if (wanted !== null && (refined.sides[String(t.speaker)] ?? 'unknown') === wanted && overlap > bestSameOverlap) {
+        bestSame = t;
+        bestSameOverlap = overlap;
+      }
+    }
+    const target = bestSame ?? best;
+    if (!target) continue;
+    const list = out[target.id] ?? (out[target.id] = []);
+    for (const x of tactics) if (!list.includes(x)) list.push(x);
+  }
+  return out;
+}
+
 function TranscriptView({
   turns,
   tags,
+  turnSpans,
   speakerKnown,
   refined,
   live,
@@ -1080,6 +1125,7 @@ function TranscriptView({
 }: {
   turns: TranscriptTurn[];
   tags: Record<number, TurnTag>;
+  turnSpans: Record<number, [number, number]>; // 서버 발화 번호 → 들린 시각(초). 정리본 말풍선에 태그를 옮겨 달 때 쓴다
   speakerKnown: boolean; // 대본 통화: 발화마다 누가 한 말인지 이미 안다(isMine)
   refined: RefinedTranscript | null;
   live: LiveChunk[];
@@ -1093,6 +1139,7 @@ function TranscriptView({
   const [unseen, setUnseen] = useState(false);
 
   // 정리본(화자 구분 전사)이 오기 시작했으면 그것을, 아니면 실시간 발화를 그린다.
+  const refinedTactics = refined ? tacticsForRefined(refined, tags, turnSpans) : {};
   const items: ChatItem[] = refined
     ? refined.turns.map((t) => {
         const side = refined.sides[String(t.speaker)] ?? 'unknown';
@@ -1102,7 +1149,7 @@ function TranscriptView({
           speakerKey: `s${t.speaker}`,
           label: side === 'me' ? '나' : side === 'other' ? '상대방' : `화자 ${t.speaker + 1} · 확인 중`,
           text: t.text,
-          tactics: [],
+          tactics: refinedTactics[t.id] ?? [],
         };
       })
     : turns.map((t) => {

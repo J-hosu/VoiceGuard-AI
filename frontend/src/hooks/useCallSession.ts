@@ -60,6 +60,9 @@ export interface CallSessionState {
   // 서버 발화 번호(turn_index) → 추적기가 붙인 역할·수법 태그. state_update는 바뀐 태그만 보내므로 받은 것을 쌓는다.
   // 대본(텍스트) 통화는 앱의 turnIndex가 곧 서버 번호이고, 마이크 통화는 말풍선마다 sourceTurns로 서버 번호를 남긴다.
   tags: Record<number, TurnTag>;
+  // 서버 발화 번호(turn_index) → 그 발화가 들린 통화 시각 [시작, 끝](초). 정리본이 실시간 발화를 대신한 뒤에도
+  // 추적기 태그를 시각이 겹치는 정리본 말풍선에 옮겨 달 수 있게 남겨 둔다(대화 내용 탭).
+  turnSpans: Record<number, [number, number]>;
   // ── 정리본 (transcript_refined) ──
   refined: RefinedTranscript | null; // 한 번도 안 왔으면 null(STT_REFINE=off): 화면은 기존 '방금 들린 말' 그대로
   liveChunks: LiveChunk[]; // 실시간 조각 원본. 정리본이 덮은 구간의 조각은 정리본이 올 때 지운다.
@@ -86,6 +89,7 @@ const INITIAL_STATE: CallSessionState = {
   summary: '',
   actions: [],
   tags: {},
+  turnSpans: {},
   refined: null,
   liveChunks: [],
 };
@@ -436,9 +440,16 @@ export function useCallSession(
               });
             }
           }
+          let turnSpans = prev.turnSpans;
+          for (const inc of incoming) {
+            if (inc.serverTurn === null) continue;
+            if (turnSpans === prev.turnSpans) turnSpans = { ...prev.turnSpans };
+            turnSpans[inc.serverTurn] = [inc.tStart, inc.tEnd];
+          }
           const next: CallSessionState = {
             ...prev,
             turns,
+            turnSpans,
             liveChunks: chunks.length > 0 ? [...prev.liveChunks, ...chunks] : prev.liveChunks,
             score,
             level,
@@ -657,6 +668,7 @@ export function useCallSession(
             coreEvidence: result.coreEvidence || latestRef.current.coreEvidence,
             // 재전사로 발화 번호가 새로 매겨졌으니 실시간 통화에서 받은 태그는 맞지 않는다.
             tags: {},
+            turnSpans: {},
             running: false,
           };
           connRef.current?.close();
