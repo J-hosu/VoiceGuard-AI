@@ -1,0 +1,54 @@
+<?xml-stylesheet href="theme.css" type="text/css"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="584" viewBox="0 0 1280 584">
+  <!-- callout.py가 callouts/flow_a1.json으로 만든 그림이다. 직접 고치지 말고 json을 고친 뒤 다시 만든다. -->
+  <rect class="card" x="1" y="1" width="1278" height="582" rx="24"/>
+  <rect class="f-node" x="28" y="24" width="164" height="40" rx="20"/>
+  <text class="kr f-node-ink" x="110.0" y="52" font-size="21" font-weight="700" text-anchor="middle">상황 A · 1</text>
+  <text class="kr f-ink" x="208" y="54" font-size="28" font-weight="800" letter-spacing="-0.5">사건을 연다</text>
+  <text class="kr f-muted" x="28" y="90" font-size="19" font-weight="500">사건 상세의 ‘절차 안내’ 칸이 지금 아는 사실로 계산한 결과를 먼저 보여 줍니다.</text>
+  <defs>
+    <clipPath id="clip0"><rect x="28" y="104.0" width="800" height="389.2" rx="12"/></clipPath>
+  </defs>
+  <image xlink:href="shots/flow_a1_1.png" href="shots/flow_a1_1.png" x="28" y="104.0" width="800" height="389.2" preserveAspectRatio="none" clip-path="url(#clip0)"/>
+  <rect class="f-none s-border" x="28" y="104.0" width="800" height="389.2" rx="12" stroke-width="2"/>
+  <g class="f-none s-mark" stroke-width="3" stroke-linejoin="round">
+    <rect class="mark-box" x="46.0" y="188.5" width="757.0" height="35.0" rx="9"/>
+    <rect class="mark-box" x="46.0" y="221.8" width="143.8" height="34.2" rx="9"/>
+    <rect class="mark-box" x="59.5" y="330.6" width="737.0" height="34.2" rx="9"/>
+    <rect class="mark-box" x="59.5" y="438.8" width="737.0" height="35.4" rx="9"/>
+  </g>
+  <g class="f-none s-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 7">
+    <path d="M817.0 188.5 H878.0"/>
+    <path d="M203.7 221.8 H871.0 V284.5 H878.0"/>
+    <path d="M810.5 330.6 H862.0 V380.5 H878.0"/>
+    <path d="M810.5 438.8 H853.0 V476.5 H878.0"/>
+  </g>
+  <circle class="f-mark" cx="803.0" cy="188.5" r="14"/>
+  <text class="en f-on-mark" x="803.0" y="195.0" font-size="18" font-weight="800" text-anchor="middle">1</text>
+  <circle class="f-mark" cx="898.0" cy="188.5" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="195.0" font-size="18" font-weight="800" text-anchor="middle">1</text>
+  <circle class="f-mark" cx="189.7" cy="221.8" r="14"/>
+  <text class="en f-on-mark" x="189.7" y="228.3" font-size="18" font-weight="800" text-anchor="middle">2</text>
+  <circle class="f-mark" cx="898.0" cy="284.5" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="291.0" font-size="18" font-weight="800" text-anchor="middle">2</text>
+  <circle class="f-mark" cx="796.5" cy="330.6" r="14"/>
+  <text class="en f-on-mark" x="796.5" y="337.1" font-size="18" font-weight="800" text-anchor="middle">3</text>
+  <circle class="f-mark" cx="898.0" cy="380.5" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="387.0" font-size="18" font-weight="800" text-anchor="middle">3</text>
+  <circle class="f-mark" cx="796.5" cy="438.8" r="14"/>
+  <text class="en f-on-mark" x="796.5" y="445.3" font-size="18" font-weight="800" text-anchor="middle">4</text>
+  <circle class="f-mark" cx="898.0" cy="476.5" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="483.0" font-size="18" font-weight="800" text-anchor="middle">4</text>
+  <text class="kr f-ink" x="924" y="196.5" font-size="23" font-weight="800" letter-spacing="-0.3">지금의 판정</text>
+  <text class="kr f-muted" x="924" y="225.5" font-size="18" font-weight="500">이득액을 몰라 통보 여부를</text>
+  <text class="kr f-muted" x="924" y="250.5" font-size="18" font-weight="500">아직 정하지 못한 상태</text>
+  <text class="kr f-ink" x="924" y="292.5" font-size="23" font-weight="800" letter-spacing="-0.3">자동 추정 표시</text>
+  <text class="kr f-muted" x="924" y="321.5" font-size="18" font-weight="500">죄명 후보는 통화의 사기</text>
+  <text class="kr f-muted" x="924" y="346.5" font-size="18" font-weight="500">유형에서 짐작한 값</text>
+  <text class="kr f-ink" x="924" y="388.5" font-size="23" font-weight="800" letter-spacing="-0.3">입력 필요</text>
+  <text class="kr f-muted" x="924" y="417.5" font-size="18" font-weight="500">무엇을 넣어야 판정이</text>
+  <text class="kr f-muted" x="924" y="442.5" font-size="18" font-weight="500">나오는지 알려 줌</text>
+  <text class="kr f-ink" x="924" y="484.5" font-size="23" font-weight="800" letter-spacing="-0.3">근거 조문</text>
+  <text class="kr f-muted" x="924" y="513.5" font-size="18" font-weight="500">누르면 국가법령정보센터의</text>
+  <text class="kr f-muted" x="924" y="538.5" font-size="18" font-weight="500">해당 조문이 열림</text>
+</svg>

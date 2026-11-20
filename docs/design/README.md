@@ -34,13 +34,24 @@ README에서는 `<picture>`로 화면에 맞는 그림을 고릅니다.
 </picture>
 ```
 
+## 화면 위에 설명을 붙인 그림
+
+[절차 안내](../guidance.md)의 `flow_a1`~`flow_a4`, `flow_b1`~`flow_b4`는 화면 캡처 위에 번호 점과 점선, 짧은 설명을 붙인 그림입니다. 화면 조각은 `shots/`에, 표시할 자리와 설명 글은 `callouts/<이름>.json`에 있고, `callout.py`가 둘을 합쳐 이 폴더의 SVG를 만듭니다. 화면은 지어낸 통화만 든 데이터베이스(`python -m backend.app.guidance_examples`)에서 찍습니다.
+
+```bash
+python docs/design/callout.py                 # callouts/*.json → flow_*.svg (이름을 주면 그 그림만)
+node docs/design/bake.js flow_a1 flow_a2      # SVG → 밝은 화면용, 어두운 화면용 PNG
+```
+
+설명 글은 `callouts/<이름>.json`의 `label`(굵은 말)과 `sub`(덧붙이는 줄)를 고칩니다. 긴 설명은 그림이 아니라 문서 본문에 번호로 적습니다. 표시의 색은 `theme.css`의 `--mark`입니다.
+
 ## 화면 캡처의 가장자리
 
-앱과 대시보드의 화면 캡처(`docs/images/v2/`, `docs/images/readme/`의 `investigator_*`, `one-call_*`, `guidance_*`)에는 둥근 모서리와 옅은 테두리를 입혔습니다. 밝은 화면과 어두운 화면 어디서나 캡처의 가장자리가 보이게 하려는 것입니다. 화면을 다시 찍으면 `frame.py`를 다시 실행합니다. 이미 입힌 그림은 건너뜁니다.
+앱과 대시보드의 화면 캡처(`docs/images/v2/`, `docs/images/readme/`의 `investigator_*`, `one-call_*`)에는 둥근 모서리와 옅은 테두리를 입혔습니다. 밝은 화면과 어두운 화면 어디서나 캡처의 가장자리가 보이게 하려는 것입니다. 화면을 다시 찍으면 `frame.py`를 다시 실행합니다. 이미 입힌 그림은 건너뜁니다.
 
 ```bash
 python docs/design/frame.py 6.8 docs/images/v2/app_*.png                                   # 휴대폰 화면
-python docs/design/frame.py 1.8 docs/images/v2/web_*.png docs/images/readme/investigator_*.png docs/images/readme/guidance_*.png  # 넓은 화면과 조각
+python docs/design/frame.py 1.8 docs/images/v2/web_*.png docs/images/readme/investigator_*.png  # 넓은 화면과 조각
 ```
 
 ## 색

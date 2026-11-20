@@ -1,0 +1,52 @@
+<?xml-stylesheet href="theme.css" type="text/css"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="688" viewBox="0 0 1280 688">
+  <!-- callout.py가 callouts/flow_a3.json으로 만든 그림이다. 직접 고치지 말고 json을 고친 뒤 다시 만든다. -->
+  <rect class="card" x="1" y="1" width="1278" height="686" rx="24"/>
+  <rect class="f-node" x="28" y="24" width="164" height="40" rx="20"/>
+  <text class="kr f-node-ink" x="110.0" y="52" font-size="21" font-weight="700" text-anchor="middle">상황 A · 3</text>
+  <text class="kr f-ink" x="208" y="54" font-size="28" font-weight="800" letter-spacing="-0.5">이득액이 3억 원이면</text>
+  <text class="kr f-muted" x="28" y="90" font-size="19" font-weight="500">5억 원 미만의 사기는 통보 대상에서 빠지므로 경찰이 계속 수사합니다.</text>
+  <defs>
+    <clipPath id="clip0"><rect x="28" y="104.0" width="800" height="556.0" rx="12"/></clipPath>
+  </defs>
+  <image xlink:href="shots/flow_a3_1.png" href="shots/flow_a3_1.png" x="28" y="104.0" width="800" height="556.0" preserveAspectRatio="none" clip-path="url(#clip0)"/>
+  <rect class="f-none s-border" x="28" y="104.0" width="800" height="556.0" rx="12" stroke-width="2"/>
+  <g class="f-none s-mark" stroke-width="3" stroke-linejoin="round">
+    <rect class="mark-box" x="46.0" y="188.5" width="764.1" height="60.0" rx="9"/>
+    <rect class="mark-box" x="59.5" y="355.6" width="737.0" height="34.2" rx="9"/>
+    <rect class="mark-box" x="59.5" y="440.7" width="737.0" height="35.4" rx="9"/>
+    <rect class="mark-box" x="59.5" y="497.3" width="737.0" height="34.2" rx="9"/>
+  </g>
+  <g class="f-none s-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 7">
+    <path d="M824.0 188.5 H878.0"/>
+    <path d="M810.5 355.6 H878.0"/>
+    <path d="M810.5 440.7 H878.0"/>
+    <path d="M810.5 497.3 H871.0 V536.7 H878.0"/>
+  </g>
+  <circle class="f-mark" cx="810.0" cy="188.5" r="14"/>
+  <text class="en f-on-mark" x="810.0" y="195.0" font-size="18" font-weight="800" text-anchor="middle">1</text>
+  <circle class="f-mark" cx="898.0" cy="188.5" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="195.0" font-size="18" font-weight="800" text-anchor="middle">1</text>
+  <circle class="f-mark" cx="796.5" cy="355.6" r="14"/>
+  <text class="en f-on-mark" x="796.5" y="362.1" font-size="18" font-weight="800" text-anchor="middle">2</text>
+  <circle class="f-mark" cx="898.0" cy="355.6" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="362.1" font-size="18" font-weight="800" text-anchor="middle">2</text>
+  <circle class="f-mark" cx="796.5" cy="440.7" r="14"/>
+  <text class="en f-on-mark" x="796.5" y="447.2" font-size="18" font-weight="800" text-anchor="middle">3</text>
+  <circle class="f-mark" cx="898.0" cy="440.7" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="447.2" font-size="18" font-weight="800" text-anchor="middle">3</text>
+  <circle class="f-mark" cx="796.5" cy="497.3" r="14"/>
+  <text class="en f-on-mark" x="796.5" y="503.8" font-size="18" font-weight="800" text-anchor="middle">4</text>
+  <circle class="f-mark" cx="898.0" cy="536.7" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="543.2" font-size="18" font-weight="800" text-anchor="middle">4</text>
+  <text class="kr f-ink" x="924" y="196.5" font-size="23" font-weight="800" letter-spacing="-0.3">판정: 통보 제외</text>
+  <text class="kr f-muted" x="924" y="225.5" font-size="18" font-weight="500">경찰이 계속 수사</text>
+  <text class="kr f-ink" x="924" y="363.6" font-size="23" font-weight="800" letter-spacing="-0.3">판정의 이유</text>
+  <text class="kr f-muted" x="924" y="392.6" font-size="18" font-weight="500">이득액 5억 원 미만</text>
+  <text class="kr f-ink" x="924" y="448.7" font-size="23" font-weight="800" letter-spacing="-0.3">근거 조문</text>
+  <text class="kr f-muted" x="924" y="477.7" font-size="18" font-weight="500">시행령 제17조,</text>
+  <text class="kr f-muted" x="924" y="502.7" font-size="18" font-weight="500">특정경제범죄법 제3조</text>
+  <text class="kr f-ink" x="924" y="544.7" font-size="23" font-weight="800" letter-spacing="-0.3">남는 의무</text>
+  <text class="kr f-muted" x="924" y="573.7" font-size="18" font-weight="500">중수청이 요청하면</text>
+  <text class="kr f-muted" x="924" y="598.7" font-size="18" font-weight="500">통보해야 함</text>
+</svg>

@@ -1,0 +1,41 @@
+<?xml-stylesheet href="theme.css" type="text/css"?>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" width="1280" height="399" viewBox="0 0 1280 399">
+  <!-- callout.py가 callouts/flow_b2.json으로 만든 그림이다. 직접 고치지 말고 json을 고친 뒤 다시 만든다. -->
+  <rect class="card" x="1" y="1" width="1278" height="397" rx="24"/>
+  <rect class="f-node" x="28" y="24" width="164" height="40" rx="20"/>
+  <text class="kr f-node-ink" x="110.0" y="52" font-size="21" font-weight="700" text-anchor="middle">상황 B · 2</text>
+  <text class="kr f-ink" x="208" y="54" font-size="28" font-weight="800" letter-spacing="-0.5">피의자가 국외에 있다고 넣는다</text>
+  <text class="kr f-muted" x="28" y="90" font-size="19" font-weight="500">수사관이 확인한 사실 두 가지를 ‘예’로 바꾸고 저장합니다. ‘해외와 이어진 사건’은 통화 단서로 이미 ‘예’입니다.</text>
+  <defs>
+    <clipPath id="clip0"><rect x="28" y="104.0" width="800" height="180.4" rx="12"/></clipPath>
+    <clipPath id="clip1"><rect x="28" y="310.4" width="800" height="58.3" rx="12"/></clipPath>
+  </defs>
+  <image xlink:href="shots/flow_b2_1.png" href="shots/flow_b2_1.png" x="28" y="104.0" width="800" height="180.4" preserveAspectRatio="none" clip-path="url(#clip0)"/>
+  <rect class="f-none s-border" x="28" y="104.0" width="800" height="180.4" rx="12" stroke-width="2"/>
+  <circle class="f-faint" cx="414.0" cy="297.4" r="3"/>
+  <circle class="f-faint" cx="428.0" cy="297.4" r="3"/>
+  <circle class="f-faint" cx="442.0" cy="297.4" r="3"/>
+  <image xlink:href="shots/flow_b2_2.png" href="shots/flow_b2_2.png" x="28" y="310.4" width="800" height="58.3" preserveAspectRatio="none" clip-path="url(#clip1)"/>
+  <rect class="f-none s-border" x="28" y="310.4" width="800" height="58.3" rx="12" stroke-width="2"/>
+  <g class="f-none s-mark" stroke-width="3" stroke-linejoin="round">
+    <rect class="mark-box" x="306.7" y="133.6" width="489.8" height="45.4" rx="9"/>
+    <rect class="mark-box" x="59.5" y="315.8" width="197.1" height="43.3" rx="9"/>
+  </g>
+  <g class="f-none s-mark" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" stroke-dasharray="2 7">
+    <path d="M810.5 133.6 H878.0"/>
+    <path d="M270.6 315.8 H878.0"/>
+  </g>
+  <circle class="f-mark" cx="796.5" cy="133.6" r="14"/>
+  <text class="en f-on-mark" x="796.5" y="140.1" font-size="18" font-weight="800" text-anchor="middle">1</text>
+  <circle class="f-mark" cx="898.0" cy="133.6" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="140.1" font-size="18" font-weight="800" text-anchor="middle">1</text>
+  <circle class="f-mark" cx="256.6" cy="315.8" r="14"/>
+  <text class="en f-on-mark" x="256.6" y="322.3" font-size="18" font-weight="800" text-anchor="middle">2</text>
+  <circle class="f-mark" cx="898.0" cy="315.8" r="14"/>
+  <text class="en f-on-mark" x="898.0" y="322.3" font-size="18" font-weight="800" text-anchor="middle">2</text>
+  <text class="kr f-ink" x="924" y="141.6" font-size="23" font-weight="800" letter-spacing="-0.3">‘예’로 바꾸는 두 칸</text>
+  <text class="kr f-muted" x="924" y="170.6" font-size="18" font-weight="500">피의자가 국외에 있음</text>
+  <text class="kr f-muted" x="924" y="195.6" font-size="18" font-weight="500">여권법 사유에 해당</text>
+  <text class="kr f-ink" x="924" y="323.8" font-size="23" font-weight="800" letter-spacing="-0.3">저장하고 다시 계산</text>
+  <text class="kr f-muted" x="924" y="352.8" font-size="18" font-weight="500">규칙표가 다시 판정</text>
+</svg>

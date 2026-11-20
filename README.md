@@ -393,7 +393,7 @@ EXPO_PUBLIC_API_BASE=same-origin npm run build:web  # 배포용 웹 빌드 (백�
 | [시연 영상](docs/demo.md) | 통화 분석, 문자·문서 점검, 수사 지원 대시보드를 처음부터 끝까지 보여 주는 영상 네 편 |
 | [전화 흐름으로 기능 보기](docs/one-call.md) | 검찰 사칭 시연 통화 한 건을 처음부터 끝까지 따라가며 본 화면과 판단 근거 |
 | [수사관 지원용 능동 AI 에이전트 기능](docs/investigator.md) | AI가 처리하는 범위, 담당자가 결정하는 일, 수사 지원 결과와 한계 |
-| [절차 안내](docs/guidance.md) | 수사 배분·법 안내와 해외 연계 사건 기능을 화면과 함께 한 페이지로 설명 |
+| [절차 안내](docs/guidance.md) | 수사관이 마주칠 두 가지 상황(어느 기관이 맡는 사건인가, 캄보디아에 있는 피의자를 어떻게 데려오는가)을 따라가며 화면으로 설명 |
 | [Slack에서 쓰는 절차 안내](docs/slack.md) | Slack 명령과 입력 양식, 기한 알림의 사용법과 설정 |
 | [수사 지원 고도화 설계](docs/investigation-guidance-design.md) | 수사 배분·법 안내와 해외 연계 사건 기능의 데이터, 구조, 구현 범위, 검증과 한계 |
 | [보이스피싱 탐지 성능](docs/tech/detection.md) | 모델별 평가 방법과 결과, 버전별 비교, 한계, 재현 방법 |
