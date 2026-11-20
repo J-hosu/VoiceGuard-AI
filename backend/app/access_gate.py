@@ -69,6 +69,9 @@ ADMIN_PREFIXES = (
     "/redoc",
 )
 ADMIN_PATHS = {"/openapi.json"}
+# 스스로 서명을 확인하는 경로(Slack이 부르는 주소). Slack은 쿠키나 코드를 보낼 수 없으므로 게이트는 지나가게 두고,
+# 라우터가 요청마다 Slack 서명을 확인한다(backend/app/api/slack_routes.py).
+SIGNED_PATHS = {"/slack/commands", "/slack/interactions", "/slack/events"}
 
 # 틀린 관리 코드 제출 제한: 접속 IP마다 FAILURE_WINDOW_SEC초에 MAX_FAILURES번. 참가자 접속 코드는 세지 않는다.
 MAX_FAILURES = 10
@@ -343,6 +346,9 @@ class AccessGateMiddleware:
         method = "GET" if is_ws else scope.get("method", "GET")
 
         if not is_ws:
+            if method == "POST" and path in SIGNED_PATHS:
+                await self.app(scope, receive, send)
+                return
             if method == "OPTIONS" or (path in OPEN_PATHS and not (path == "/access" and method == "POST")):
                 if path == "/access":
                     await self._html(send, gate_page("access", "/"))

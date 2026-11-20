@@ -25,10 +25,11 @@ from backend.app.api.guidance_routes import router as guidance_router
 from backend.app.api.investigation_routes import router as investigation_router
 from backend.app.api.quality_routes import router as quality_router
 from backend.app.api.routes import router as rest_router
+from backend.app.api.slack_routes import router as slack_router
 from backend.app.api.websocket import router as websocket_router
 from backend.app.database import init_db
 from backend.app.paths import ENV_PATH, PROJECT_ROOT
-from backend.app.services import agent_loop, scam_knowledge
+from backend.app.services import agent_loop, scam_knowledge, slack_bot
 from backend.app.services.call_analyzer import preload_koelectra_model
 
 
@@ -86,8 +87,12 @@ async def lifespan(app: FastAPI):
     await preload_whisper_model()
     # 구조화 출력 스키마 준비 호출은 수십 초가 걸릴 수 있어 서버 시작을 막지 않고 뒤에서 돌린다.
     warm_up_task = asyncio.create_task(asyncio.to_thread(agent_loop.warm_up))
+    # 기한 알림: Slack 봇이나 n8n 웹훅이 설정돼 있을 때만 돈다(15분마다 확인, 같은 기한은 단계마다 한 번).
+    deadline_task = asyncio.create_task(slack_bot.deadline_loop()) if slack_bot.deadline_route() else None
     yield
     warm_up_task.cancel()
+    if deadline_task:
+        deadline_task.cancel()
 
 
 app = FastAPI(
@@ -110,6 +115,7 @@ app.include_router(rest_router)
 app.include_router(agent_router)
 app.include_router(investigation_router)
 app.include_router(guidance_router)
+app.include_router(slack_router)
 app.include_router(quality_router)
 app.include_router(analyze_router)
 app.include_router(websocket_router)

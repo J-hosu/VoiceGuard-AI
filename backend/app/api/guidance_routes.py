@@ -13,7 +13,7 @@ from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
 from backend.app.repository import get_call_log
-from backend.app.services import case_guidance, legal_kb
+from backend.app.services import case_guidance, legal_kb, slack_bot
 
 
 router = APIRouter()
@@ -70,7 +70,21 @@ async def save_case_facts(log_id: int, body: FactsRequest) -> dict:
     """수사관이 확인한 사건 사실을 저장하고, 다시 계산한 절차 안내를 돌려준다."""
     _require_call(log_id)
     try:
-        await asyncio.to_thread(case_guidance.save_facts, log_id, body.facts)
+        await asyncio.to_thread(case_guidance.save_facts, log_id, body.facts, "", "dashboard")
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
     return await asyncio.to_thread(case_guidance.guidance, log_id)
+
+
+@router.get("/guidance/deadlines")
+async def guidance_deadlines(within_days: int = 7) -> dict:
+    """사건 사실이 저장된 통화들의 기한 가운데 곧 닥치거나 막 지난 것."""
+    within = min(max(int(within_days), 0), 60)
+    items = await asyncio.to_thread(case_guidance.upcoming_deadlines, within)
+    return {"within_days": within, "deadlines": items, "note": case_guidance.DEADLINE_NOTE}
+
+
+@router.post("/guidance/deadlines/notify")
+async def notify_guidance_deadlines() -> dict:
+    """기한이 내일·오늘이거나 지난 사건을 지금 Slack으로 알린다(평소에는 서버가 15분마다 확인한다). 보낼 곳이 없으면 via가 빈 글이다."""
+    return await asyncio.to_thread(slack_bot.notify_deadlines)

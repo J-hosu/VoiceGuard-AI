@@ -17,7 +17,7 @@ import logging
 import re
 import sqlite3
 import threading
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from typing import Any, Optional
 
 from backend.app import state_repository
@@ -105,6 +105,13 @@ _PHONE_KH = re.compile(r"(?<!\d)(?:\+|00)?855[\s-]?\d{2}")
 _SNIPPET = 60
 
 _packs_lock = threading.Lock()
+_KST = timezone(timedelta(hours=9))
+
+
+def today_kst() -> date:
+    """오늘 날짜(한국 시간). 기한은 서버가 어느 시간대에 있든 한국 날짜로 센다."""
+    return datetime.now(_KST).date()
+
 _packs: Optional[list[dict]] = None
 
 
@@ -119,6 +126,19 @@ def _ensure_tables() -> None:
                 log_id INTEGER PRIMARY KEY,
                 facts TEXT NOT NULL DEFAULT '{}',
                 updated_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
+            )
+            """
+        )
+        # 누가 어디서(대시보드, Slack) 어떤 항목을 고쳤는지 남기는 기록. 사실 자체는 case_facts에 있다.
+        connection.execute(
+            """
+            CREATE TABLE IF NOT EXISTS case_fact_log (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                log_id INTEGER NOT NULL,
+                actor TEXT NOT NULL DEFAULT '',
+                source TEXT NOT NULL DEFAULT '',
+                changes TEXT NOT NULL DEFAULT '{}',
+                created_at TEXT DEFAULT (strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime'))
             )
             """
         )
@@ -182,13 +202,19 @@ def get_facts(log_id: int) -> dict:
     return {key: value for key, value in stored.items() if key in FACT_LABELS and value is not None}
 
 
-def save_facts(log_id: int, raw: dict) -> dict:
-    """사건 사실을 고친다. 넣은 항목만 바뀌고, None을 넣은 항목은 지워진다. 저장된 전체를 돌려준다."""
+def save_facts(log_id: int, raw: dict, actor: str = "", source: str = "") -> dict:
+    """사건 사실을 고친다. 넣은 항목만 바뀌고, None을 넣은 항목은 지워진다. 저장된 전체를 돌려준다.
+
+    actor(누가)와 source(어디서: dashboard, slack)를 주면 실제로 달라진 항목을 case_fact_log에 남긴다.
+    """
     get_call_log(log_id)  # 없는 통화면 ValueError
     changes = clean_facts(raw)
     _ensure_tables()
     facts = get_facts(log_id)
+    changed: dict[str, Any] = {}
     for key, value in changes.items():
+        if facts.get(key) != value:
+            changed[key] = value
         if value is None:
             facts.pop(key, None)
         else:
@@ -202,7 +228,32 @@ def save_facts(log_id: int, raw: dict) -> dict:
             """,
             (log_id, json.dumps(facts, ensure_ascii=False)),
         )
+        if changed and (actor or source):
+            connection.execute(
+                "INSERT INTO case_fact_log (log_id, actor, source, changes) VALUES (?, ?, ?, ?)",
+                (log_id, str(actor)[:120], str(source)[:40], json.dumps(changed, ensure_ascii=False)),
+            )
     return facts
+
+
+def fact_log(log_id: int, limit: int = 20) -> list[dict]:
+    """사건 사실을 고친 기록(최근 것부터). 아직 기록이 없으면 빈 목록."""
+    try:
+        with get_connection() as connection:
+            rows = connection.execute(
+                "SELECT actor, source, changes, created_at FROM case_fact_log WHERE log_id = ? ORDER BY id DESC LIMIT ?",
+                (log_id, max(1, min(int(limit), 200))),
+            ).fetchall()
+    except sqlite3.OperationalError:
+        return []
+    result = []
+    for row in rows:
+        try:
+            changes = json.loads(row["changes"] or "{}")
+        except ValueError:
+            changes = {}
+        result.append({"actor": row["actor"], "source": row["source"], "changes": changes, "at": row["created_at"]})
+    return result
 
 
 # ---------------------------------------------------------------- 통화 기록에서 짐작하기
@@ -390,7 +441,7 @@ def basis_alerts(basis: list[dict]) -> list[str]:
 
 def evaluate(facts: dict, today: Optional[date] = None) -> dict:
     """사건 사실에 규칙표를 적용한다. facts는 죄명 후보·이득액·예/아니오·날짜가 든 dict다."""
-    today = today or date.today()
+    today = today or today_kst()
     working = dict(facts)
     items: list[dict] = []
     for pack in packs():
@@ -487,6 +538,32 @@ def guidance(log_id: int, today: Optional[date] = None) -> dict:
         "notice": NOTICE,
         "deadline_note": DEADLINE_NOTE,
     }
+
+
+def upcoming_deadlines(within_days: int = 3, today: Optional[date] = None, overdue_days: int = 7) -> list[dict]:
+    """사건 사실이 저장된 통화들의 기한 가운데 곧 닥치거나 막 지난 것을 날짜가 가까운 순으로 돌려준다.
+
+    기한은 수사관이 넣은 날짜(인지한 날 등)에서 계산되므로, 사실이 저장된 통화만 본다.
+    within_days: 며칠 남은 것까지 볼지. overdue_days: 지난 지 며칠 된 것까지 볼지.
+    """
+    try:
+        with get_connection() as connection:
+            log_ids = [row["log_id"] for row in connection.execute("SELECT log_id FROM case_facts ORDER BY log_id")]
+    except sqlite3.OperationalError:  # 아직 아무도 사실을 저장한 적이 없다
+        return []
+    found: list[dict] = []
+    for log_id in log_ids:
+        try:
+            name = get_call_log(log_id).name or ""
+            result = guidance(log_id, today)
+        except ValueError:  # 통화가 지워졌다
+            continue
+        for deadline in result["deadlines"]:
+            if deadline.get("due") is None or not -overdue_days <= deadline["days_left"] <= within_days:
+                continue
+            found.append({"log_id": log_id, "name": name, "rule": deadline["rule"], "title": deadline["title"], "label": deadline["label"],
+                          "from": deadline["from"], "from_fact": deadline["from_fact"], "from_label": deadline["from_label"], "due": deadline["due"], "days_left": deadline["days_left"]})
+    return sorted(found, key=lambda item: (item["due"], item["log_id"], item["rule"]))
 
 
 def rule_basis_report() -> list[dict]:

@@ -55,7 +55,21 @@ def emit(event: str, data: dict) -> None:
     threading.Thread(target=_deliver, args=(row_id, body), daemon=True).start()
 
 
-def _deliver(row_id: int, body: dict) -> None:
+def send_now(event: str, data: dict) -> bool:
+    """이벤트를 지금 보내고 전달됐는지 돌려준다. 전달을 확인해야 하는 알림(기한 알림)에 쓴다. 웹훅이 없으면 False."""
+    if not is_configured():
+        return False
+    occurred_at = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    with get_connection() as connection:
+        cursor = connection.execute(
+            "INSERT INTO webhook_events(event, payload, status) VALUES (?, ?, 'pending')",
+            (event, json.dumps(data, ensure_ascii=False)),
+        )
+        row_id = cursor.lastrowid
+    return _deliver(row_id, {"event": event, "event_id": f"evt_{row_id:06d}", "occurred_at": occurred_at, "data": data})
+
+
+def _deliver(row_id: int, body: dict) -> bool:
     payload = json.dumps(body, ensure_ascii=False).encode("utf-8")
     headers = {"Content-Type": "application/json; charset=utf-8", "User-Agent": "VoiceGuard-Webhook/1.0"}
     secret = os.environ.get("N8N_WEBHOOK_SECRET", "").strip()
@@ -81,3 +95,4 @@ def _deliver(row_id: int, body: dict) -> None:
             "UPDATE webhook_events SET status = ?, attempts = ?, sent_at = strftime('%Y-%m-%d %H:%M:%S', 'now', 'localtime') WHERE id = ?",
             (status, attempts, row_id),
         )
+    return status == "sent"

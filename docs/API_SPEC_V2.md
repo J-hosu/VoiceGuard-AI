@@ -798,6 +798,8 @@ Claude(이미지 판독)가 보이스피싱에 쓰이는 위조 문서의 전형
 | **신종 수법**<br>검토 대기·승인·반려 수, 마지막 수집, 카드와 승인·반려 | `GET /knowledge/status`<br>`GET /knowledge/cards?status=`<br>`POST /knowledge/collect`<br>`POST /knowledge/cards/{id}/review` |
 | **모델 품질**<br>현재 모델, 사용자 확인과 판정, 회귀 평가 기록 | `GET /quality/summary`<br>`GET /quality/retrain-candidates`<br>`POST /eval/run`<br>`GET /eval/runs` |
 | **사건 상세의 절차 안내**<br>담당 기관, 통보와 이첩, 해외 연계, 사건 사실 입력 | `GET /guidance/cases/{log_id}`<br>`POST /guidance/cases/{log_id}/facts` |
+| **기한**<br>곧 닥치는 기한 목록, 지금 알리기 | `GET /guidance/deadlines?within_days=`<br>`POST /guidance/deadlines/notify` |
+| **Slack**([사용법](slack.md))<br>명령, 버튼과 입력 양식, 봇을 부른 글. 관리 코드 대신 Slack 서명으로 확인 | `POST /slack/commands`<br>`POST /slack/interactions`<br>`POST /slack/events` |
 | **법령·절차**<br>조문 찾기, 받아 둔 법령 목록 | `GET /legal/status`<br>`GET /legal/search?q=&law=&limit=`<br>`GET /legal/provisions?law=&article=` |
 
 ### 12.3 화면 밖에서 쓰는 API

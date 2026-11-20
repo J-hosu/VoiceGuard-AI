@@ -1,0 +1,34 @@
+# VoiceGuard 수사 지원 Slack 앱 설정. docs/slack.md의 '설정'을 따라 쓴다.
+# https://api.slack.com/apps → Create New App → From a manifest 에 이 내용을 붙여 넣는다.
+# 아래 세 주소의 YOUR-SERVER를 서버의 공개 주소(https)로 바꾼다.
+display_information:
+  name: VoiceGuard 수사 지원
+  description: 사건의 절차 안내와 조문 찾기, 사건 사실 입력
+  background_color: "#0b1424"
+features:
+  bot_user:
+    display_name: VoiceGuard
+    always_online: true
+  slash_commands:
+    - command: /vg
+      url: https://YOUR-SERVER/slack/commands
+      description: 사건 절차 안내, 조문 찾기, 사건 사실 입력, 기한
+      usage_hint: "사건 51 | 법령 범죄인 인도 청구 | 입력 51 | 기한"
+      should_escape: false
+oauth_config:
+  scopes:
+    bot:
+      - app_mentions:read
+      - chat:write
+      - commands
+settings:
+  event_subscriptions:
+    request_url: https://YOUR-SERVER/slack/events
+    bot_events:
+      - app_mention
+  interactivity:
+    is_enabled: true
+    request_url: https://YOUR-SERVER/slack/interactions
+  org_deploy_enabled: false
+  socket_mode_enabled: false
+  token_rotation_enabled: false
