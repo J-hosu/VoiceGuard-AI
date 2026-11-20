@@ -12,7 +12,7 @@
 | `architecture.svg` | `architecture.png`<br>`architecture-dark.png` | '시스템 구조'의 요약 구조도 | 구성 요소나 외부로 보내는 데이터가 바뀔 때 다시 굽습니다. 자세한 구조도는 `../diagrams/architecture.html`에 따로 있습니다. |
 | `guidance.svg` | `guidance.png`<br>`guidance-dark.png` | [절차 안내](../guidance.md)의 구조 그림 | 받아 둔 법령·조약·조문 수, 규칙표 줄 수, 보여 주는 곳이 바뀔 때 다시 굽습니다. |
 
-`docs/images/readme/demo_phone.gif`(휴대폰 화면)와 `demo_wide.gif`(넓은 화면)는 대본 시연을 녹화한 것으로, 이 폴더의 원본에서 만들지 않습니다. 대시보드 화면과 조각 그림은 [수사관 지원용 능동 AI 에이전트 기능](../investigator.md)에 있습니다.
+`docs/images/readme/demo_phone.gif`(휴대폰 화면)와 `demo_wide.gif`(넓은 화면)는 실제 통화 녹음을 앱에 들려주며 녹화한 것으로(2026-11-20), 이 폴더의 원본에서 만들지 않습니다. 대시보드 화면과 조각 그림은 [수사관 지원용 능동 AI 에이전트 기능](../investigator.md)에 있습니다.
 
 ## 굽기
 
