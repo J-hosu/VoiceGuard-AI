@@ -397,7 +397,7 @@ EXPO_PUBLIC_API_BASE=same-origin npm run build:web  # 배포용 웹 빌드 (백�
 
 | 문서 | 내용 |
 | --- | --- |
-| [발표 자료 (PDF)](docs/presentation/VoiceGuard_AI_presentation.pdf) | 문제 정의, 다섯 단계 해법, AI 구조, 수사 지원, 검증 결과와 한계를 정리한 발표 슬라이드 27쪽(본문 11쪽, 부록 16쪽) |
+| [발표 자료 (PDF)](docs/presentation/VoiceGuard_AI_presentation.pdf) · [PowerPoint](docs/presentation/VoiceGuard_AI_presentation.pptx) | 문제 정의, 다섯 단계 해법, AI 구조, 수사 지원, 검증 결과와 한계를 정리한 발표 슬라이드 27쪽(본문 11쪽, 부록 16쪽). PowerPoint 파일의 발표자 메모에 발표 대본이 들어 있습니다 |
 | [시연 영상](docs/demo.md) | 통화 분석, 문자·문서 점검, 수사 지원 대시보드를 처음부터 끝까지 보여 주는 영상 네 편 |
 | [전화 흐름으로 기능 보기](docs/one-call.md) | 검찰 사칭 시연 통화 한 건을 처음부터 끝까지 따라가며 본 화면과 판단 근거 |
 | [수사관 지원용 능동 AI 에이전트 기능](docs/investigator.md) | AI가 처리하는 범위, 담당자가 결정하는 일, 수사 지원 결과와 한계 |
